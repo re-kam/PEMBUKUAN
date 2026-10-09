@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}Kustomisasi Invoice - FinansialApp{% endblock %}
+{% block page_title %}Kustomisasi Invoice{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3">
+  <a href="/invoice" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Kembali ke Invoice</a>
+</div>
+
+<form method="POST" enctype="multipart/form-data">
+<div class="row g-3">
+
+  <!-- ── LOGO ─────────────────────────────────────────────────────────── -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2"><span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-image me-2 text-primary"></i>Logo Perusahaan</span></div>
+      <div class="card-body">
+        <div class="row g-3 align-items-center">
+          <div class="col-md-3 text-center">
+            {% if inv_s.inv_logo %}
+            <div style="border:1px dashed var(--pgb);border-radius:8px;padding:12px;background:var(--card-h)">
+              <img src="/static/uploads/{{ inv_s.inv_logo }}" style="max-height:90px;max-width:100%;object-fit:contain" id="logoPreview">
+            </div>
+            {% else %}
+            <div style="border:2px dashed var(--pgb);border-radius:8px;padding:24px;background:var(--card-h);color:var(--tx3)" id="logoPlaceholder">
+              <i class="fas fa-image fa-2x mb-2 d-block"></i>
+              <div style="font-size:.75rem">Belum ada logo</div>
+            </div>
+            <img src="" style="max-height:90px;max-width:100%;object-fit:contain;display:none" id="logoPreview">
+            {% endif %}
+          </div>
+          <div class="col-md-9">
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Upload Logo Baru</label>
+              <input type="file" name="inv_logo_file" id="logoInput" class="form-control form-control-sm"
+                     accept=".png,.jpg,.jpeg,.gif,.webp,.svg">
+              <div class="form-text">Format: PNG, JPG, SVG, WebP. Ukuran ideal: ≤ 300px tinggi, transparan lebih baik.</div>
+            </div>
+            {% if inv_s.inv_logo %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="inv_logo_delete" value="1" id="delLogo">
+              <label class="form-check-label small text-danger" for="delLogo">Hapus logo saat ini</label>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── IDENTITAS PERUSAHAAN ──────────────────────────────────────────── -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2"><span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-building me-2 text-primary"></i>Identitas Perusahaan</span></div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label small">Nama Perusahaan / Usaha <span class="text-danger">*</span></label>
+          <input type="text" name="inv_nama" class="form-control form-control-sm"
+                 value="{{ inv_s.inv_nama }}" required placeholder="PT ABC / Toko XYZ">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Tagline / Slogan</label>
+          <input type="text" name="inv_tagline" class="form-control form-control-sm"
+                 value="{{ inv_s.inv_tagline }}" placeholder="Terpercaya sejak 2010 / Authorized Dealer">
+          <div class="form-text">Muncul di bawah nama perusahaan di setiap invoice.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Alamat</label>
+          <textarea name="inv_alamat" class="form-control form-control-sm" rows="2"
+                    placeholder="Jl. Contoh No. 1, Kota">{{ inv_s.inv_alamat }}</textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Nomor Telepon</label>
+          <input type="text" name="inv_telepon" class="form-control form-control-sm"
+                 value="{{ inv_s.inv_telepon }}" placeholder="021-xxx / 08xx">
+        </div>
+        <div class="mb-0">
+          <label class="form-label small">Email</label>
+          <input type="email" name="inv_email" class="form-control form-control-sm"
+                 value="{{ inv_s.inv_email }}" placeholder="info@perusahaan.com">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REKENING PEMBAYARAN ───────────────────────────────────────────── -->
+  <div class="col-lg-6">
+    <div class="card mb-3">
+      <div class="card-header py-2"><span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-building-columns me-2 text-success"></i>Rekening Pembayaran</span></div>
+      <div class="card-body">
+        <div class="form-text mb-2">Maksimum 3 rekening ditampilkan di invoice.</div>
+        {% for i in range(1, 4) %}
+        {% set rek = inv_s.inv_rek_list[i-1] if inv_s.inv_rek_list|length >= i else {} %}
+        <div class="mb-3 p-2" style="border:1px solid var(--pgb);border-radius:8px;background:var(--card-h)">
+          <div class="small fw-semibold text-muted mb-2">Rekening {{ i }}</div>
+          <div class="row g-2">
+            <div class="col-4">
+              <input type="text" name="rek_bank_{{ i }}" class="form-control form-control-sm"
+                     value="{{ rek.bank if rek else '' }}" placeholder="BCA / BRI / Mandiri">
+            </div>
+            <div class="col-5">
+              <input type="text" name="rek_no_{{ i }}" class="form-control form-control-sm"
+                     value="{{ rek.norek if rek else '' }}" placeholder="No. Rekening">
+            </div>
+            <div class="col-3">
+              <input type="text" name="rek_an_{{ i }}" class="form-control form-control-sm"
+                     value="{{ rek.an if rek else '' }}" placeholder="a.n.">
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PENOMORAN ────────────────────────────────────────────────────── -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header py-2"><span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-hashtag me-2 text-warning"></i>Penomoran Invoice</span></div>
+      <div class="card-body">
+        <label class="form-label small">Prefix Nomor</label>
+        <input type="text" name="inv_prefix" class="form-control form-control-sm"
+               value="{{ inv_s.inv_prefix }}" placeholder="INV" maxlength="10">
+        <div class="form-text">Contoh: INV → INV-202506-001. ToP diatur per invoice saat membuat / edit invoice.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CATATAN FOOTER ────────────────────────────────────────────────── -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header py-2"><span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-comment-dots me-2 text-info"></i>Catatan Bawah (Footer)</span></div>
+      <div class="card-body">
+        <label class="form-label small">Pesan / catatan standar di setiap invoice</label>
+        <textarea name="inv_catatan" class="form-control form-control-sm" rows="3"
+                  placeholder="Terima kasih atas kepercayaan Anda. Pembayaran mohon dilakukan sebelum jatuh tempo.">{{ inv_s.inv_catatan }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Format cetak -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2"><span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-print me-2 text-primary"></i>Format Cetak</span></div>
+      <div class="card-body">
+        <label class="form-label small">Printer yang dipakai</label>
+        <select name="inv_format_cetak" class="form-select form-select-sm" style="max-width:420px">
+          {% for k, f in INV_FORMAT_CETAK.items() %}
+          <option value="{{ k }}" {% if k == inv_s.inv_format_cetak %}selected{% endif %}>{{ f.label }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">
+          Menentukan tampilan awal saat invoice dibuka untuk dicetak. Di halaman cetak tetap ada
+          pilihan format, dan pilihan itu diingat di masing-masing perangkat, jadi komputer kasir
+          dan komputer admin boleh berbeda.
+        </div>
+        <div class="form-text">
+          Printer dot matrix mencetak dari browser dalam mode gambar, jadi lebih lambat daripada
+          mencetak teks biasa. Tata letaknya dibuat hitam pekat tanpa latar dan tanpa logo supaya
+          tetap tajam.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SYARAT & KETENTUAN ────────────────────────────────────────────── -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2"><span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-scale-balanced me-2 text-warning"></i>Syarat &amp; Ketentuan (Terms)</span></div>
+      <div class="card-body">
+        <div class="form-text mb-2">
+          Kalimat syarat & ketentuan yang muncul di bagian bawah setiap invoice.
+          Gunakan baris baru untuk memisahkan setiap poin.
+        </div>
+        <textarea name="inv_terms" class="form-control form-control-sm" rows="6"
+                  placeholder="1. Pembayaran dilakukan ke rekening yang tertera.&#10;2. Barang yang sudah dibeli tidak dapat dikembalikan.&#10;3. Komplain diterima maksimal 3 hari setelah barang diterima.&#10;4. Harga belum termasuk pajak kecuali dinyatakan sebaliknya.">{{ inv_s.inv_terms }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 d-flex gap-2 align-items-center flex-wrap">
+    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Simpan Semua</button>
+    <a href="/invoice/preview" target="_blank" class="btn btn-outline-info">
+      <i class="fas fa-eye me-1"></i>Preview Invoice</a>
+    <span class="text-muted" style="font-size:.75rem">
+      <i class="fas fa-info-circle me-1"></i>Preview menampilkan template tersimpan, simpan dulu sebelum preview.
+    </span>
+    <a href="/invoice" class="btn btn-outline-secondary ms-auto">Batal</a>
+  </div>
+
+</div>
+</form>
+
+{% endblock %}
+{% block scripts %}
+<script>
+// Live logo preview
+document.getElementById('logoInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('logoPreview');
+    const ph  = document.getElementById('logoPlaceholder');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    if (ph) ph.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+});
+</script>
+{% endblock %}

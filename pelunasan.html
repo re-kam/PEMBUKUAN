@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Pelunasan - FinansialApp{% endblock %}
+{% block page_title %}Input Pelunasan{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+<div class="col-lg-7">
+<div class="card">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-handshake text-primary"></i>
+    <span class="section-title">Input Pelunasan Hutang / Piutang</span>
+  </div>
+  <div class="card-body">
+  <form method="POST">
+    <div class="row g-3">
+
+      <!-- Jenis -->
+      <div class="col-12">
+        <label class="form-label fw-semibold">Jenis Pelunasan</label>
+        <div class="d-flex gap-3">
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="radio" name="jenis" value="PIUTANG" checked onchange="filterList(this.value)">
+            <span class="fw-semibold text-warning"><i class="fas fa-file-invoice-dollar me-1"></i>Penerimaan Piutang</span>
+          </label>
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="radio" name="jenis" value="HUTANG" onchange="filterList(this.value)">
+            <span class="fw-semibold" style="color:#7c3aed"><i class="fas fa-hand-holding-dollar me-1"></i>Pembayaran Hutang</span>
+          </label>
+          {% if pinjaman_aktif %}
+          <label class="d-flex align-items-center gap-2" style="cursor:pointer">
+            <input type="radio" name="jenis" value="PINJAMAN_KARYAWAN" onchange="filterList(this.value)">
+            <span class="fw-semibold text-danger"><i class="fas fa-user-clock me-1"></i>Pinjaman Karyawan</span>
+          </label>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Pilih Piutang -->
+      <div class="col-12" id="list-piutang">
+        <label class="form-label fw-semibold">Pilih Piutang <span class="text-danger">*</span></label>
+        <select name="record_id" id="sel-piutang" class="form-select" onchange="fillNominal('piutang')">
+          <option value="">-- Pilih piutang --</option>
+          {% for p in piutang_aktif %}
+          <option value="{{ p.id }}"
+                  data-sisa="{{ p.jumlah - p.terbayar }}"
+                  data-nama="{{ p.pelanggan }}">
+            {{ p.pelanggan }} | {{ (p.jumlah-p.terbayar)|rp }} sisa
+            {% if p.inv_nomor %} | {{ p.inv_nomor }}{% elif p.tx_nomor %} | {{ p.tx_nomor }}{% endif %}
+            {% if p.jatuh_tempo %} | JT: {{ p.jatuh_tempo|tgl }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        {% if not piutang_aktif %}
+        <div class="text-muted small mt-1"><i class="fas fa-info-circle me-1"></i>Tidak ada piutang aktif</div>
+        {% endif %}
+      </div>
+
+      <!-- Pilih Hutang -->
+      <div class="col-12" id="list-hutang" style="display:none">
+        <label class="form-label fw-semibold">Pilih Hutang <span class="text-danger">*</span></label>
+        <select name="record_id" id="sel-hutang" class="form-select" onchange="fillNominal('hutang')">
+          <option value="">-- Pilih hutang --</option>
+          {% for h in hutang_aktif %}
+          <option value="{{ h.id }}"
+                  data-sisa="{{ h.jumlah - h.terbayar }}"
+                  data-nama="{{ h.pemasok }}">
+            {{ h.pemasok }} | {{ (h.jumlah-h.terbayar)|rp }} sisa
+            {% if h.tx_nomor %} | {{ h.tx_nomor }}{% endif %}
+            {% if h.jatuh_tempo %} | JT: {{ h.jatuh_tempo|tgl }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        {% if not hutang_aktif %}
+        <div class="text-muted small mt-1"><i class="fas fa-info-circle me-1"></i>Tidak ada hutang aktif</div>
+        {% endif %}
+      </div>
+
+      {% if pinjaman_aktif %}
+      <!-- Pilih Pinjaman Karyawan (saldo ledger-derived akun 1160 per pihak) -->
+      <div class="col-12" id="list-pinjaman" style="display:none">
+        <label class="form-label fw-semibold">Pilih Karyawan <span class="text-danger">*</span></label>
+        <select name="pinjaman_nama" id="sel-pinjaman" class="form-select" onchange="fillNominal('pinjaman')">
+          <option value="">-- Pilih karyawan --</option>
+          {% for k in pinjaman_aktif %}
+          <option value="{{ k.nama }}" data-sisa="{{ k.sisa }}" data-nama="{{ k.nama }}">
+            {{ k.nama }} | {{ k.sisa|rp }} sisa pinjaman
+          </option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Pengembalian dicatat: kas/bank bertambah, Piutang Karyawan (1160) berkurang.</div>
+      </div>
+      {% endif %}
+
+      <!-- Info box -->
+      <div class="col-12" id="info-box" style="display:none">
+        <div class="alert alert-info py-2 mb-0">
+          <i class="fas fa-info-circle me-1"></i>
+          <span id="info-nama"></span> - Sisa: <strong class="text-rp" id="info-sisa"></strong>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Tanggal Bayar <span class="text-danger">*</span></label>
+        <input type="date" name="tanggal" class="form-control" value="{{ today }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold"><i class="fas fa-vault text-primary me-1"></i>Rekening yang Digunakan</label>
+        <select name="akun_kas" class="form-select">
+          {% for a in akun_kas %}
+          <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Nominal Pelunasan <span class="text-danger">*</span></label>
+        <div class="input-group">
+          <span class="input-group-text">Rp</span>
+          <input type="number" name="nominal" id="nominalInput" class="form-control" min="0.01" step="0.01" required placeholder="0">
+        </div>
+        <div class="form-text">
+          <a href="#" onclick="lunasiSemua();return false">Lunasi semua</a>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Catatan</label>
+        <input type="text" name="catatan" class="form-control" placeholder="Catatan pembayaran...">
+      </div>
+
+      <div class="col-12 d-flex gap-2 justify-content-end">
+        <a href="/" class="btn btn-outline-secondary">Batal</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-handshake me-1"></i>Simpan Pelunasan</button>
+      </div>
+    </div>
+  </form>
+  </div>
+</div>
+</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let curSisa = 0;
+
+function setNominal(value) {
+  const input = document.getElementById('nominalInput');
+  if (window.numFmtSet) window.numFmtSet(input, value);
+  else input.value = window.rpPlainFmt ? window.rpPlainFmt(value || 0) : Number(value || 0).toLocaleString('id-ID');
+}
+
+function filterList(jenis) {
+  document.getElementById('list-piutang').style.display = jenis==='PIUTANG'?'':'none';
+  document.getElementById('list-hutang').style.display  = jenis==='HUTANG'?'':'none';
+  const lp = document.getElementById('list-pinjaman');
+  if (lp) lp.style.display = jenis==='PINJAMAN_KARYAWAN'?'':'none';
+  document.getElementById('info-box').style.display = 'none';
+  document.getElementById('nominalInput').value = '';
+  curSisa = 0;
+}
+
+function fillNominal(type) {
+  const sel = document.getElementById('sel-' + type);
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) {
+    document.getElementById('info-box').style.display = 'none';
+    return;
+  }
+  const sisa = parseFloat(opt.dataset.sisa)||0;
+  const nama = opt.dataset.nama||'';
+  curSisa = sisa;
+  setNominal(sisa);
+  document.getElementById('info-nama').textContent = nama;
+  document.getElementById('info-sisa').textContent = window.rpFmt ? window.rpFmt(sisa) : 'Rp ' + Math.round(sisa).toLocaleString('id-ID');
+  document.getElementById('info-box').style.display = '';
+}
+
+function lunasiSemua() {
+  if (curSisa > 0) setNominal(curSisa);
+}
+
+// Disable select yang tersembunyi agar tidak ikut ter-submit
+document.querySelector('form').addEventListener('submit', function() {
+  const jenis = document.querySelector('input[name=jenis]:checked').value;
+  document.getElementById('sel-piutang').disabled = (jenis !== 'PIUTANG');
+  document.getElementById('sel-hutang').disabled  = (jenis !== 'HUTANG');
+  const selPinj = document.getElementById('sel-pinjaman');
+  if (selPinj) selPinj.disabled = (jenis !== 'PINJAMAN_KARYAWAN');
+});
+</script>
+{% endblock %}

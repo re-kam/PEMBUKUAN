@@ -1,0 +1,931 @@
+{% extends "base.html" %}
+{% block title %}Input Pengeluaran - FinansialApp{% endblock %}
+{% block page_title %}Input Pengeluaran{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+<div class="col-lg-8">
+<div class="card">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-arrow-trend-down text-danger"></i>
+    <span class="section-title">Input Pengeluaran</span>
+  </div>
+  <div class="card-body">
+  <form method="POST" id="formPengeluaran">
+    <input type="hidden" name="kas_mode" id="kasModeInput" value="single">
+
+    <div class="row g-3">
+
+      <!-- Kategori selector -->
+      <div class="col-12">
+        <label class="form-label fw-semibold">Kategori Pengeluaran <span class="text-danger">*</span></label>
+        <div class="d-flex flex-wrap gap-2">
+          {% set cats = [
+            ('OPERASIONAL',      'fas fa-cogs',                 'primary','Operasional'),
+            ('PAJAK',            'fas fa-landmark',             'warning','Pajak'),
+            ('PENARIKAN_OWNER',  'fas fa-user-tie',             'purple', 'Penarikan Owner'),
+            ('PINJAMAN_KARYAWAN','fas fa-hand-holding-dollar',  'danger', 'Pinjaman Karyawan'),
+          ] %}
+          {% for val, icon, cls, lbl in cats %}
+          <label class="d-flex align-items-center gap-2 border rounded p-2 cursor-pointer"
+                 style="cursor:pointer;min-width:130px"
+                 id="lbl_{{ val }}" onclick="selectKat('{{ val }}')">
+            <input type="radio" name="kategori" value="{{ val }}" class="d-none" id="kat_{{ val }}"
+                   {% if loop.first %}checked{% endif %}>
+            <i class="{{ icon }} {% if cls == 'purple' %}text-purple{% else %}text-{{ cls }}{% endif %}"
+               {% if cls == 'purple' %}style="color:#8b5cf6"{% endif %}></i>
+            <span class="fw-semibold" style="font-size:.82rem">{{ lbl }}</span>
+          </label>
+          {% endfor %}
+        </div>
+
+        <!-- Info edukatif per kategori -->
+        <div id="katInfo" style="margin-top:.6rem;padding:.55rem .75rem;border-radius:8px;font-size:.8rem;line-height:1.55;display:flex;align-items:flex-start;gap:.5rem"></div>
+        <div class="form-text mt-1" style="font-size:.74rem">
+          <i class="fas fa-cart-shopping me-1 text-info"></i>Belanja <strong>bahan baku / stok</strong> dan
+          <strong>aset tetap</strong> sekarang dicatat lewat menu <a href="/pembelian">Pembelian</a>.
+        </div>
+      </div>
+
+      <!-- Tanggal -->
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
+        <input type="date" name="tanggal" class="form-control" value="{{ today }}" max="{{ today }}" required>
+      </div>
+
+      <!-- ════════════════ REKENING SECTION ════════════════ -->
+      <div class="col-md-6" id="singleKasCol">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <label class="form-label fw-semibold mb-0">
+            <i class="fas fa-vault text-danger me-1"></i>Keluar dari Rekening
+          </label>
+          <button type="button" id="btnMultiKas" onclick="toggleMultiKas()"
+                  class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:.75rem">
+            <i class="fas fa-code-branch me-1"></i>Multi Rekening
+          </button>
+        </div>
+        <select name="akun_kas" id="singleKasSelect" class="form-select">
+          {% for a in akun_kas %}
+          <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+          {% endfor %}
+        </select>
+        <div id="rekeningError" style="display:none;font-size:.78rem;color:#dc2626;margin-top:.3rem">
+          <i class="fas fa-circle-exclamation me-1"></i>Masukkan nominal uang keluar jika ingin pilih rekening
+        </div>
+      </div>
+
+      <!-- Multi rekening table (full width, shown when toggled) -->
+      <div class="col-12" id="multiKasSection" style="display:none">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <label class="form-label fw-semibold mb-0">
+            <i class="fas fa-vault text-danger me-1"></i>Keluar dari Rekening
+            <span class="badge bg-primary ms-1" style="font-size:.65rem">MULTI</span>
+          </label>
+          <button type="button" onclick="toggleMultiKas()"
+                  class="btn btn-primary btn-sm py-0 px-2" style="font-size:.75rem">
+            <i class="fas fa-code-branch me-1"></i>Multi Rekening Aktif
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered mb-2" style="font-size:.83rem">
+            <thead class="table-light">
+              <tr>
+                <th>Rekening</th>
+                <th style="width:180px">Nominal (Rp)</th>
+                <th style="width:36px"></th>
+              </tr>
+            </thead>
+            <tbody id="multiKasBody"></tbody>
+          </table>
+        </div>
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="addKasRow()">
+            <i class="fas fa-plus me-1"></i>Tambah Rekening
+          </button>
+          <span style="font-size:.82rem;color:#64748b">
+            Total: <strong id="multiKasTotalDisp" style="color:#0369a1">Rp 0</strong>
+            <span id="multiKasRef" style="display:none"> / Uang Keluar: <strong id="multiKasRefVal" style="color:#64748b">Rp 0</strong></span>
+          </span>
+        </div>
+        <div id="multiKasError" style="display:none;font-size:.78rem;color:#dc2626;margin-top:.3rem">
+          <i class="fas fa-circle-exclamation me-1"></i><span id="multiKasErrorMsg"></span>
+        </div>
+      </div>
+      <!-- ════════════════ END REKENING ════════════════ -->
+
+      <!-- OPERASIONAL subkategori + COA kustom (gated by setting Input Custom COA) -->
+      <div class="col-12 field-operasional">
+        {% if app_pref and app_pref.custom_coa_aktif %}
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <label class="form-label fw-semibold mb-0">Akun Beban</label>
+          <div class="btn-group btn-group-sm" role="group">
+            <input type="radio" class="btn-check" name="_beban_mode" id="bebanModePreset" value="preset" checked
+                   onchange="toggleBebanMode()">
+            <label class="btn btn-outline-secondary" for="bebanModePreset">
+              <i class="fas fa-list me-1"></i>Subkategori
+            </label>
+            <input type="radio" class="btn-check" name="_beban_mode" id="bebanModeCoa" value="coa"
+                   onchange="toggleBebanMode()">
+            <label class="btn btn-outline-primary" for="bebanModeCoa">
+              <i class="fas fa-book me-1"></i>Pilih Akun COA
+            </label>
+          </div>
+        </div>
+        <div id="bebanPresetBox">
+          <select name="subkategori" id="subkategoriSelect" class="form-select">
+            {% for sub in subkategori_list %}
+            <option value="{{ sub }}">{{ sub }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Subkategori beban operasional bawaan</div>
+        </div>
+        <div id="bebanCoaBox" style="display:none">
+          <select name="akun_beban_kode" id="akunBebanSelect" class="form-select">
+            <option value="">-- Pilih akun beban dari COA --</option>
+            {% for a in akun_beban_list %}
+            <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text text-primary">
+            <i class="fas fa-circle-info me-1"></i>
+            Pilih langsung dari Bagan Akun (COA). Cocok untuk akun yang Anda tambahkan sendiri.
+          </div>
+        </div>
+        {% else %}
+        <label class="form-label fw-semibold">Subkategori</label>
+        <select name="subkategori" class="form-select">
+          {% for sub in subkategori_list %}
+          <option value="{{ sub }}">{{ sub }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Pilih subkategori beban operasional yang sesuai</div>
+        {% endif %}
+      </div>
+
+      {% if app_pref and app_pref.custom_coa_aktif %}
+      <!-- PAJAK: COA Beban Pajak override -->
+      <div class="col-12 field-pajak" style="display:none">
+        <label class="form-label fw-semibold">
+          <i class="fas fa-book text-warning me-1"></i>Akun Beban Pajak (COA)
+          <small class="text-muted fw-normal">(default: <strong>6170 Beban Pajak</strong>)</small>
+        </label>
+        <select name="akun_pajak_kode" class="form-select">
+          <option value="">-- Default (6170 Beban Pajak) --</option>
+          {% for a in akun_beban_pajak_list %}
+          <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Pilih akun beban pajak kustom (mis. <em>6171 PPh Final</em>, <em>6172 PBB</em>). Biarkan kosong untuk default.</div>
+      </div>
+
+      <!-- PENARIKAN_OWNER: COA Ekuitas / Prive override -->
+      <div class="col-12 field-penarikan_owner" style="display:none">
+        <label class="form-label fw-semibold">
+          <i class="fas fa-book me-1" style="color:#8b5cf6"></i>Akun Ekuitas / Prive (COA)
+          <small class="text-muted fw-normal">(default: <strong>3300 Prive / Penarikan Owner</strong>)</small>
+        </label>
+        <select name="akun_prive_kode" class="form-select">
+          <option value="">-- Default (3300 Prive) --</option>
+          {% for a in akun_ekuitas_debit_list %}
+          <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Pilih akun ekuitas/prive kustom jika perusahaan punya >1 owner atau akun penarikan terpisah. Biarkan kosong untuk default.</div>
+      </div>
+      {% endif %}
+
+      <!-- Vendor / Pemasok (untuk database vendor & tracking belanja) -->
+      <div class="col-md-6 field-vendor">
+        <label class="form-label fw-semibold">Vendor / Pemasok <small class="text-muted fw-normal">(opsional)</small></label>
+        <div class="pcombo">
+          <input type="text" name="vendor" id="vendorInput" class="form-control pcombo-input"
+                 placeholder="Cari / ketik nama vendor" autocomplete="off">
+        </div>
+        <div class="form-check mt-1">
+          <input class="form-check-input" type="checkbox" name="simpan_vendor" id="simpanVendor" value="1">
+          <label class="form-check-label" for="simpanVendor" style="font-size:.74rem">
+            <i class="fas fa-truck me-1 text-primary"></i>Simpan ke database vendor</label>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Keterangan</label>
+        <input type="text" name="keterangan" class="form-control" placeholder="Keterangan pengeluaran...">
+      </div>
+      {% if proyek_aktif %}
+      <div class="col-md-6">
+        <label class="form-label fw-semibold"><i class="fas fa-diagram-project me-1" style="color:#7c3aed"></i>Proyek <small class="text-muted fw-normal">(opsional)</small></label>
+        <select name="proyek_id" class="form-select">
+          <option value="">-- Tanpa proyek --</option>
+          {% for pr in proyek_aktif %}
+          <option value="{{ pr.id }}">{{ pr.kode }} · {{ pr.nama }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Biaya akan dihitung ke laba rugi proyek ini.</div>
+      </div>
+      {% endif %}
+
+      <!-- Nominal Invoice + Uang Keluar + Hutang -->
+      <div class="col-md-6">
+        <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
+          <span>Nominal Invoice (Total Pengeluaran) <span class="text-danger">*</span></span>
+          <span class="field-hutang-track" style="display:none">
+            <button type="button" onclick="setFullCash()"
+                    class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:.7rem">
+              <i class="fas fa-bolt me-1"></i>Full Cash</button>
+          </span>
+        </label>
+        <div class="input-group">
+          <span class="input-group-text">Rp</span>
+          <input type="number" name="nominal" id="nominalInput" class="form-control" min="1" step="1"
+                 required placeholder="0" oninput="calcHutang()">
+        </div>
+      </div>
+      <div class="col-md-6 field-hutang-track" style="display:none">
+        <label class="form-label fw-semibold">Uang Keluar (Dibayar Sekarang)</label>
+        <div class="input-group">
+          <span class="input-group-text">Rp</span>
+          <input type="number" name="uang_keluar" id="uangKeluarInput" class="form-control"
+                 min="0" step="1" oninput="calcHutang()" placeholder="0">
+        </div>
+        <div class="form-text">Biarkan 0 jika semua hutang; gunakan <strong>Full Cash</strong> jika bayar penuh</div>
+      </div>
+      <div class="col-md-6 field-hutang-track" style="display:none">
+        <label class="form-label fw-semibold">Hutang <small class="text-muted fw-normal">(Auto)</small></label>
+        <div class="input-group">
+          <span class="input-group-text">Rp</span>
+          <input type="text" id="hutangDisplay" class="form-control" readonly
+                 style="background:var(--card-h);color:var(--tx2)" value="0">
+        </div>
+        <div class="form-text">= Nominal − Uang Keluar</div>
+      </div>
+
+      <!-- PINJAMAN_KARYAWAN: nama karyawan (pihak WAJIB utk saldo per karyawan) -->
+      <div class="col-md-6 field-pinjaman_karyawan" style="display:none">
+        <label class="form-label fw-semibold">Nama Karyawan <span class="text-danger">*</span></label>
+        <div class="pcombo">
+          <input type="text" name="karyawan_nama" id="karyawanInput" class="form-control pcombo-input"
+                 placeholder="Cari / ketik nama karyawan" autocomplete="off">
+        </div>
+        <div class="form-text">
+          Pinjaman dicatat sebagai <strong>Piutang Karyawan (1160)</strong> di neraca — bukan beban,
+          tidak mengurangi laba. Pengembalian dicatat lewat menu <a href="/pelunasan">Pelunasan</a>.
+        </div>
+      </div>
+
+      <!-- Hutang detail -->
+      <div class="col-12" id="hutang_detail" style="display:none">
+        <div class="card border-warning">
+          <div class="card-body py-2 px-3">
+            <div class="fw-semibold text-warning mb-2">
+              <i class="fas fa-hand-holding-dollar me-1"></i>Detail Hutang
+            </div>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label small">Pemasok / Kreditur</label>
+                <input type="text" name="pemasok" class="form-control form-control-sm"
+                       placeholder="Nama pemasok / kreditur">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small">Jatuh Tempo</label>
+                <input type="date" name="jatuh_tempo" class="form-control form-control-sm">
+              </div>
+              {% if akun_hutang_list %}
+              <div class="col-12">
+                <label class="form-label small">Dicatat sebagai akun</label>
+                <select name="akun_hutang" class="form-select form-select-sm">
+                  {# Nilai kosong = ikut default kategori: Hutang Usaha untuk belanja biasa,
+                     Hutang Pajak untuk kategori Pajak, Hutang ke Owner untuk Prive. Sengaja
+                     tidak memilih kode tertentu supaya default itu tidak diam-diam tertimpa. #}
+                  <option value="" selected>Otomatis (sesuai kategori)</option>
+                  {% for a in akun_hutang_list %}
+                  <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+                  {% endfor %}
+                </select>
+                <div class="form-text">
+                  Biarkan <strong>Otomatis</strong> kalau tidak yakin. Ganti hanya bila ingin
+                  memisahkan hutang ini di Neraca, misalnya hutang ke bank atau ke pemilik.
+                  Pelunasannya nanti otomatis mengurangi akun yang sama.
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if modul_aktif and modul_aktif.PAJAK_OTOMATIS %}
+      <!-- ── Pajak PPN/PPh (PRO) ── -->
+      <div class="col-12 field-xpajak">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#b45309">
+            <i class="fas fa-puzzle-piece me-1"></i>Pajak
+          </span>
+          <hr class="flex-fill my-0">
+        </div>
+        <div class="form-text mb-2" style="font-size:.72rem">
+          <i class="fas fa-circle-check me-1" style="color:#15803d"></i>
+          Modul Pajak &amp; Payroll aktif: PPN/PPh di sini otomatis tercatat ke jurnal, kas, neraca, dan laba rugi.
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="x_togglePajak" onchange="toggleXPajak()">
+          <label class="form-check-label small fw-semibold" for="x_togglePajak">
+            Tambahkan Fitur Pajak (PPN Masukan / PPh 23 Pemotongan)
+          </label>
+          <div class="form-text" style="font-size:.72rem">
+            Aktifkan kalau pembelian ini ada PPN Masukan dari supplier PKP, atau kita memotong PPh 23 dari supplier.
+          </div>
+        </div>
+        <div id="x_pajakBox" style="display:none">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Tarif PPN Masukan (%)</label>
+              <div class="input-group input-group-sm">
+                <input type="number" name="ppn_persen" id="x_ppn_pct" class="form-control" min="0" max="100" step="0.01" value="11" disabled oninput="calcXPajak()">
+                <span class="input-group-text">%</span>
+              </div>
+              <div class="form-text" style="font-size:.7rem">PPN yang dikenakan supplier (default 11%). Bisa dikreditkan.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Potong PPh 23 ke Supplier (%)</label>
+              <div class="input-group input-group-sm">
+                <input type="number" name="pph23_persen" id="x_pph_pct" class="form-control" min="0" max="100" step="0.01" value="0" disabled oninput="calcXPajak()">
+                <span class="input-group-text">%</span>
+              </div>
+              <div class="form-text" style="font-size:.7rem">Jika supplier jasa &amp; punya NPWP, set 2%. Akan jadi Hutang PPh 23.</div>
+            </div>
+          </div>
+
+          <!-- Ringkasan Pajak -->
+          <div class="rounded-3 p-3 mt-2" style="background:#fef3c7;border:1px solid #fcd34d">
+            <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:.65rem">
+              <i class="fas fa-calculator me-1"></i>Ringkasan Pajak (Auto-Calc)
+            </div>
+            <div class="row g-0 text-center" style="font-size:.85rem">
+              <div class="col-6 col-md-3" style="border-right:1px solid #fcd34d;padding:.4rem .25rem">
+                <div style="font-size:.62rem;color:#92400e;font-weight:600">DPP (Nominal)</div>
+                <div style="font-weight:700;color:#78350f" id="x_pjk_dpp">Rp 0</div>
+              </div>
+              <div class="col-6 col-md-3" style="border-right:1px solid #fcd34d;padding:.4rem .25rem">
+                <div style="font-size:.62rem;color:#2563eb;font-weight:600">+ PPN Masukan</div>
+                <div style="font-weight:700;color:#2563eb" id="x_pjk_ppn">Rp 0</div>
+              </div>
+              <div class="col-6 col-md-3" style="border-right:1px solid #fcd34d;padding:.4rem .25rem">
+                <div style="font-size:.62rem;color:#dc2626;font-weight:600">− PPh 23 Dipotong</div>
+                <div style="font-weight:700;color:#dc2626" id="x_pjk_pph">Rp 0</div>
+              </div>
+              <div class="col-6 col-md-3" style="padding:.4rem .25rem">
+                <div style="font-size:.62rem;color:#78350f;font-weight:600">Dibayar / Terhutang</div>
+                <div style="font-weight:800;color:#78350f" id="x_pjk_bayar">Rp 0</div>
+              </div>
+            </div>
+            <div style="font-size:.7rem;color:#78350f;margin-top:.4rem;text-align:center">
+              <i class="fas fa-bolt me-1"></i>PPN Masukan +<span id="x_inf_ppn">0</span> (bisa dikreditkan),
+              Hutang PPh 23 +<span id="x_inf_pph">0</span> akan tercatat ke jurnal.
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="col-12">
+        <div class="journal-preview-wrap rounded-3 p-3">
+          <div class="preview-title" style="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.65rem">
+            <i class="fas fa-scale-balanced me-1"></i>Preview Jurnal Otomatis
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm mb-2" style="font-size:.82rem">
+              <thead>
+                <tr>
+                  <th>Akun</th>
+                  <th class="text-end">Debit</th>
+                  <th class="text-end">Kredit</th>
+                  <th>Dampak</th>
+                </tr>
+              </thead>
+              <tbody id="x_journal_preview"></tbody>
+            </table>
+          </div>
+          <div id="x_journal_note" style="font-size:.76rem"></div>
+        </div>
+      </div>
+
+      <div class="col-12 d-flex gap-2 justify-content-end">
+        <a href="/" class="btn btn-outline-secondary">Batal</a>
+        <button type="submit" class="btn btn-danger">
+          <i class="fas fa-save me-1"></i>Simpan Pengeluaran</button>
+      </div>
+    </div>
+  </form>
+  </div>
+</div>
+</div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+/* ── Kat tab: selected state (light + dark) ── */
+label.kat-active{background:#eff6ff;border-color:#3b82f6!important}
+[data-theme="dark"] label.kat-active{background:rgba(30,64,175,.3)!important;border-color:#3b82f6!important}
+[data-theme="dark"] [id^="lbl_"]:not(.kat-active){border-color:var(--bdr-md)!important}
+/* ── katInfo box: dark mode override (JS sets bg via rgb, target by ID) ── */
+[data-theme="dark"] #katInfo{
+  background:var(--card-h)!important;
+  border-color:var(--bdr)!important;
+  color:var(--tx2)!important;
+}
+[data-theme="dark"] #katInfo span{color:var(--tx2)!important}
+</style>
+<script>
+let currentKat       = 'OPERASIONAL';
+let isMultiKas       = false;
+let userOverrodeUK   = false;  // user manual mengubah Uang Keluar → matikan auto-sync
+
+// ── Toggle mode akun beban: subkategori preset vs COA kustom ──
+function toggleBebanMode(){
+  const mode = document.querySelector('input[name="_beban_mode"]:checked')?.value || 'preset';
+  const presetBox = document.getElementById('bebanPresetBox');
+  const coaBox    = document.getElementById('bebanCoaBox');
+  const coaSel    = document.getElementById('akunBebanSelect');
+  if(mode === 'coa'){
+    presetBox.style.display = 'none';
+    coaBox.style.display    = '';
+  } else {
+    presetBox.style.display = '';
+    coaBox.style.display    = 'none';
+    // Clear COA select so it doesn't get submitted
+    if(coaSel) coaSel.value = '';
+  }
+}
+
+// ── Combobox nama vendor & karyawan (cari + ketik baru) ──
+const VENDOR_NAMES = {{ vendor_names|default([])|tojson }};
+const KARYAWAN_NAMES = {{ karyawan_names|default([])|tojson }};
+document.addEventListener('DOMContentLoaded', function(){
+  var el = document.getElementById('vendorInput');
+  if(el && window.initNamaCombo) window.initNamaCombo(el, VENDOR_NAMES);
+  var elK = document.getElementById('karyawanInput');
+  if(elK && window.initNamaCombo) window.initNamaCombo(elK, KARYAWAN_NAMES);
+  ['singleKasSelect'].forEach(id => {
+    const node = document.getElementById(id);
+    if(node) node.addEventListener('change', updatePengeluaranJournalPreview);
+  });
+  document.querySelectorAll('select[name=subkategori], select[name=kategori_aset]').forEach(function(node){
+    node.addEventListener('change', updatePengeluaranJournalPreview);
+  });
+});
+
+const katInfo = {
+  OPERASIONAL: {
+    icon: 'fas fa-cogs',
+    color: '#3b82f6',
+    bg: '#eff6ff',
+    border: '#bfdbfe',
+    text: '<strong>Biaya Operasional</strong>, Pengeluaran rutin untuk menjalankan bisnis: sewa tempat, listrik, gaji karyawan, biaya promosi, dll. '
+        + 'Langsung mengurangi laba kotor di periode yang sama. '
+        + 'Bisa dibayar tunai sekarang atau <em>akrual</em> (catat beban sekarang, bayar belakangan), kurangi <strong>Uang Keluar</strong> untuk membuat hutang.'
+  },
+  PAJAK: {
+    icon: 'fas fa-landmark',
+    color: '#b45309',
+    bg: '#fffbeb',
+    border: '#fde68a',
+    text: '<strong>Pajak</strong>, Pembayaran pajak yang dikeluarkan bisnis. '
+        + 'Sifatnya mirip biaya operasional, langsung mengurangi laba. '
+        + 'Bisa dibayar langsung atau diakui sekarang dan dibayar di periode berikutnya (kurangi <strong>Uang Keluar</strong> untuk membuat hutang pajak).'
+  },
+  PENARIKAN_OWNER: {
+    icon: 'fas fa-user-tie',
+    color: '#8b5cf6',
+    bg: '#f5f3ff',
+    border: '#ddd6fe',
+    text: '<strong>Penarikan Owner (Prive)</strong>, Uang yang diambil pemilik dari bisnis untuk keperluan pribadi. '
+        + 'Bukan beban bisnis, tidak mengurangi laba bersih, tapi mengurangi <em>laba ditahan</em>. '
+        + 'Bisa langsung diambil atau dijanjikan dulu (catat sebagai hutang ke owner), kurangi <strong>Uang Keluar</strong> sesuai kebutuhan.'
+  },
+  PINJAMAN_KARYAWAN: {
+    icon: 'fas fa-hand-holding-dollar',
+    color: '#dc2626',
+    bg: '#fef2f2',
+    border: '#fecaca',
+    text: '<strong>Pinjaman Karyawan (Kasbon)</strong>, Uang perusahaan yang dipinjamkan ke karyawan. '
+        + '<strong>Bukan beban</strong>, tidak mengurangi laba, tercatat sebagai <em>Piutang Karyawan</em> (aset) di neraca '
+        + 'sampai karyawan mengembalikan. Wajib bayar penuh dari kas/bank. '
+        + 'Pengembalian dicatat lewat menu <em>Pelunasan</em>.'
+  }
+};
+
+// ── Rekening options for new rows ────────────────────────────────────────────
+const kasOptions = `{% for a in akun_kas %}<option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>{% endfor %}`;
+const OPERASIONAL_AKUN = {'Gaji':'6100 - Beban Gaji','Sewa':'6110 - Beban Sewa','Utilitas':'6120 - Beban Listrik & Air','Pemasaran':'6140 - Beban Pemasaran','Administrasi':'6150 - Beban Administrasi','Bunga':'6160 - Beban Bunga','Lainnya':'6180 - Beban Lainnya'};
+
+function xFmt(n){ return window.rpAbsFmt ? window.rpAbsFmt(n) : 'Rp ' + Math.round(Math.abs(n || 0)).toLocaleString('id-ID'); }
+function moneyCalc(n){ return Math.round((Number(n) || 0) * 100) / 100; }
+function xSelectedText(sel){
+  return sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : '';
+}
+function xCoaDebit(name, fallback){
+  const sel = document.querySelector('select[name="' + name + '"]');
+  return (sel && sel.value) ? xSelectedText(sel) : fallback;
+}
+function xRenderJournal(rows, note){
+  const body = document.getElementById('x_journal_preview');
+  if(body) body.innerHTML = rows.length ? rows.map(r => `
+    <tr>
+      <td class="fw-semibold">${r.akun}</td>
+      <td class="text-end text-rp">${r.debit ? xFmt(r.debit) : '-'}</td>
+      <td class="text-end text-rp">${r.kredit ? xFmt(r.kredit) : '-'}</td>
+      <td class="text-muted">${r.dampak}</td>
+    </tr>`).join('') : '<tr><td colspan="4" class="text-muted text-center py-2">Isi nominal untuk melihat jurnal otomatis.</td></tr>';
+  const noteEl = document.getElementById('x_journal_note');
+  if(noteEl) noteEl.textContent = note || '';
+}
+function xMainDebitAkun(){
+  if(currentKat === 'PAJAK') return [xCoaDebit('akun_pajak_kode', '6170 - Beban Pajak'), 'Beban pajak mengurangi laba'];
+  if(currentKat === 'PENARIKAN_OWNER') return [xCoaDebit('akun_prive_kode', '3300 - Prive / Penarikan Owner'), 'Mengurangi ekuitas, bukan beban usaha'];
+  if(currentKat === 'PINJAMAN_KARYAWAN') return ['1160 - Piutang Karyawan', 'Piutang karyawan bertambah (aset), bukan beban'];
+  const sub = document.querySelector('select[name=subkategori]');
+  const label = sub ? sub.value : 'Lainnya';
+  return [xCoaDebit('akun_beban_kode', OPERASIONAL_AKUN[label] || '6180 - Beban Lainnya'), 'Beban operasional mengurangi laba'];
+}
+function xCashRows(){
+  const rows = [];
+  if(isMultiKas){
+    document.querySelectorAll('#multiKasBody tr').forEach(tr => {
+      const sel = tr.querySelector('.kas-sel');
+      const nom = window.numVal(tr.querySelector('.kas-nom'));
+      if(nom > 0) rows.push({akun:xSelectedText(sel) || 'Kas/Bank', debit:0, kredit:nom, dampak:'Kas/bank berkurang'});
+    });
+  } else {
+    const keluar = window.numVal(document.getElementById('uangKeluarInput'));
+    const sel = document.getElementById('singleKasSelect');
+    if(keluar > 0) rows.push({akun:xSelectedText(sel) || 'Kas/Bank', debit:0, kredit:keluar, dampak:'Kas/bank berkurang'});
+  }
+  return rows;
+}
+// ── Pajak PPN/PPh (PRO) ──
+function calcXPajak(){
+  const tog = document.getElementById('x_togglePajak');
+  if (!tog || !tog.checked) {
+    updatePengeluaranJournalPreview();
+    return {ppn:0, pph:0, dpp:0};
+  }
+  const dpp = window.numVal(document.getElementById('nominalInput'));
+  const ppnPct = window.numVal(document.getElementById('x_ppn_pct'));
+  const pphPct = window.numVal(document.getElementById('x_pph_pct'));
+  const ppn = moneyCalc(dpp * ppnPct / 100);
+  const pph = moneyCalc(dpp * pphPct / 100);
+  const bayar = Math.max(0, dpp + ppn - pph);
+  const fmt = (n) => xFmt(n);
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = fmt(val); };
+  set('x_pjk_dpp', dpp);
+  set('x_pjk_ppn', ppn);
+  set('x_pjk_pph', pph);
+  set('x_pjk_bayar', bayar);
+  const setTxt = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t; };
+  setTxt('x_inf_ppn', fmt(ppn));
+  setTxt('x_inf_pph', fmt(pph));
+  updatePengeluaranJournalPreview();
+  return {ppn, pph, dpp};
+}
+function toggleXPajak(){
+  const tog = document.getElementById('x_togglePajak');
+  const box = document.getElementById('x_pajakBox');
+  if (!tog || !box) return;
+  box.style.display = tog.checked ? '' : 'none';
+  // Field pajak di-disable saat toggle OFF supaya TIDAK ikut ter-submit (disabled = tak terkirim).
+  // Cegah PPN/PPh ikut terterap padahal user tidak mengaktifkan pajak (hutang jadi salah).
+  const ppn = document.getElementById('x_ppn_pct');
+  const pph = document.getElementById('x_pph_pct');
+  if (ppn) ppn.disabled = !tog.checked;
+  if (pph) pph.disabled = !tog.checked;
+  calcXPajak();
+}
+
+function updatePengeluaranJournalPreview(){
+  const nominal = window.numVal(document.getElementById('nominalInput'));
+  const rows = [];
+  // Pajak (PRO)
+  const tog = document.getElementById('x_togglePajak');
+  let ppn = 0, pph = 0;
+  if (tog && tog.checked) {
+    const ppnPct = window.numVal(document.getElementById('x_ppn_pct'));
+    const pphPct = window.numVal(document.getElementById('x_pph_pct'));
+    ppn = moneyCalc(nominal * ppnPct / 100);
+    pph = moneyCalc(nominal * pphPct / 100);
+  }
+  if(nominal > 0){
+    const debit = xMainDebitAkun();
+    rows.push({akun:debit[0], debit:nominal, kredit:0, dampak:debit[1]});
+    if (ppn > 0) {
+      rows.push({akun:'1180 - PPN Masukan', debit:ppn, kredit:0, dampak:'PPN yang bisa dikreditkan'});
+    }
+    // Total kewajiban = nominal + PPN - PPh23
+    const totalKewajiban = nominal + ppn - pph;
+    const cashRows = xCashRows();
+    // Saat ada pajak, jumlah uang keluar effektif harus pakai totalKewajiban.
+    // Untuk preview: tampilkan apa yang user input + selisih ke hutang
+    cashRows.forEach(r => rows.push(r));
+    const paid = cashRows.reduce((s,r) => s + (r.kredit || 0), 0);
+    const hutang = Math.max(0, totalKewajiban - paid);
+    if(hutang > 0){
+      const akunHutang = currentKat === 'PAJAK' ? '2110 - Hutang Pajak'
+        : currentKat === 'PENARIKAN_OWNER' ? '2140 - Hutang kepada Owner'
+        : '2100 - Hutang Usaha';
+      rows.push({akun:akunHutang, debit:0, kredit:hutang, dampak:'Kewajiban bayar bertambah'});
+    }
+    if (pph > 0) {
+      rows.push({akun:'2112 - Hutang PPh Pasal 23', debit:0, kredit:pph, dampak:'Wajib setor PPh 23 (kita pemotong)'});
+    }
+  }
+  xRenderJournal(rows, nominal > 0 ? 'Preview mengikuti kategori, rekening, uang keluar, dan hutang yang sedang dipilih.' : '');
+}
+
+// ── Kategori selection ───────────────────────────────────────────────────────
+function selectKat(kat) {
+  currentKat = kat;
+  userOverrodeUK = false;   // reset flag, biar auto-sync default full-cash bisa jalan lagi
+  document.querySelectorAll('input[name=kategori]').forEach(r => r.checked = r.value === kat);
+  // Gunakan CSS class (bukan inline background) agar dark mode bekerja
+  document.querySelectorAll('[id^=lbl_]').forEach(l => {
+    l.classList.remove('kat-active');
+    l.style.background = ''; l.style.borderColor = ''; l.style.color = '';
+  });
+  const lbl = document.getElementById('lbl_' + kat);
+  if (lbl) { lbl.classList.add('kat-active'); }
+
+  // Update info box, jangan set color secara inline, biarkan CSS dark mode menangani
+  const info = katInfo[kat];
+  const box  = document.getElementById('katInfo');
+  if (info) {
+    box.style.background   = info.bg;
+    box.style.border       = '1px solid ' + info.border;
+    box.style.color        = '';   // dilepas, CSS dark mode override via #katInfo
+    box.innerHTML = `<i class="${info.icon}" style="color:${info.color};margin-top:.15rem;flex-shrink:0"></i><span>${info.text}</span>`;
+  }
+
+  ['operasional','pinjaman_karyawan','hutang-track','pajak','penarikan_owner','xpajak'].forEach(f =>
+    document.querySelectorAll('.field-' + f).forEach(el => el.style.display = 'none'));
+  document.getElementById('hutang_detail').style.display = 'none';
+
+  if (kat === 'OPERASIONAL') {
+    document.querySelectorAll('.field-operasional').forEach(el => el.style.display = '');
+  } else if (kat === 'PAJAK') {
+    document.querySelectorAll('.field-pajak').forEach(el => el.style.display = '');
+  } else if (kat === 'PENARIKAN_OWNER') {
+    document.querySelectorAll('.field-penarikan_owner').forEach(el => el.style.display = '');
+  } else if (kat === 'PINJAMAN_KARYAWAN') {
+    document.querySelectorAll('.field-pinjaman_karyawan').forEach(el => el.style.display = '');
+  }
+  const isPinjaman = (kat === 'PINJAMAN_KARYAWAN');
+  // Opsi hutang & pajak TIDAK berlaku utk pinjaman karyawan (wajib full cash, tanpa PPN/PPh)
+  if (!isPinjaman) {
+    document.querySelectorAll('.field-hutang-track').forEach(el => el.style.display = '');
+    document.querySelectorAll('.field-xpajak').forEach(el => el.style.display = '');
+  } else {
+    // Matikan toggle pajak bila sempat aktif (disabled = field tidak ter-submit)
+    const togPjk = document.getElementById('x_togglePajak');
+    if (togPjk && togPjk.checked) { togPjk.checked = false; toggleXPajak(); }
+  }
+  // uang_keluar disabled saat pinjaman → field tak terkirim → server default full cash
+  const ukEl = document.getElementById('uangKeluarInput');
+  if (ukEl) ukEl.disabled = isPinjaman;
+  // Vendor tidak relevan untuk Penarikan Owner (prive) & Pinjaman Karyawan
+  document.querySelectorAll('.field-vendor').forEach(el =>
+    el.style.display = (kat === 'PENARIKAN_OWNER' || isPinjaman) ? 'none' : '');
+
+  updateRekeningState();
+  calcHutang();
+}
+
+// ── Single rekening: disable kalau uang_keluar = 0 (full hutang) ─────────────
+function updateRekeningState() {
+  // Semua kategori sekarang support hutang → cek selalu berdasarkan uang_keluar
+  const errEl = document.getElementById('rekeningError');
+  const sel   = document.getElementById('singleKasSelect');
+  if (isMultiKas) {
+    sel.disabled = false;
+    errEl.style.display = 'none';
+    sel.style.opacity = '';
+    sel.style.pointerEvents = '';
+    return;
+  }
+  const keluar = window.numVal(document.getElementById('uangKeluarInput'));
+  if (keluar <= 0) {
+    sel.disabled = true;
+    sel.style.opacity = '0.45';
+    sel.style.pointerEvents = 'none';
+    errEl.style.display = '';
+    sel.parentElement.style.cursor = 'not-allowed';
+  } else {
+    sel.disabled = false;
+    sel.style.opacity = '';
+    sel.style.pointerEvents = '';
+    sel.parentElement.style.cursor = '';
+    errEl.style.display = 'none';
+  }
+}
+
+// ── Toggle multi-rekening mode ────────────────────────────────────────────────
+function toggleMultiKas() {
+  isMultiKas = !isMultiKas;
+  document.getElementById('kasModeInput').value = isMultiKas ? 'multi' : 'single';
+
+  const singleCol   = document.getElementById('singleKasCol');
+  const multiSec    = document.getElementById('multiKasSection');
+  const singleSel   = document.getElementById('singleKasSelect');
+
+  if (isMultiKas) {
+    singleCol.style.display  = 'none';
+    multiSec.style.display   = '';
+    singleSel.disabled       = true;   // don't submit single name
+    // init with 2 rows if empty
+    if (document.querySelectorAll('#multiKasBody tr').length === 0) {
+      addKasRow(); addKasRow();
+    }
+  } else {
+    singleCol.style.display  = '';
+    multiSec.style.display   = 'none';
+    singleSel.disabled       = false;
+    updateRekeningState();
+  }
+  calcMultiKasTotal();
+}
+
+// ── Multi rekening rows ───────────────────────────────────────────────────────
+function addKasRow() {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <select name="akun_kas_multi[]" class="form-select form-select-sm kas-sel">
+        <option value="">-- Pilih Rekening --</option>${kasOptions}
+      </select>
+    </td>
+    <td>
+      <div class="input-group input-group-sm">
+        <span class="input-group-text px-1">Rp</span>
+        <input type="number" name="nominal_kas_multi[]" class="form-control kas-nom"
+               min="0" step="1" placeholder="0" oninput="calcMultiKasTotal()">
+      </div>
+    </td>
+    <td class="text-center align-middle">
+      <button type="button" class="btn btn-xs btn-outline-danger del-kas-row" title="Hapus">
+        <i class="fas fa-times"></i></button>
+    </td>`;
+  document.getElementById('multiKasBody').appendChild(tr);
+  if(window.numFmtInitAll) window.numFmtInitAll();
+}
+
+document.getElementById('multiKasBody').addEventListener('click', e => {
+  const btn = e.target.closest('.del-kas-row');
+  if (!btn) return;
+  btn.closest('tr').remove();
+  // Baris terakhir → ganti baris kosong baru, supaya tombol X selalu berfungsi.
+  if (!document.querySelector('#multiKasBody tr')) addKasRow();
+  calcMultiKasTotal();
+});
+
+function calcMultiKasTotal() {
+  let total = 0;
+  document.querySelectorAll('.kas-nom').forEach(inp => { total += window.numVal(inp); });
+
+  document.getElementById('multiKasTotalDisp').textContent = xFmt(total);
+
+  // Semua kategori sekarang support hutang → selalu compare dengan uang_keluar
+  const refEl  = document.getElementById('multiKasRef');
+  const errEl  = document.getElementById('multiKasError');
+  const errMsg = document.getElementById('multiKasErrorMsg');
+
+  const keluar    = window.numVal(document.getElementById('uangKeluarInput'));
+  const nominal   = window.numVal(document.getElementById('nominalInput'));
+  const effKeluar = keluar || nominal;
+  refEl.style.display = '';
+  document.getElementById('multiKasRefVal').textContent = xFmt(effKeluar);
+  if (total > effKeluar + 0.01) {
+    errMsg.textContent = 'Total rekening (' + xFmt(total) +
+                         ') melebihi uang keluar (' + xFmt(effKeluar) + ')';
+    errEl.style.display = '';
+  } else {
+    errEl.style.display = 'none';
+  }
+  updatePengeluaranJournalPreview();
+}
+
+// ── Hutang calculation ────────────────────────────────────────────────────────
+function calcHutang() {
+  const nominal  = window.numVal(document.getElementById('nominalInput'));
+  const keluarEl = document.getElementById('uangKeluarInput');
+
+  // Bila modul PRO Pajak aktif & toggle on: default Uang Keluar = nominal + PPN - PPh
+  const togPjk = document.getElementById('x_togglePajak');
+  let nominalEff = nominal;
+  if (togPjk && togPjk.checked) {
+    const ppnPct = window.numVal(document.getElementById('x_ppn_pct'));
+    const pphPct = window.numVal(document.getElementById('x_pph_pct'));
+    nominalEff = nominal + moneyCalc(nominal * ppnPct / 100) - moneyCalc(nominal * pphPct / 100);
+  }
+
+  // SEMUA kategori default full-cash (beli barang → cash berkurang).
+  // User cukup kurangi "Uang Keluar" untuk membuat hutang.
+  if (!userOverrodeUK && nominal > 0) {
+    window.numFmtSet(keluarEl, nominalEff);
+  }
+
+  const keluar = window.numVal(keluarEl);
+  const hutang = Math.max(0, nominalEff - keluar);
+  document.getElementById('hutangDisplay').value =
+    hutang ? (window.rpPlainFmt ? window.rpPlainFmt(hutang) : Math.round(hutang).toLocaleString('id-ID')) : '0';
+  document.getElementById('hutang_detail').style.display = hutang > 0 ? 'block' : 'none';
+  calcDepr();
+  updateRekeningState();
+  calcMultiKasTotal();
+  // Sync ringkasan pajak (kalau aktif)
+  if (togPjk && togPjk.checked && typeof calcXPajak === 'function') calcXPajak();
+}
+
+function setFullCash() {
+  const nominal = window.numVal(document.getElementById('nominalInput'));
+  const keluarEl = document.getElementById('uangKeluarInput');
+  window.numFmtSet(keluarEl, nominal);
+  calcHutang();
+}
+
+function calcDepr() {
+  // Field aset tetap pindah ke halaman Pembelian; sisakan refresh preview jurnal.
+  updatePengeluaranJournalPreview();
+}
+
+// ── Form submit validation ────────────────────────────────────────────────────
+document.getElementById('formPengeluaran').addEventListener('submit', function(e) {
+  if (!isMultiKas) return; // single mode: server handles
+
+  // Validate: each row must have a rekening selected and nominal > 0
+  let valid = true;
+  let total = 0;
+  document.querySelectorAll('#multiKasBody tr').forEach(tr => {
+    const sel = tr.querySelector('.kas-sel');
+    const nom = window.numVal(tr.querySelector('.kas-nom'));
+    if (!sel.value || nom <= 0) { valid = false; }
+    total += nom;
+  });
+
+  if (!valid) {
+    e.preventDefault();
+    document.getElementById('multiKasErrorMsg').textContent =
+      'Lengkapi semua rekening dan nominal pada tabel multi rekening.';
+    document.getElementById('multiKasError').style.display = '';
+    return;
+  }
+
+  // Semua kategori sekarang support hutang → cek total kas vs uang_keluar
+  const keluar    = window.numVal(document.getElementById('uangKeluarInput'));
+  const nominal   = window.numVal(document.getElementById('nominalInput'));
+  const effKeluar = keluar || nominal;
+  if (total > effKeluar + 0.01) {
+    e.preventDefault();
+    document.getElementById('multiKasErrorMsg').textContent =
+      'Total rekening melebihi uang keluar.';
+    document.getElementById('multiKasError').style.display = '';
+  }
+});
+
+// Saat user manual ngetik di Uang Keluar → matikan auto-sync (default full-cash)
+document.getElementById('uangKeluarInput').addEventListener('input', () => {
+  userOverrodeUK = true;
+});
+
+selectKat('OPERASIONAL');
+
+// ── Prefill dari halaman lain (mis. tombol "Catat sebagai Beban" di Invoice/PO) ──
+(function(){
+  const qp = new URLSearchParams(window.location.search);
+  if (!qp.get('prefill')) return;
+  let kat = qp.get('kategori') || 'OPERASIONAL';
+  // Link lama kategori BAHAN_BAKU/INVESTASI_ASET → halaman Pembelian; fallback aman di sini
+  if (!['OPERASIONAL','PAJAK','PENARIKAN_OWNER','PINJAMAN_KARYAWAN'].includes(kat)) kat = 'OPERASIONAL';
+  selectKat(kat);
+  const setVal = (sel, val) => { const el = document.querySelector(sel); if (el && val) el.value = val; };
+  setVal('input[name=tanggal]', qp.get('tanggal'));
+  setVal('input[name=keterangan]', qp.get('keterangan'));
+  setVal('input[name=vendor]', qp.get('vendor'));
+  setVal('#nominalInput', qp.get('nominal'));
+  const sub = qp.get('subkategori');
+  if (sub) {
+    const selSub = document.getElementById('subkategoriSelect') || document.querySelector('select[name=subkategori]');
+    if (selSub) selSub.value = sub;
+  }
+  calcHutang();
+  setTimeout(function(){
+    const card = document.querySelector('.card');
+    if (card) {
+      card.scrollIntoView({behavior:'smooth', block:'start'});
+      card.style.boxShadow = '0 0 0 3px rgba(220,38,38,.25)';
+      setTimeout(function(){ card.style.boxShadow = ''; }, 1800);
+    }
+  }, 200);
+})();
+
+</script>
+{% endblock %}

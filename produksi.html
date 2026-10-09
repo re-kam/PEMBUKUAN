@@ -1,0 +1,756 @@
+{% extends "base.html" %}
+{% block title %}Produksi - FinansialApp{% endblock %}
+{% block page_title %}Produksi Sederhana{% endblock %}
+{% block content %}
+
+<style>
+  .prod-ico { width:34px;height:34px;border-radius:9px;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0; }
+  .prod-sum-box { background:var(--card-h);border:1px solid var(--bdr-md);border-radius:10px;padding:.6rem .8rem;text-align:center; }
+  .prod-sum-box .lbl { font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx3); }
+  .prod-sum-box .val { font-size:1.05rem;font-weight:800;color:var(--tx); }
+  .prod-sum-box .sub { font-size:.68rem;color:var(--tx3);margin-top:.12rem; }
+  .bahan-stok-hint { font-size:.68rem;color:var(--tx3); }
+  .bahan-stok-hint.warn { color:#dc2626;font-weight:700; }
+</style>
+
+<div class="mb-3">
+  <span class="text-muted" style="font-size:.85rem;max-width:720px;line-height:1.55;display:block">
+    Catat proses produksi: <strong>bahan SKU/non-SKU berkurang</strong>, <strong>barang jadi bertambah</strong>.
+    Nilai bahan otomatis menjadi HPP produk jadi. Biaya tenaga kerja / overhead bisa ditambahkan (opsional)
+    dan ikut menambah nilai persediaan barang jadi.
+  </span>
+</div>
+
+<form method="POST" action="{{ url_for('produksi_simpan') }}" id="formProduksi" onsubmit="return validateProduksi()">
+  <div class="row g-3">
+    <!-- KIRI: Input -->
+    <div class="col-lg-8">
+      <!-- Template Batch Produksi -->
+      <div class="card mb-3" id="tmplCard">
+        <div class="card-body py-2">
+          <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-auto">
+              <span class="fw-semibold small"><i class="fas fa-clone me-1 text-primary"></i>Template batch</span>
+            </div>
+            <div class="col">
+              <input type="text" id="tmplSearch" class="form-control form-control-sm mb-1"
+                     placeholder="Cari template..." oninput="renderTmplOptions()" autocomplete="off">
+              <select id="tmplSelect" class="form-select form-select-sm" onchange="loadTemplate()">
+                <option value="">Pilih template untuk isi otomatis...</option>
+              </select>
+            </div>
+            <div class="col-auto">
+              <button type="button" class="btn btn-sm btn-outline-danger" id="tmplDelBtn"
+                      onclick="deleteTemplate()" title="Hapus template terpilih" style="display:none">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+            <div class="col-auto">
+              <button type="button" class="btn btn-sm btn-success" id="tmplUpdBtn"
+                      onclick="saveTemplate('update')" title="Simpan perubahan ke template yang sedang dipilih" style="display:none">
+                <i class="fas fa-pen-to-square me-1"></i>Perbarui template ini
+              </button>
+            </div>
+            <div class="col-auto">
+              <button type="button" class="btn btn-sm btn-primary" onclick="saveTemplate('new')">
+                <i class="fas fa-save me-1"></i>Simpan sebagai baru
+              </button>
+            </div>
+          </div>
+          <div class="small text-muted mt-1">
+            Produksi berulang? Pilih template, bahan langsung terisi. Untuk mengubah template yang ada
+            (mis. harga jual atau bahan), pilih dulu templatenya lalu klik <strong>Perbarui template ini</strong>.
+            Tombol <strong>Simpan sebagai baru</strong> membuat template baru.
+          </div>
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="tplPosAktif">
+            <label class="form-check-label small fw-semibold" for="tplPosAktif">
+              Jual resep ini langsung di POS Kasir
+            </label>
+            <div class="form-text" style="font-size:.72rem">
+              Kalau aktif, resep ini muncul di layar kasir dan bisa dijual. Tiap kali terjual, bahan bakunya
+              otomatis dipotong dari stok. Tidak menambah stok barang jadi. Simpan sebagai template dulu agar pengaturan ini tersimpan.
+            </div>
+          </div>
+          <!-- Harga Jual: SELALU tampil. Dipakai sebagai harga default di POS Kasir DAN di
+               menu Penjualan (Penjualan Umum) saat resep ini dipilih. Tidak bergantung toggle POS. -->
+          <div class="mt-2" id="tplHargaJualBox">
+            <label class="form-label small fw-semibold mb-1" for="tplHargaJual">
+              Harga Jual <span class="text-muted fw-normal">(per porsi, dipakai di POS &amp; menu Penjualan)</span>
+            </label>
+            <div class="input-group input-group-sm" style="max-width:260px">
+              <span class="input-group-text">Rp</span>
+              <input type="number" id="tplHargaJual" class="form-control" min="0" step="1" placeholder="0">
+            </div>
+            <div class="form-text" style="font-size:.72rem">
+              Harga jual default resep ini. Terisi otomatis saat resep dipilih, baik di kasir POS maupun
+              di menu Penjualan, dan masih bisa diubah per transaksi. Kalau dikosongkan, sistem memakai
+              harga jual produk jadi yang tertaut. Kalau keduanya kosong, harga tampil Rp 0.
+            </div>
+            <div id="tplHargaWarn" class="mt-1" style="display:none;font-size:.72rem;color:#b45309">
+              <i class="fas fa-triangle-exclamation me-1"></i>Aktif di POS tapi harga masih 0. Isi harga jual supaya tidak terjual Rp 0.
+            </div>
+          </div>
+          <!-- Kategori di POS: hanya relevan kalau resep dijual langsung di POS Kasir. -->
+          <div class="mt-2" id="tplHargaBox" style="display:none">
+            <label class="form-label small fw-semibold mb-1" for="tplKategori">
+              Kategori di POS <span class="text-muted fw-normal">(opsional)</span>
+            </label>
+            <input type="text" id="tplKategori" class="form-control form-control-sm" list="tplKategoriList"
+                   maxlength="40" placeholder="mis. Minuman, Makanan" style="max-width:260px" autocomplete="off">
+            <datalist id="tplKategoriList">
+              {% for k in kategori_list %}<option value="{{ k }}">{% endfor %}
+            </datalist>
+            <div class="form-text" style="font-size:.72rem">
+              Kelompok untuk resep ini di kasir. Muncul sebagai tombol kategori yang bisa diklik di POS.
+              Kosongkan untuk ikut kategori produk jadi (atau masuk grup &ldquo;Racikan&rdquo;).
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Produk Jadi -->
+      <div class="card mb-3">
+        <div class="card-header">
+          <span class="section-title">
+            <span class="prod-ico me-2" style="background:linear-gradient(135deg,#22c55e,#16a34a)"><i class="fas fa-box"></i></span>
+            Barang Jadi (Hasil Produksi)
+          </span>
+        </div>
+        <div class="card-body">
+          <input type="hidden" name="produk_jadi_mode" id="jadiMode" value="existing">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Tanggal</label>
+              <input type="date" name="tanggal" value="{{ today.strftime('%Y-%m-%d') }}" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-9">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label class="form-label small fw-semibold mb-0">Produk Jadi *</label>
+                <div class="btn-group btn-group-sm" role="group">
+                  <button type="button" id="btnJadiExisting" class="btn btn-primary btn-xs" onclick="setJadiMode('existing')">
+                    <i class="fas fa-list me-1"></i>Pilih yang ada</button>
+                  <button type="button" id="btnJadiBaru" class="btn btn-outline-primary btn-xs" onclick="setJadiMode('baru')">
+                    <i class="fas fa-plus me-1"></i>Buat baru</button>
+                </div>
+              </div>
+              <!-- Mode: pilih yang ada -->
+              <div id="jadiExisting">
+                <div class="pcombo" id="produkJadiCombo">
+                  <input type="text" class="form-control form-control-sm pcombo-input" placeholder="Ketik / cari produk jadi..." autocomplete="off">
+                  <input type="hidden" name="produk_jadi_id" id="produkJadi" class="pcombo-id" value="">
+                </div>
+              </div>
+              <!-- Mode: buat baru -->
+              <div id="jadiBaru" style="display:none">
+                <div class="row g-2">
+                  <div class="col-md-6">
+                    <input type="text" name="produk_jadi_nama" id="jadiNama" class="form-control form-control-sm"
+                           placeholder="Nama menu baru, mis: Es Kopi Susu" disabled>
+                  </div>
+                  <div class="col-md-3">
+                    <input type="text" name="produk_jadi_satuan" id="jadiSatuan" class="form-control form-control-sm"
+                           placeholder="satuan" value="porsi" disabled>
+                  </div>
+                  <div class="col-md-3">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text px-1">Rp</span>
+                      <input type="number" name="produk_jadi_harga_jual" id="jadiJual" class="form-control"
+                             min="0" step="1" placeholder="harga jual" disabled>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-text" style="font-size:.68rem">
+                  <i class="fas fa-circle-info me-1"></i>Produk baru otomatis terdaftar di Inventory dengan stok = hasil produksi & HPP otomatis dari bahan.
+                </div>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Jumlah Hasil *</label>
+              <input type="number" name="qty_hasil" id="qtyHasil" class="form-control form-control-sm text-center"
+                     min="0" step="0.01" placeholder="0" required oninput="recalc()">
+            </div>
+            <div class="col-md-9">
+              <label class="form-label small fw-semibold">Keterangan <span class="text-muted fw-normal">(opsional)</span></label>
+              <input type="text" name="keterangan" class="form-control form-control-sm" placeholder="Mis: produksi batch pagi, no. SPK, dll">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bahan Baku SKU -->
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="section-title">
+            <span class="prod-ico me-2" style="background:linear-gradient(135deg,#f59e0b,#d97706)"><i class="fas fa-wheat-awn"></i></span>
+            Bahan Baku SKU yang Dipakai
+          </span>
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="addBahan()">
+            <i class="fas fa-plus me-1"></i>Tambah Bahan</button>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0" style="font-size:.84rem">
+              <thead class="table-light">
+                <tr>
+                  <th style="min-width:200px">Bahan (produk terlacak)</th>
+                  <th style="width:120px">Qty Dipakai</th>
+                  <th style="width:120px" class="text-end">HPP/unit</th>
+                  <th style="width:130px" class="text-end">Subtotal</th>
+                  <th style="width:38px"></th>
+                </tr>
+              </thead>
+              <tbody id="bahanBody"></tbody>
+            </table>
+          </div>
+          <div class="text-muted mt-2" style="font-size:.72rem">
+            <i class="fas fa-circle-info me-1"></i>Untuk bahan yang dilacak qty/stok. HPP/unit memakai harga beli rata-rata produk.
+            Bahan umum yang tidak dilacak qty bisa diisi di bagian Non-SKU.
+          </div>
+        </div>
+      </div>
+
+      <!-- Bahan Non-SKU -->
+      <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <span class="section-title">
+            <span class="prod-ico me-2" style="background:linear-gradient(135deg,#38bdf8,#0284c7)"><i class="fas fa-flask"></i></span>
+            Bahan Non-SKU / Bahan Umum
+          </span>
+          <button type="button" class="btn btn-outline-primary btn-sm" onclick="addNonSku()">
+            <i class="fas fa-plus me-1"></i>Tambah Non-SKU</button>
+        </div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <div class="text-muted" style="font-size:.72rem">
+              Untuk bahan yang tidak dilacak per-unit, misalnya bumbu, saus, topping campur, susu cair, atau bahan olahan.
+            </div>
+            <span class="badge bg-info text-dark">Saldo non-SKU: {{ nilai_non_sku|rp }}</span>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0" style="font-size:.84rem">
+              <thead class="table-light">
+                <tr>
+                  <th>Deskripsi bahan</th>
+                  <th style="width:110px">Qty</th>
+                  <th style="width:100px">Satuan</th>
+                  <th style="width:160px" class="text-end">Nilai Dipakai</th>
+                  <th style="width:38px"></th>
+                </tr>
+              </thead>
+              <tbody id="nonSkuBody"></tbody>
+            </table>
+            <datalist id="dlSatuanNonSku">
+              <option value="kg"><option value="gram"><option value="liter"><option value="ml">
+              <option value="pcs"><option value="pack"><option value="botol"><option value="meter">
+              <option value="lembar"><option value="bungkus"><option value="set">
+            </datalist>
+          </div>
+          <div class="text-muted mt-2" style="font-size:.72rem">
+            <i class="fas fa-circle-info me-1"></i>Nilai ini mengurangi Persediaan Non-SKU dan ikut menjadi HPP produk jadi.
+            Qty &amp; Satuan opsional &mdash; berguna sebagai catatan jumlah fisik bahan yang dipakai.
+          </div>
+        </div>
+      </div>
+
+      <!-- Biaya Tambahan -->
+      <div class="card mb-3">
+        <div class="card-header">
+          <span class="section-title">
+            <span class="prod-ico me-2" style="background:linear-gradient(135deg,#8b5cf6,#7c3aed)"><i class="fas fa-screwdriver-wrench"></i></span>
+            Biaya Produksi Tambahan <span class="text-muted fw-normal ms-1" style="font-size:.8rem">(opsional, tenaga kerja / overhead)</span>
+          </span>
+        </div>
+        <div class="card-body">
+          <div class="row g-2 align-items-end">
+            <div class="col-md-5">
+              <label class="form-label small fw-semibold">Nilai Biaya</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Rp</span>
+                <input type="number" name="biaya_tambahan" id="biayaTambahan" class="form-control"
+                       min="0" step="1" value="0" oninput="recalc()">
+              </div>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small fw-semibold">Dibayar dari</label>
+              <select name="akun_kas" id="akunKas" class="form-select form-select-sm">
+                {% for r in rekening %}
+                <option value="{{ r.kode }}">{{ r.kode }} · {{ r.nama }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <div class="form-text" style="font-size:.7rem">
+                <i class="fas fa-circle-info me-1"></i>Jika diisi, biaya ini <strong>dikapitalisasi</strong> ke nilai persediaan barang jadi
+                (Dr Persediaan / Cr Kas), sesuai PSAK 14. Jika 0, tidak ada uang keluar.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KANAN: Ringkasan -->
+    <div class="col-lg-4">
+      <div class="card" style="position:sticky;top:84px">
+        <div class="card-header">
+          <span class="section-title"><i class="fas fa-calculator me-2"></i>Ringkasan Produksi</span>
+        </div>
+        <div class="card-body">
+          <div class="d-flex flex-column gap-2">
+            <div class="prod-sum-box">
+              <div class="lbl">Total Nilai Bahan</div>
+              <div class="val text-rp" id="sumBahan">Rp 0</div>
+              <div class="sub" id="sumBahanBreakdown">SKU Rp 0 · Non-SKU Rp 0</div>
+            </div>
+            <div class="prod-sum-box">
+              <div class="lbl">+ Biaya Tambahan</div>
+              <div class="val text-rp" id="sumBiaya">Rp 0</div>
+            </div>
+            <div class="prod-sum-box" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:#bbf7d0">
+              <div class="lbl" style="color:#15803d">Total HPP Produksi</div>
+              <div class="val text-rp" id="sumTotal" style="color:#15803d">Rp 0</div>
+            </div>
+            <div class="prod-sum-box" style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#bfdbfe">
+              <div class="lbl" style="color:#1d4ed8">HPP per Unit Hasil</div>
+              <div class="val text-rp" id="sumPerUnit" style="color:#1d4ed8">Rp 0</div>
+            </div>
+          </div>
+
+          <!-- Preview Jurnal -->
+          <div class="journal-preview-wrap rounded-3 mt-3 p-2" style="font-size:.78rem">
+            <div class="preview-title fw-semibold mb-1"><i class="fas fa-scale-balanced me-1"></i>Preview Jurnal</div>
+            <div id="jurnalPreview" class="text-muted">Isi bahan untuk melihat preview.</div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 mt-3">
+            <i class="fas fa-save me-1"></i>Simpan Produksi</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- Riwayat Produksi -->
+<div class="card mt-3">
+  <div class="card-header">
+    <span class="section-title"><i class="fas fa-clock-rotate-left me-2"></i>Riwayat Produksi
+      <span class="badge bg-secondary ms-1">{{ riwayat|length }}</span></span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0" style="font-size:.83rem">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Tanggal</th>
+            <th>Produk Jadi</th>
+            <th class="text-center">Hasil</th>
+            <th>Bahan Dipakai</th>
+            <th class="text-end">Total HPP</th>
+            <th class="text-end">HPP/unit</th>
+            <th>Jurnal</th>
+            <th class="text-end pe-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in riwayat %}
+          <tr>
+            <td class="ps-3 text-muted">{{ r.tanggal|tgl }}</td>
+            <td class="fw-semibold">{{ r.produk_nama }}{% if r.produk_varian %} <span class="text-muted">({{ r.produk_varian }})</span>{% endif %}</td>
+            <td class="text-center">{{ r.qty_hasil|qty }} {{ r.produk_satuan }}</td>
+            <td style="font-size:.76rem">
+              {% for b in bahan_map.get(r.id, []) %}
+                <span class="badge bg-light text-dark border">{{ b.nama }}{% if b.varian %} ({{ b.varian }}){% endif %} × {{ b.qty|qty }} {{ b.satuan }}</span>
+              {% endfor %}
+              {% for n in non_sku_map.get(r.id, []) %}
+                <span class="badge bg-info text-dark">{{ n.deskripsi }}{% if n.qty and n.qty > 0 %} &times; {{ n.qty|qty }}{% if n.satuan %} {{ n.satuan }}{% endif %}{% endif %} {{ n.nilai|rp }}</span>
+              {% endfor %}
+              {% if r.biaya_tambahan and r.biaya_tambahan > 0 %}
+                <span class="badge bg-info text-dark">+ biaya {{ r.biaya_tambahan|rp }}</span>
+              {% endif %}
+            </td>
+            <td class="text-end text-rp">{{ r.total_hpp|rp }}</td>
+            <td class="text-end text-rp">{{ r.hpp_per_unit|rp }}</td>
+            <td>{% if r.jurnal_id %}<a href="/transaksi/{{ r.jurnal_id }}">{{ r.nomor_tx or ('#' ~ r.jurnal_id) }}</a>{% else %}-{% endif %}</td>
+            <td class="text-end pe-3">
+              {% if session.role in ('ADMIN','FINANCE') %}
+              <form method="POST" action="/produksi/{{ r.id }}/hapus" style="display:inline"
+                    onsubmit="return confirm('Batalkan produksi ini? Stok bahan akan dikembalikan dan stok hasil dihapus.')">
+                <button class="btn btn-xs btn-outline-danger" title="Batalkan produksi"><i class="fas fa-trash"></i></button>
+              </form>
+              {% else %}
+              <span class="text-muted" style="font-size:.72rem">-</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-center text-muted py-4">Belum ada produksi tercatat.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRODUK = {{ produk_js|tojson }};
+const NON_SKU_CURRENT = {{ nilai_non_sku|default(0)|tojson }};
+const PMAP = {};
+PRODUK.forEach(p => PMAP[p.id] = p);
+const TMPL_LIST = {{ templates_js|default([])|tojson }};
+const TMPL = {};
+TMPL_LIST.forEach(function(t){ TMPL[t.id] = t; });
+
+function rp(n){ return window.rpFmt ? window.rpFmt(n) : 'Rp ' + Math.round(n||0).toLocaleString('id-ID'); }
+function readNum(el){ return el ? (window.numVal ? window.numVal(el) : (parseFloat(el.value)||0)) : 0; }
+
+// ── Template batch produksi ──────────────────────────────────────────────
+function renderTmplOptions(selId){
+  var sel = document.getElementById('tmplSelect');
+  if (!sel) return;
+  var cur = (selId !== undefined && selId !== null) ? selId : sel.value;
+  var q = ((document.getElementById('tmplSearch')||{}).value || '').trim().toLowerCase();
+  sel.innerHTML = '<option value="">Pilih template untuk isi otomatis...</option>';
+  Object.keys(TMPL).map(function(k){ return TMPL[k]; })
+    .filter(function(t){ return !q || (t.nama||'').toLowerCase().indexOf(q) !== -1; })
+    .sort(function(a,b){ return (a.nama||'').localeCompare(b.nama||''); })
+    .forEach(function(t){
+      var o = document.createElement('option');
+      o.value = t.id; o.textContent = t.nama;
+      sel.appendChild(o);
+    });
+  if (cur && TMPL[cur]) sel.value = cur;
+  toggleTmplButtons(sel.value);
+}
+// Tombol "Perbarui" & "Hapus" hanya relevan saat ada template terpilih.
+function toggleTmplButtons(hasSel){
+  var del = document.getElementById('tmplDelBtn');
+  if (del) del.style.display = hasSel ? '' : 'none';
+  var upd = document.getElementById('tmplUpdBtn');
+  if (upd) upd.style.display = hasSel ? '' : 'none';
+}
+function loadTemplate(){
+  var sel = document.getElementById('tmplSelect');
+  toggleTmplButtons(sel && sel.value);
+  if (!sel || !sel.value) return;
+  var t = TMPL[sel.value];
+  if (!t) return;
+  if (window.setJadiMode) setJadiMode('existing');
+  var pj = PMAP[t.produk_jadi_id];
+  if (pj) {
+    var pjHidden = document.getElementById('produkJadi');
+    var pjInput = document.querySelector('#produkJadiCombo .pcombo-input');
+    if (pjHidden) pjHidden.value = t.produk_jadi_id;
+    if (pjInput) pjInput.value = pj.nama + (pj.varian ? ' ('+pj.varian+')' : '');
+  }
+  // numFmt pakai format Indonesia (titik=ribuan, koma=desimal). Set desimal pakai koma
+  // supaya 1.5 tidak dianggap "1 ribu 5" lalu jadi 15.
+  var nfv = function(x){ return (x === null || x === undefined || x === '') ? '' : String(x).replace('.', ','); };
+  var qh = document.getElementById('qtyHasil'); if (qh && t.qty_hasil) qh.value = nfv(t.qty_hasil);
+  var bt = document.getElementById('biayaTambahan'); if (bt) bt.value = nfv(t.biaya_tambahan || 0);
+  var pa = document.getElementById('tplPosAktif'); if (pa) pa.checked = !!t.pos_aktif;
+  var hj = document.getElementById('tplHargaJual');
+  if (hj) { hj.value = (t.harga_jual && t.harga_jual > 0) ? nfv(t.harga_jual) : ''; }
+  var kt = document.getElementById('tplKategori'); if (kt) kt.value = t.kategori || '';
+  if (window.tplHargaCek) window.tplHargaCek();
+  document.getElementById('bahanBody').innerHTML = '';
+  document.getElementById('nonSkuBody').innerHTML = '';
+  (t.bahan_sku || []).forEach(function(b){
+    addBahan();
+    var tr = document.getElementById('bahanBody').lastElementChild;
+    var p = PMAP[b.produk_id];
+    var idEl = tr.querySelector('.pcombo-id'); if (idEl) idEl.value = b.produk_id;
+    var inEl = tr.querySelector('.pcombo-input'); if (inEl && p) inEl.value = p.nama + (p.varian?' ('+p.varian+')':'');
+    var qEl = tr.querySelector('.bahan-qty'); if (qEl) qEl.value = nfv(b.qty);
+  });
+  (t.bahan_non_sku || []).forEach(function(n){
+    addNonSku();
+    var tr = document.getElementById('nonSkuBody').lastElementChild;
+    var d = tr.querySelector('.non-sku-desc'); if (d) d.value = n.deskripsi || '';
+    var q = tr.querySelector('.non-sku-qty'); if (q) q.value = nfv(n.qty);
+    var s = tr.querySelector('.non-sku-satuan'); if (s) s.value = n.satuan || '';
+    var v = tr.querySelector('.non-sku-nilai'); if (v) v.value = nfv(n.nilai || 0);
+  });
+  if (window.numFmtInitAll) window.numFmtInitAll();
+  recalc();
+}
+function collectTmpl(){
+  var bahan_sku = [];
+  document.querySelectorAll('#bahanBody tr').forEach(function(tr){
+    var idEl = tr.querySelector('.pcombo-id'); var qEl = tr.querySelector('.bahan-qty');
+    var pid = idEl ? parseInt(idEl.value||'0',10) : 0;
+    var qty = qEl ? readNum(qEl) : 0;
+    if (pid && qty > 0) bahan_sku.push({produk_id: pid, qty: qty});
+  });
+  var bahan_non_sku = [];
+  document.querySelectorAll('#nonSkuBody tr').forEach(function(tr){
+    var d = tr.querySelector('.non-sku-desc');
+    var desc = d ? (d.value||'').trim() : '';
+    if (!desc) return;
+    bahan_non_sku.push({
+      deskripsi: desc,
+      nilai: readNum(tr.querySelector('.non-sku-nilai')),
+      qty: readNum(tr.querySelector('.non-sku-qty')),
+      satuan: ((tr.querySelector('.non-sku-satuan')||{}).value || '')
+    });
+  });
+  return {
+    produk_jadi_id: parseInt((document.getElementById('produkJadi')||{}).value || '0', 10) || null,
+    qty_hasil: readNum(document.getElementById('qtyHasil')),
+    biaya_tambahan: readNum(document.getElementById('biayaTambahan')),
+    pos_aktif: ((document.getElementById('tplPosAktif')||{}).checked ? 1 : 0),
+    harga_jual: readNum(document.getElementById('tplHargaJual')),
+    kategori: ((document.getElementById('tplKategori')||{}).value || '').trim(),
+    bahan_sku: bahan_sku, bahan_non_sku: bahan_non_sku
+  };
+}
+// Peringatan langsung di form: aktif di POS tapi harga masih 0.
+window.tplHargaCek = function(){
+  var pa = document.getElementById('tplPosAktif');
+  var hj = document.getElementById('tplHargaJual');
+  var wr = document.getElementById('tplHargaWarn');
+  var bx = document.getElementById('tplHargaBox');   // sekarang hanya berisi "Kategori di POS"
+  var aktif = !!(pa && pa.checked);
+  // Harga Jual SELALU tampil (dipakai di POS & menu Penjualan). Hanya Kategori di POS yang
+  // disembunyikan kalau resep tidak dijual langsung di kasir.
+  if (bx) bx.style.display = aktif ? 'block' : 'none';
+  if (!wr) return;
+  var harga = hj ? readNum(hj) : 0;
+  wr.style.display = (aktif && !(harga > 0)) ? 'block' : 'none';
+};
+document.addEventListener('DOMContentLoaded', function(){
+  ['tplPosAktif','tplHargaJual'].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) { el.addEventListener('change', window.tplHargaCek); el.addEventListener('input', window.tplHargaCek); }
+  });
+  window.tplHargaCek();
+});
+// mode: 'update' = perbarui template yang sedang dipilih (by id, tak perlu ketik nama);
+//       'new' / undefined = simpan sebagai template baru (minta nama).
+function saveTemplate(mode){
+  var payload = collectTmpl();
+  if (!payload.bahan_sku.length && !payload.bahan_non_sku.length){
+    alert('Isi minimal satu bahan dulu sebelum menyimpan template.'); return;
+  }
+  var sel = document.getElementById('tmplSelect');
+  var curId = (sel && sel.value) ? sel.value : '';
+  var isUpdate = (mode === 'update') && curId && TMPL[curId];
+  if (isUpdate){
+    payload.id = Number(curId);
+    payload.nama = TMPL[curId].nama;   // pakai nama existing (tak perlu ketik ulang)
+    if (!confirm('Perbarui template "'+payload.nama+'" dengan isi form sekarang (bahan, harga jual, kategori)?')) return;
+  } else {
+    var nama = prompt('Nama template baru (mis. Roti Coklat 1 loyang):', '');
+    if (nama === null) return;
+    nama = nama.trim();
+    if (!nama){ alert('Nama template wajib diisi.'); return; }
+    payload.nama = nama;
+  }
+  fetch('{{ url_for("produksi_template_simpan") }}', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+    body: JSON.stringify(payload)
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if (res && res.ok){
+      TMPL[res.template.id] = res.template;
+      renderTmplOptions(res.template.id);
+      alert('Template "'+res.template.nama+'" '+(isUpdate ? 'diperbarui' : 'tersimpan')+'.'
+            + (res.warning ? '\n\nPerhatian: ' + res.warning : ''));
+      if (window.tplHargaCek) window.tplHargaCek();
+    } else { alert((res && res.error) || 'Gagal menyimpan template.'); }
+  }).catch(function(){ alert('Gagal menyimpan template (jaringan).'); });
+}
+function deleteTemplate(){
+  var sel = document.getElementById('tmplSelect');
+  if (!sel || !sel.value) return;
+  var t = TMPL[sel.value];
+  if (!t) return;
+  if (!confirm('Hapus template "'+t.nama+'"?')) return;
+  fetch('/produksi/template/'+t.id+'/hapus', {
+    method: 'POST', headers: {'X-Requested-With':'XMLHttpRequest'}
+  }).then(function(r){ return r.json(); }).then(function(res){
+    if (res && res.ok){ delete TMPL[t.id]; renderTmplOptions(''); }
+    else alert('Gagal menghapus template.');
+  }).catch(function(){ alert('Gagal menghapus template (jaringan).'); });
+}
+document.addEventListener('DOMContentLoaded', function(){ renderTmplOptions(); });
+
+function addBahan(){
+  const tb = document.getElementById('bahanBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <div class="pcombo">
+        <input type="text" class="form-control form-control-sm pcombo-input" placeholder="Ketik / cari bahan..." autocomplete="off">
+        <input type="hidden" name="bahan_id[]" class="pcombo-id bahan-sel" value="">
+      </div>
+      <div class="bahan-stok-hint mt-1"></div>
+    </td>
+    <td><input type="number" name="bahan_qty[]" class="form-control form-control-sm bahan-qty text-center" min="0" step="0.01" placeholder="0" oninput="recalc()"></td>
+    <td class="text-end text-rp bahan-hpp text-muted">Rp 0</td>
+    <td class="text-end text-rp bahan-sub fw-semibold">Rp 0</td>
+    <td class="text-center"><button type="button" class="btn btn-xs btn-outline-danger" onclick="this.closest('tr').remove();recalc()"><i class="fas fa-times"></i></button></td>`;
+  tb.appendChild(tr);
+  if (window.numFmtInitAll) window.numFmtInitAll();
+  if (window.initProdukCombo) window.initProdukCombo(tr.querySelector('.pcombo'), PRODUK, function(p){ recalc(); });
+  recalc();
+}
+
+function addNonSku(){
+  const tb = document.getElementById('nonSkuBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" name="non_sku_deskripsi[]" class="form-control form-control-sm non-sku-desc" placeholder="Mis: bumbu, saus, topping campur"></td>
+    <td><input type="number" name="non_sku_qty[]" class="form-control form-control-sm non-sku-qty text-end" min="0" step="any" placeholder="0"></td>
+    <td><input type="text" name="non_sku_satuan[]" class="form-control form-control-sm non-sku-satuan" placeholder="kg / liter / pcs" list="dlSatuanNonSku"></td>
+    <td>
+      <div class="input-group input-group-sm">
+        <span class="input-group-text px-1">Rp</span>
+        <input type="number" name="non_sku_nilai[]" class="form-control non-sku-nilai text-end" min="0" step="1" placeholder="0" oninput="recalc()">
+      </div>
+    </td>
+    <td class="text-center"><button type="button" class="btn btn-xs btn-outline-danger" onclick="this.closest('tr').remove();recalc()"><i class="fas fa-times"></i></button></td>`;
+  tb.appendChild(tr);
+  if (window.numFmtInitAll) window.numFmtInitAll();
+  recalc();
+}
+
+function recalc(){
+  let totalSku = 0;
+  document.querySelectorAll('#bahanBody tr').forEach(tr => {
+    const sel = tr.querySelector('.bahan-sel');
+    const qtyEl = tr.querySelector('.bahan-qty');
+    const hppCell = tr.querySelector('.bahan-hpp');
+    const subCell = tr.querySelector('.bahan-sub');
+    const hint = tr.querySelector('.bahan-stok-hint');
+    const p = PMAP[sel.value];
+    const qty = readNum(qtyEl);
+    const hpp = p ? p.harga_beli : 0;
+    const sub = qty * hpp;
+    hppCell.textContent = rp(hpp);
+    subCell.textContent = rp(sub);
+    totalSku += sub;
+    if (p) {
+      const kurang = qty > p.stok;
+      hint.textContent = 'Stok tersedia: ' + p.stok + ' ' + p.satuan + (kurang ? ', TIDAK CUKUP!' : '');
+      hint.className = 'bahan-stok-hint mt-1' + (kurang ? ' warn' : '');
+      if (hpp <= 0) { hint.textContent += ' · HPP masih 0'; hint.className = 'bahan-stok-hint mt-1 warn'; }
+    } else {
+      hint.textContent = '';
+    }
+  });
+  let totalNonSku = 0;
+  document.querySelectorAll('#nonSkuBody tr').forEach(tr => {
+    totalNonSku += readNum(tr.querySelector('.non-sku-nilai'));
+  });
+  const biaya = readNum(document.getElementById('biayaTambahan'));
+  const totalBahan = totalSku + totalNonSku;
+  const total = totalBahan + biaya;
+  const qtyHasil = readNum(document.getElementById('qtyHasil'));
+  const perUnit = qtyHasil > 0 ? total / qtyHasil : 0;
+
+  document.getElementById('sumBahan').textContent = rp(totalBahan);
+  document.getElementById('sumBahanBreakdown').textContent = 'SKU ' + rp(totalSku) + ' · Non-SKU ' + rp(totalNonSku);
+  document.getElementById('sumBiaya').textContent = rp(biaya);
+  document.getElementById('sumTotal').textContent = rp(total);
+  document.getElementById('sumPerUnit').textContent = rp(perUnit);
+
+  // Preview jurnal
+  const pv = document.getElementById('jurnalPreview');
+  if (total > 0) {
+    let rows = [['Dr 1130 Persediaan (barang jadi)', rp(total)]];
+    if (totalSku > 0) rows.push(['Cr 1130 Persediaan (bahan SKU)', rp(totalSku)]);
+    if (totalNonSku > 0) rows.push(['Cr 1130 Persediaan (bahan non-SKU)', rp(totalNonSku)]);
+    if (biaya > 0) {
+      const kasSel = document.getElementById('akunKas');
+      const kasLabel = kasSel.options[kasSel.selectedIndex] ? kasSel.options[kasSel.selectedIndex].text.split(' · ')[1] || 'Kas' : 'Kas';
+      rows.push(['Cr ' + kasLabel + ' (biaya produksi)', rp(biaya)]);
+    }
+    pv.innerHTML = rows.map(r => '<div class="d-flex justify-content-between"><span>'+r[0]+'</span><strong>'+r[1]+'</strong></div>').join('');
+  } else {
+    pv.innerHTML = '<span class="text-muted">Isi bahan untuk melihat preview.</span>';
+  }
+}
+
+function setJadiMode(mode){
+  const isBaru = (mode === 'baru');
+  document.getElementById('jadiMode').value = mode;
+  document.getElementById('jadiExisting').style.display = isBaru ? 'none' : '';
+  document.getElementById('jadiBaru').style.display = isBaru ? '' : 'none';
+  // toggle tombol aktif
+  document.getElementById('btnJadiExisting').className = 'btn btn-xs ' + (isBaru ? 'btn-outline-primary' : 'btn-primary');
+  document.getElementById('btnJadiBaru').className = 'btn btn-xs ' + (isBaru ? 'btn-primary' : 'btn-outline-primary');
+  // enable/disable field supaya tidak ikut tervalidasi/terkirim
+  const sel = document.getElementById('produkJadi');
+  const nama = document.getElementById('jadiNama');
+  const satuan = document.getElementById('jadiSatuan');
+  const jual = document.getElementById('jadiJual');
+  sel.disabled = isBaru;
+  nama.disabled = satuan.disabled = jual.disabled = !isBaru;
+  recalc();
+}
+
+function validateProduksi(){
+  const mode = document.getElementById('jadiMode').value;
+  let pjId = '';
+  if (mode === 'baru') {
+    const nm = (document.getElementById('jadiNama').value || '').trim();
+    if (!nm) { alert('Isi nama produk jadi baru dulu.'); return false; }
+  } else {
+    pjId = document.getElementById('produkJadi').value;
+    if (!pjId) { alert('Pilih produk jadi dulu, atau klik "Buat baru".'); return false; }
+  }
+  const qh = readNum(document.getElementById('qtyHasil'));
+  if (qh <= 0) { alert('Jumlah hasil produksi harus lebih dari 0.'); return false; }
+  let adaBahan = false, stokKurang = false;
+  document.querySelectorAll('#bahanBody tr').forEach(tr => {
+    const p = PMAP[tr.querySelector('.bahan-sel').value];
+    const qty = readNum(tr.querySelector('.bahan-qty'));
+    if (p && qty > 0) {
+      adaBahan = true;
+      if (qty > p.stok) stokKurang = true;
+      if (mode === 'existing' && String(p.id) === String(pjId)) { alert('Bahan baku tidak boleh sama dengan produk jadi.'); stokKurang = true; }
+    }
+  });
+  let adaNonSku = false, totalNonSku = 0, nonSkuKosong = false;
+  document.querySelectorAll('#nonSkuBody tr').forEach(tr => {
+    const desc = (tr.querySelector('.non-sku-desc').value || '').trim();
+    const nilai = readNum(tr.querySelector('.non-sku-nilai'));
+    if (nilai > 0) {
+      adaNonSku = true;
+      totalNonSku += nilai;
+      if (!desc) nonSkuKosong = true;
+    } else if (desc) {
+      nonSkuKosong = true;
+    }
+  });
+  if (nonSkuKosong) { alert('Lengkapi deskripsi dan nilai bahan non-SKU.'); return false; }
+  if (!adaBahan && !adaNonSku) { alert('Isi minimal satu bahan baku SKU atau satu bahan non-SKU.'); return false; }
+  // Saldo non-SKU: PERINGATAN, bukan larangan.
+  // Dulu total non-SKU dibandingkan langsung ke saldo pool dan diperiksa
+  // TANPA SYARAT. Akibatnya begitu saldo pool minus, ekspresi `0 > -50000`
+  // bernilai benar dan produksi yang SELURUH bahannya SKU ikut terkunci,
+  // padahal tak ada satu pun baris non-SKU diisi.
+  // Dua pagar sekarang: hanya diperiksa kalau user memang mengisi non-SKU, dan
+  // "tersedia" tak pernah kurang dari nol.
+  // Sifatnya confirm karena SERVER memang menerima produksi yang membuat pool
+  // minus lalu memberi peringatan setelah simpan; layar tak boleh lebih keras
+  // daripada servernya. Sama seperti perlakuan stok bahan kurang di bawah.
+  if (totalNonSku > 0) {
+    const tersediaNonSku = Math.max(Number(NON_SKU_CURRENT) || 0, 0);
+    if (totalNonSku > tersediaNonSku &&
+        !confirm('Nilai bahan non-SKU ' + rp(totalNonSku) + ' melebihi saldo persediaan non-SKU tersedia ' +
+                 rp(tersediaNonSku) + '. Nilai persediaan non-SKU akan menjadi minus. Tetap lanjutkan?')) {
+      return false;
+    }
+  }
+  if (stokKurang) { return confirm('Ada bahan dengan stok tidak cukup atau bermasalah. Tetap lanjutkan? (server akan menolak jika stok benar-benar kurang)'); }
+  return true;
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  var pjCombo = document.getElementById('produkJadiCombo');
+  if(pjCombo && window.initProdukCombo) window.initProdukCombo(pjCombo, PRODUK, function(p){ recalc(); });
+  addBahan(); addNonSku(); setJadiMode('existing'); recalc();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+{% block title %}Grafik - FinansialApp{% endblock %}
+{% block page_title %}Grafik & Analisis{% endblock %}
+{% block content %}
+
+{% include '_charts_help_modal.html' %}
+
+<style>
+.charts-wrap{margin:-1.25rem -1.5rem;padding:1.25rem 1.5rem;background:#0f172a;min-height:calc(100vh - 62px)}
+.dark-card{background:#1e293b;border:none;border-radius:10px;overflow:hidden}
+.dark-card-header{background:#1e293b;border-bottom:1px solid #334155;padding:.55rem 1rem;display:flex;align-items:center;gap:.5rem}
+.dark-card-header .section-title{color:#e2e8f0;font-size:.85rem;font-weight:700;margin:0}
+.dark-card-body{padding:1rem;background:#1e293b}
+.kpi-block{border-radius:10px;padding:1rem 1.25rem;color:#fff;position:relative;overflow:hidden}
+.kpi-block .kb-ico{position:absolute;right:1rem;top:50%;transform:translateY(-50%);font-size:2rem;opacity:.18}
+.kpi-block .kb-lbl{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;opacity:.8;margin-bottom:.35rem}
+.kpi-block .kb-val{font-size:1.55rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.kpi-block .kb-sub{font-size:.62rem;opacity:.65;margin-top:.3rem}
+.chart-toolbar{background:#1e293b;border-radius:10px;padding:.65rem 1rem;display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-bottom:1rem}
+.btn-dt{padding:.32rem .9rem;border-radius:6px;font-size:.8rem;font-weight:600;border:1px solid #475569;color:#94a3b8;background:transparent;cursor:pointer;transition:all .15s;letter-spacing:.01em}
+.btn-dt.act{background:#3b82f6;border-color:#3b82f6;color:#fff}
+.btn-dt:hover:not(.act){border-color:#64748b;color:#e2e8f0}
+.btn-ds{padding:.22rem .65rem;border-radius:5px;font-size:.72rem;font-weight:600;border:1px solid #475569;color:#94a3b8;background:transparent;cursor:pointer;transition:all .15s}
+.btn-ds.act{background:#0369a1;border-color:#0ea5e9;color:#fff}
+/* Panel grafik latarnya #1e293b; #475569 di atasnya cuma 1,93:1. Disamakan
+   dengan warna teks pendukung lain di panel ini (#94a3b8, ~7:1). */
+.cr-lbl{color:#94a3b8;font-size:.72rem;margin-left:auto;font-variant-numeric:tabular-nums}
+</style>
+
+<div class="charts-wrap">
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm" style="border:1px solid #475569;color:#cbd5e1;background:transparent"
+          data-bs-toggle="modal" data-bs-target="#modalChartsHelp">
+    <i class="fas fa-circle-question me-1"></i>Petunjuk
+  </button>
+</div>
+
+<!-- ── Toolbar ── -->
+<div class="chart-toolbar">
+  <button id="btn-bulanan" onclick="setView('bulanan')" class="btn-dt act">
+    <i class="fas fa-calendar-week me-1"></i>Bulanan</button>
+  <button id="btn-tahunan" onclick="setView('tahunan')" class="btn-dt">
+    <i class="fas fa-calendar me-1"></i>5 Tahunan</button>
+  <div id="bulanan-controls" class="d-flex gap-1 ms-1">
+    <button id="btn-6bln" onclick="loadBulanan(6)" class="btn-ds">6 Bln</button>
+    <button id="btn-12bln" onclick="loadBulanan(12)" class="btn-ds act">12 Bln</button>
+  </div>
+  <span class="cr-lbl" id="chartRange"><i class="fas fa-circle-notch fa-spin me-1"></i>Memuat…</span>
+</div>
+
+<!-- ═══ BULANAN ═══ -->
+<div id="section-bulanan">
+
+  <!-- KPI summary row -->
+  <div class="row g-2 mb-3" id="kpi-bulanan">
+    <div class="col-6 col-md-3">
+      <div class="kpi-block" style="background:linear-gradient(135deg,#059669,#047857)">
+        <i class="fas fa-arrow-trend-up kb-ico"></i>
+        <div class="kb-lbl">Total Pendapatan</div>
+        <div class="kb-val text-rp" id="kb-pend">-</div>
+        <div class="kb-sub" id="kb-pend-sub"></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi-block" style="background:linear-gradient(135deg,#dc2626,#991b1b)">
+        <i class="fas fa-arrow-trend-down kb-ico"></i>
+        <div class="kb-lbl">Total Beban</div>
+        <div class="kb-val text-rp" id="kb-beban">-</div>
+        <div class="kb-sub" id="kb-beban-sub"></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi-block" style="background:linear-gradient(135deg,#2563eb,#1d4ed8)">
+        <i class="fas fa-sack-dollar kb-ico"></i>
+        <div class="kb-lbl">Laba Bersih</div>
+        <div class="kb-val text-rp" id="kb-laba">-</div>
+        <div class="kb-sub" id="kb-laba-sub"></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="kpi-block" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+        <i class="fas fa-vault kb-ico"></i>
+        <div class="kb-lbl">Saldo Kas & Bank</div>
+        <div class="kb-val text-rp" id="kb-saldo">-</div>
+        <div class="kb-sub">Kumulatif semua rekening</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-chart-bar" style="color:#10b981;font-size:.78rem"></i>
+          <span class="section-title">Pendapatan vs Beban</span>
+        </div>
+        <div class="dark-card-body"><canvas id="c1" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-chart-line" style="color:#3b82f6;font-size:.78rem"></i>
+          <span class="section-title" id="title-c2">Tren Profitabilitas</span>
+        </div>
+        <div class="dark-card-body"><canvas id="c2" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-droplet" style="color:#38bdf8;font-size:.78rem"></i>
+          <span class="section-title">Cashflow Masuk vs Keluar</span>
+        </div>
+        <div class="dark-card-body"><canvas id="c3" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-piggy-bank" style="color:#f59e0b;font-size:.78rem"></i>
+          <span class="section-title">Akumulasi Saldo Kas & Bank</span>
+        </div>
+        <div class="dark-card-body"><canvas id="c4" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-sack-dollar" style="color:#a78bfa;font-size:.78rem"></i>
+          <span class="section-title">Laba Bersih per Bulan</span>
+        </div>
+        <div class="dark-card-body"><canvas id="c5" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-chart-area" style="color:#fb923c;font-size:.78rem"></i>
+          <span class="section-title">Laba Ditahan (Kumulatif)</span>
+        </div>
+        <div class="dark-card-body"><canvas id="c6" height="145"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 5 TAHUNAN ═══ -->
+<div id="section-tahunan" style="display:none">
+
+  <div class="row g-2 mb-3" id="kpi-tahunan"></div>
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-chart-bar" style="color:#10b981;font-size:.78rem"></i>
+          <span class="section-title">Pendapatan vs Total Beban per Tahun</span>
+        </div>
+        <div class="dark-card-body"><canvas id="y1" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-chart-line" style="color:#3b82f6;font-size:.78rem"></i>
+          <span class="section-title">Tren Profitabilitas 5 Tahun</span>
+        </div>
+        <div class="dark-card-body"><canvas id="y2" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-droplet" style="color:#38bdf8;font-size:.78rem"></i>
+          <span class="section-title">Cashflow per Tahun</span>
+        </div>
+        <div class="dark-card-body"><canvas id="y3" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-arrow-trend-up" style="color:#f59e0b;font-size:.78rem"></i>
+          <span class="section-title">Pertumbuhan Pendapatan YoY (%)</span>
+        </div>
+        <div class="dark-card-body"><canvas id="y4" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-sack-dollar" style="color:#a78bfa;font-size:.78rem"></i>
+          <span class="section-title">Laba Bersih per Tahun</span>
+        </div>
+        <div class="dark-card-body"><canvas id="y5" height="145"></canvas></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="dark-card">
+        <div class="dark-card-header">
+          <i class="fas fa-piggy-bank" style="color:#fb923c;font-size:.78rem"></i>
+          <span class="section-title">Saldo Kas & Bank Akhir Tahun</span>
+        </div>
+        <div class="dark-card-body"><canvas id="y6" height="145"></canvas></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /charts-wrap -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Global dark theme defaults ──
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.borderColor = '#334155';
+Chart.defaults.font.family = "'Segoe UI', sans-serif";
+Chart.defaults.font.size = 11;
+
+const chartInst = {};
+
+function fmt(v) {
+  const a = Math.abs(v), s = v < 0 ? '-' : '';
+  if (a >= 1e9) return s + 'Rp ' + (a/1e9).toFixed(2) + 'M';
+  if (a >= 1e6) return s + 'Rp ' + (a/1e6).toFixed(1) + 'jt';
+  if (a >= 1e3) return s + 'Rp ' + (a/1e3).toFixed(0) + 'rb';
+  return window.rpFmt ? window.rpFmt(v) : s + 'Rp ' + a.toFixed(0);
+}
+
+const darkScales = {
+  x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+  y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', callback: v => fmt(v) } }
+};
+const darkScalesPct = {
+  x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b' } },
+  y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8', callback: v => v + '%' } }
+};
+const darkPlugins = {
+  legend: { position: 'top', labels: { color: '#cbd5e1', boxWidth: 10, padding: 14, font: { size: 11 } } },
+  tooltip: {
+    backgroundColor: '#0f172a',
+    titleColor: '#e2e8f0',
+    bodyColor: '#94a3b8',
+    borderColor: '#334155',
+    borderWidth: 1,
+    padding: 10
+  }
+};
+
+function mkChart(id, type, labels, datasets, scales) {
+  if (chartInst[id]) chartInst[id].destroy();
+  chartInst[id] = new Chart(document.getElementById(id), {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      animation: { duration: 500 },
+      plugins: darkPlugins,
+      scales: scales || darkScales
+    }
+  });
+}
+
+function bar(label, data, color) {
+  return {
+    label, data,
+    backgroundColor: data.map(v => (v < 0 ? '#ef4444' : color) + 'cc'),
+    borderRadius: 5, borderSkipped: false
+  };
+}
+function barFlat(label, data, color) {
+  return { label, data, backgroundColor: color + 'cc', borderRadius: 5, borderSkipped: false };
+}
+function line(label, data, color) {
+  return {
+    label, data,
+    borderColor: color,
+    backgroundColor: color + '22',
+    tension: 0.4, fill: true,
+    pointRadius: 4, pointHoverRadius: 7,
+    pointBackgroundColor: color,
+    borderWidth: 2
+  };
+}
+
+// ── BULANAN ──
+let currentMonths = 12;
+
+function loadBulanan(months) {
+  currentMonths = months;
+  ['btn-6bln','btn-12bln'].forEach(id =>
+    document.getElementById(id).className = 'btn-ds');
+  document.getElementById(months===6?'btn-6bln':'btn-12bln').className = 'btn-ds act';
+  document.getElementById('chartRange').innerHTML =
+    '<i class="fas fa-circle-notch fa-spin me-1"></i>Memuat…';
+
+  fetch('/api/chart-data?months=' + months)
+    .then(r => r.json())
+    .then(d => {
+      const lbl = d.map(x => x.label);
+      document.getElementById('chartRange').textContent =
+        (lbl[0]||'') + ', ' + (lbl[lbl.length-1]||'');
+
+      // KPI summary
+      const totPend  = d.reduce((s,x) => s+x.pendapatan, 0);
+      const totBeban = d.reduce((s,x) => s+(x.hpp+x.op_exp), 0);
+      const totLaba  = d.reduce((s,x) => s+x.laba_bersih, 0);
+      const saldo    = d[d.length-1]?.saldo_kumulatif || 0;
+      const bulanCnt = lbl.length;
+      document.getElementById('kb-pend').textContent  = fmt(totPend);
+      document.getElementById('kb-pend-sub').textContent = `Total ${bulanCnt} bulan terakhir`;
+      document.getElementById('kb-beban').textContent = fmt(totBeban);
+      document.getElementById('kb-beban-sub').textContent = `HPP + Op. Expenses`;
+      document.getElementById('kb-laba').textContent  = fmt(totLaba);
+      document.getElementById('kb-laba-sub').textContent = totLaba>=0 ? '📈 Untung' : '📉 Rugi';
+      document.getElementById('kb-saldo').textContent = fmt(saldo);
+
+      mkChart('c1','bar',lbl,[
+        barFlat('Pendapatan',   d.map(x=>x.pendapatan), '#10b981'),
+        barFlat('HPP',          d.map(x=>x.hpp),        '#ef4444'),
+        barFlat('Op. Expenses', d.map(x=>x.op_exp),     '#f97316'),
+      ]);
+      mkChart('c2','line',lbl,[
+        line('Laba Kotor',       d.map(x=>x.laba_kotor),  '#3b82f6'),
+        line('Laba Operasional', d.map(x=>x.laba_op),     '#10b981'),
+        line('Laba Bersih',      d.map(x=>x.laba_bersih), '#a78bfa'),
+      ]);
+      mkChart('c3','bar',lbl,[
+        barFlat('Uang Masuk',  d.map(x=>x.uang_masuk),  '#10b981'),
+        barFlat('Uang Keluar', d.map(x=>x.uang_keluar), '#ef4444'),
+      ]);
+      mkChart('c4','line',lbl,[{
+        label:'Saldo Kumulatif', data:d.map(x=>x.saldo_kumulatif),
+        borderColor:'#f59e0b', backgroundColor:'#f59e0b22',
+        tension:0.4, fill:true, pointRadius:4, pointBackgroundColor:'#f59e0b', borderWidth:2
+      }]);
+      mkChart('c5','bar',lbl,[{
+        label:'Laba Bersih',
+        data:d.map(x=>x.laba_bersih),
+        backgroundColor:d.map(x=>x.laba_bersih>=0?'#10b981cc':'#ef4444cc'),
+        borderRadius:5, borderSkipped:false
+      }]);
+      mkChart('c6','bar',lbl,[{
+        label:'Laba Ditahan',
+        data:d.map(x=>x.laba_tahan),
+        backgroundColor:d.map(x=>x.laba_tahan>=0?'#fb923ccc':'#ef4444cc'),
+        borderRadius:5, borderSkipped:false
+      }]);
+    });
+}
+
+// ── 5 TAHUNAN ──
+function loadTahunan() {
+  document.getElementById('chartRange').innerHTML =
+    '<i class="fas fa-circle-notch fa-spin me-1"></i>Memuat…';
+
+  fetch('/api/chart-tahunan?years=5')
+    .then(r => r.json())
+    .then(d => {
+      const lbl = d.map(x => x.label);
+      document.getElementById('chartRange').textContent =
+        lbl[0] + ', ' + lbl[lbl.length-1];
+
+      const latest    = d[d.length-1] || {};
+      const growth    = latest.growth_pct || 0;
+      const totalRev5 = d.reduce((s,x) => s+x.pendapatan, 0);
+      const totalLaba5= d.reduce((s,x) => s+x.laba_bersih, 0);
+
+      document.getElementById('kpi-tahunan').innerHTML = `
+        <div class="col-6 col-md-3">
+          <div class="kpi-block" style="background:linear-gradient(135deg,#059669,#047857)">
+            <i class="fas fa-coins kb-ico"></i>
+            <div class="kb-lbl">Total Pendapatan 5 Tahun</div>
+            <div class="kb-val text-rp">${fmt(totalRev5)}</div>
+            <div class="kb-sub">Akumulasi seluruh periode</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="kpi-block" style="background:linear-gradient(135deg,${totalLaba5>=0?'#2563eb,#1d4ed8':'#dc2626,#991b1b'})">
+            <i class="fas fa-sack-dollar kb-ico"></i>
+            <div class="kb-lbl">Total Laba Bersih 5 Tahun</div>
+            <div class="kb-val text-rp">${fmt(totalLaba5)}</div>
+            <div class="kb-sub">${totalLaba5>=0?'📈 Untung':'📉 Rugi'}</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="kpi-block" style="background:linear-gradient(135deg,${growth>=0?'#d97706,#b45309':'#dc2626,#991b1b'})">
+            <i class="fas fa-arrow-trend-up kb-ico"></i>
+            <div class="kb-lbl">Pertumbuhan Pendapatan (YoY)</div>
+            <div class="kb-val">${growth>=0?'+':''}${growth}%</div>
+            <div class="kb-sub">vs tahun sebelumnya</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="kpi-block" style="background:linear-gradient(135deg,#7c3aed,#6d28d9)">
+            <i class="fas fa-vault kb-ico"></i>
+            <div class="kb-lbl">Saldo Kas & Bank Saat Ini</div>
+            <div class="kb-val text-rp">${fmt(latest.saldo_akhir||0)}</div>
+            <div class="kb-sub">Kumulatif semua rekening</div>
+          </div>
+        </div>`;
+
+      mkChart('y1','bar',lbl,[
+        barFlat('Pendapatan',  d.map(x=>x.pendapatan),  '#10b981'),
+        barFlat('Total Beban', d.map(x=>x.total_beban), '#ef4444'),
+      ]);
+      mkChart('y2','line',lbl,[
+        line('Laba Kotor',       d.map(x=>x.laba_kotor),  '#3b82f6'),
+        line('Laba Operasional', d.map(x=>x.laba_op),     '#10b981'),
+        line('Laba Bersih',      d.map(x=>x.laba_bersih), '#a78bfa'),
+      ]);
+      mkChart('y3','bar',lbl,[
+        barFlat('Uang Masuk',  d.map(x=>x.uang_masuk),  '#10b981'),
+        barFlat('Uang Keluar', d.map(x=>x.uang_keluar), '#ef4444'),
+      ]);
+      mkChart('y4','bar',lbl,[{
+        label:'Pertumbuhan YoY',
+        data:d.map(x=>x.growth_pct),
+        backgroundColor:d.map(x=>x.growth_pct>=0?'#10b981cc':'#ef4444cc'),
+        borderRadius:5, borderSkipped:false
+      }], darkScalesPct);
+      mkChart('y5','bar',lbl,[{
+        label:'Laba Bersih',
+        data:d.map(x=>x.laba_bersih),
+        backgroundColor:d.map(x=>x.laba_bersih>=0?'#10b981cc':'#ef4444cc'),
+        borderRadius:5, borderSkipped:false
+      }]);
+      mkChart('y6','line',lbl,[{
+        label:'Saldo Akhir Tahun',
+        data:d.map(x=>x.saldo_akhir),
+        borderColor:'#fb923c', backgroundColor:'#fb923c22',
+        tension:0.4, fill:true, pointRadius:6,
+        pointBackgroundColor:d.map(x=>x.saldo_akhir>=0?'#fb923c':'#ef4444'),
+        borderWidth:2
+      }]);
+    });
+}
+
+// ── View switcher ──
+function setView(view) {
+  const isBulanan = view==='bulanan';
+  document.getElementById('section-bulanan').style.display = isBulanan ? '' : 'none';
+  document.getElementById('section-tahunan').style.display = isBulanan ? 'none' : '';
+  document.getElementById('bulanan-controls').style.display = isBulanan ? '' : 'none';
+  document.getElementById('btn-bulanan').className = 'btn-dt ' + (isBulanan?'act':'');
+  document.getElementById('btn-tahunan').className = 'btn-dt ' + (!isBulanan?'act':'');
+  if (isBulanan) loadBulanan(currentMonths);
+  else loadTahunan();
+}
+
+loadBulanan(12);
+</script>
+{% endblock %}

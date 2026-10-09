@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+{% block title %}Daftar Transaksi – FinansialApp{% endblock %}
+{% block page_title %}Daftar Transaksi{% endblock %}
+
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+<style>
+.dtab {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: .52rem 1.2rem;
+  border: 1.5px solid #e2e8f0;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  font-size: .86rem; font-weight: 600;
+  text-decoration: none;
+  background: #f1f5f9;
+  color:var(--tx3);
+  transition: color .12s, background .12s;
+  position: relative; bottom: -1.5px;
+}
+.dtab:hover { background: #e2e8f0; color: #475569; }
+/* Tab tak aktif latarnya #f1f5f9 hardcoded, jadi TETAP terang di tema gelap,
+   sementara warna teksnya var(--tx3) ikut menerang -> 2,39:1. Latarnya
+   ikut digelapkan supaya pasangannya kembali nyambung. */
+[data-theme="dark"] .dtab { background:#1f2937; border-color:#374151; }
+[data-theme="dark"] .dtab:hover { background:#374151; color:var(--tx); }
+.dtab.active-all   { background: #fff; color: #334155; border-color: #cbd5e1; }
+.dtab.active-masuk { background: #fff; color: #15803d; border-color: #86efac; }
+.dtab.active-keluar{ background: #fff; color: #b91c1c; border-color: #fca5a5; }
+.dtab.active-retur { background: #fff; color: #c2410c; border-color: #fdba74; }
+.dtab.active-lunas { background: #fff; color: #7c3aed; border-color: #c4b5fd; }
+.dtab.active-transfer { background: #fff; color: #0e7490; border-color: #67e8f9; }
+.dtab .cnt {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 16px; padding: 0 4px;
+  border-radius: 20px; font-size: .65rem; font-weight: 700;
+}
+.beban-chip {
+  padding: .3rem .8rem; border-radius: 20px; font-size: .76rem;
+  font-weight: 600; text-decoration: none; border: 1.5px solid #e2e8f0;
+  background: #f8fafc; color: #64748b; transition: all .12s;
+}
+.beban-chip:hover { border-color: #94a3b8; color: #334155; }
+.drp2-panel{position:fixed;z-index:9999;background:var(--card);border:1px solid var(--bdr-md);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);display:flex;overflow-x:hidden;overflow-y:auto;max-height:calc(100vh - 16px);width:700px;max-width:calc(100vw - 16px)}
+.drp2-sidebar{width:175px;flex-shrink:0;border-right:1px solid var(--bdr-md);overflow-y:auto;padding:.6rem 0;background:var(--card)}
+.drp2-stitle{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);padding:.25rem .85rem .5rem}
+.drp2-preset{padding:.38rem .85rem;font-size:.82rem;cursor:pointer;color:var(--tx2);border-left:2.5px solid transparent;white-space:nowrap}
+.drp2-preset:hover{background:var(--bdr);color:var(--tx)}
+.drp2-preset.drp2-active{background:#f0fdf4;color:#15803d;border-left-color:#16a34a;font-weight:600}
+[data-theme=dark] .drp2-preset.drp2-active{background:rgba(20,83,45,.4);color:#4ade80}
+.drp2-right{flex:1;display:flex;flex-direction:column;min-width:0}.drp2-cals{display:flex;gap:1.25rem;padding:1rem 1rem .75rem}.drp2-month{flex:1}
+.drp2-mhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}.drp2-mnav{background:none;border:none;cursor:pointer;color:var(--tx2);font-size:1.15rem;line-height:1;padding:2px 8px;border-radius:5px}.drp2-mnav:hover{background:var(--bdr)}
+.drp2-mtitle{font-size:.85rem;font-weight:700;color:var(--tx)}.drp2-daynames,.drp2-grid{display:grid;grid-template-columns:repeat(7,1fr)}.drp2-daynames{margin-bottom:.25rem}.drp2-daynames div{text-align:center;font-size:.6rem;font-weight:600;color:var(--tx3);padding:.18rem 0}
+.drp2-day,.drp2-empty{text-align:center;font-size:.78rem;padding:.3rem .1rem;cursor:pointer;border-radius:5px;color:var(--tx);border:1.5px solid transparent;line-height:1.4;user-select:none}.drp2-empty{cursor:default}.drp2-day:hover{background:var(--bdr)}.drp2-today{font-weight:700;border-color:#16a34a!important;color:#15803d}.drp2-sel-s,.drp2-sel-e{background:#15803d!important;color:#fff!important;border-color:#16a34a!important;font-weight:700}.drp2-in-range{background:#dcfce7;color:#15803d;border-radius:0}.drp2-hover-range{background:#f0fdf4;color:#166534;border-radius:0}[data-theme=dark] .drp2-in-range{background:rgba(20,83,45,.5);color:#86efac}[data-theme=dark] .drp2-hover-range{background:rgba(20,83,45,.25);color:#86efac}
+.drp2-foot{padding:.65rem 1rem;border-top:1px solid var(--bdr-md);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}.drp2-inp{background:var(--inp);color:var(--tx);border:1px solid var(--bdr-md);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;width:112px}.drp2-sep{color:var(--tx3)}
+@media(max-width:768px){.drp2-panel{width:calc(100vw - 16px);flex-direction:column}.drp2-sidebar{width:100%;border-right:none;border-bottom:1px solid var(--bdr-md);max-height:100px;display:flex;flex-wrap:wrap;padding:.35rem .5rem}.drp2-stitle{display:none}.drp2-preset{padding:.25rem .5rem;font-size:.75rem;border-left:none;border:1px solid var(--bdr-md);border-radius:4px;margin:.15rem}.drp2-cals{flex-direction:column;gap:.5rem;padding:.5rem}}
+</style>
+
+<div class="card shadow-sm" style="border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden">
+
+  {# ── Tab bar ──────────────────────────────────────── #}
+  <div style="background:#f8fafc;padding:.8rem 1rem 0;border-bottom:1.5px solid #e2e8f0">
+    <div class="d-flex gap-1 align-items-end flex-wrap">
+
+      {# Semua #}
+      <a href="{{ url_for('daftar_transaksi', q=q, date_from=date_from, date_to=date_to) }}"
+         class="dtab {% if tab=='semua' %}active-all{% endif %}">
+        <i class="fas fa-bars" style="font-size:.75rem"></i>
+        Semua
+        {% if tab=='semua' %}
+        <span class="cnt" style="background:#e2e8f0;color:#475569">{{ pg.total }}</span>
+        {% endif %}
+      </a>
+
+      {# Pemasukan #}
+      <a href="{{ url_for('daftar_transaksi', tab='pemasukan', q=q, date_from=date_from, date_to=date_to) }}"
+         class="dtab {% if tab=='pemasukan' %}active-masuk{% endif %}">
+        <i class="fas fa-arrow-trend-up"
+           style="font-size:.78rem;color:{% if tab=='pemasukan' %}#15803d{% else %}#cbd5e1{% endif %}"></i>
+        Penjualan
+        {% if tab=='pemasukan' %}
+        <span class="cnt" style="background:#dcfce7;color:#15803d">{{ pg.total }}</span>
+        {% endif %}
+      </a>
+
+      {# Pengeluaran #}
+      <a href="{{ url_for('daftar_transaksi', tab='pengeluaran', q=q, date_from=date_from, date_to=date_to) }}"
+         class="dtab {% if tab=='pengeluaran' %}active-keluar{% endif %}">
+        <i class="fas fa-arrow-trend-down"
+           style="font-size:.78rem;color:{% if tab=='pengeluaran' %}#ef4444{% else %}#cbd5e1{% endif %}"></i>
+        Pengeluaran
+        {% if tab=='pengeluaran' %}
+        <span class="cnt" style="background:#fee2e2;color:#b91c1c">{{ pg.total }}</span>
+        {% endif %}
+      </a>
+
+      {# Retur #}
+      <a href="{{ url_for('daftar_transaksi', tab='retur', q=q, date_from=date_from, date_to=date_to) }}"
+         class="dtab {% if tab=='retur' %}active-retur{% endif %}">
+        <i class="fas fa-rotate-left"
+           style="font-size:.78rem;color:{% if tab=='retur' %}#c2410c{% else %}#cbd5e1{% endif %}"></i>
+        Retur
+        {% if tab=='retur' %}
+        <span class="cnt" style="background:#ffedd5;color:#c2410c">{{ pg.total }}</span>
+        {% endif %}
+      </a>
+
+      {# Pelunasan #}
+      <a href="{{ url_for('daftar_transaksi', tab='pelunasan', q=q, date_from=date_from, date_to=date_to) }}"
+         class="dtab {% if tab=='pelunasan' %}active-lunas{% endif %}">
+        <i class="fas fa-handshake"
+           style="font-size:.78rem;color:{% if tab=='pelunasan' %}#8b5cf6{% else %}#cbd5e1{% endif %}"></i>
+        Pelunasan
+        {% if tab=='pelunasan' %}
+        <span class="cnt" style="background:#ede9fe;color:#7c3aed">{{ pg.total }}</span>
+        {% endif %}
+      </a>
+
+      {# Transfer #}
+      <a href="{{ url_for('daftar_transaksi', tab='transfer', q=q, date_from=date_from, date_to=date_to) }}"
+         class="dtab {% if tab=='transfer' %}active-transfer{% endif %}">
+        <i class="fas fa-right-left"
+           style="font-size:.78rem;color:{% if tab=='transfer' %}#0369a1{% else %}#cbd5e1{% endif %}"></i>
+        Transfer
+        {% if tab=='transfer' %}
+        <span class="cnt" style="background:#cffafe;color:#0e7490">{{ pg.total }}</span>
+        {% endif %}
+      </a>
+
+    </div>
+  </div>
+
+  <div class="card-body" style="padding:1rem">
+
+    {# ── Filter bar ───────────────────────────────────── #}
+    <form method="GET" id="txFilterForm" class="mb-3">
+      <input type="hidden" name="tab"   value="{{ tab }}">
+      <input type="hidden" name="beban" value="{{ beban }}">
+      <input type="hidden" name="date_from" id="txDateFrom" value="{{ date_from }}">
+      <input type="hidden" name="date_to" id="txDateTo" value="{{ date_to }}">
+
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+
+        {# Rentang tanggal #}
+        <button type="button" id="txDrpBtn" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+                style="font-size:.82rem;min-width:220px;justify-content:flex-start">
+          <i class="fas fa-calendar-days" style="color:#15803d;font-size:.85rem"></i>
+          <span id="txDrpLbl" style="flex:1;text-align:left">Pilih Rentang Tanggal</span>
+          <i class="fas fa-chevron-down" style="font-size:.65rem;opacity:.45"></i>
+        </button>
+
+        {# Search keterangan #}
+        <div class="input-group input-group-sm" style="min-width:190px;max-width:240px">
+          <span class="input-group-text bg-white"><i class="fas fa-search text-muted" style="font-size:.75rem"></i></span>
+          <input type="text" name="q" class="form-control border-start-0"
+                 placeholder="Cari ID / keterangan…" value="{{ q }}" style="font-size:.86rem">
+        </div>
+
+        <button class="btn btn-sm btn-primary px-3">Tampilkan</button>
+
+        <a href="{{ url_for('daftar_transaksi_export', tab=tab, beban=beban, q=q, date_from=date_from, date_to=date_to) }}"
+           class="btn btn-sm btn-outline-success">
+          <i class="fas fa-file-excel me-1"></i>Download Excel
+        </a>
+
+        {% if q or date_from or date_to %}
+        <a href="{{ url_for('daftar_transaksi', tab=tab, beban=beban) }}"
+           class="btn btn-sm btn-outline-secondary">Reset</a>
+        {% endif %}
+
+      </div>
+      <div class="mt-1" style="font-size:.72rem;color:var(--tx3)">
+        Periode awal mengikuti Dashboard. Tanggal di halaman ini dapat dipilih secara mandiri.
+      </div>
+    </form>
+
+    {# Beban chips, pengeluaran only #}
+    {% if tab == 'pengeluaran' %}
+    {% set chips = [
+      ('',           'Semua',           '#475569','#f1f5f9','#e2e8f0'),
+      ('bahan_baku', 'Bahan Baku',      '#065f46','#d1fae5','#6ee7b7'),
+      ('operasional','Operasional',     '#1e40af','#dbeafe','#93c5fd'),
+      ('investasi',  'Investasi Aset',  '#92400e','#fef3c7','#fcd34d'),
+      ('pajak',      'Pajak',           '#155e75','#cffafe','#67e8f9'),
+      ('penarikan',  'Penarikan Owner', '#4c1d95','#ede9fe','#c4b5fd'),
+      ('pinjaman_karyawan', 'Pinjaman Karyawan', '#9f1239','#ffe4e6','#fda4af'),
+    ] %}
+    <div class="d-flex flex-wrap gap-1 mb-3">
+      {% for val,lbl,color,bg,bord in chips %}
+      <a href="{{ url_for('daftar_transaksi', tab='pengeluaran', beban=val, q=q, date_from=date_from, date_to=date_to) }}"
+         class="beban-chip"
+         style="{% if beban==val %}background:{{ bg }};color:{{ color }};border-color:{{ bord }}{% endif %}">
+        {{ lbl }}
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {# Info rentang aktif #}
+    {% if date_from or date_to %}
+    <div class="mb-2" style="font-size:.8rem;color:#64748b">
+      <i class="fas fa-filter" style="font-size:.7rem"></i>
+      Menampilkan periode:
+      <strong>{{ date_from if date_from else '-' }}</strong>
+      hingga
+      <strong>{{ date_to if date_to else '-' }}</strong>
+    </div>
+    {% endif %}
+
+    {# ── Table ───────────────────────────────────────── #}
+    {% if rows %}
+    <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0" style="font-size:.87rem">
+      <thead>
+        <tr style="background:#f8fafc;border-top:1px solid #f1f5f9">
+          <th style="width:145px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);font-weight:600;padding:.6rem .75rem">ID Transaksi</th>
+          <th style="width:100px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);font-weight:600;padding:.6rem .75rem">Tanggal</th>
+          <th style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);font-weight:600;padding:.6rem .75rem">Keterangan</th>
+          <th style="width:130px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);font-weight:600;padding:.6rem .75rem">Jenis</th>
+          <th class="text-end" style="width:140px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);font-weight:600;padding:.6rem .75rem">Nominal</th>
+          <th class="text-end" style="width:135px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);font-weight:600;padding:.6rem .75rem" title="Uang tunai/bank yang benar-benar bergerak di transaksi ini">Kas</th>
+          <th class="text-end" style="width:160px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);font-weight:600;padding:.6rem .75rem" title="Laba kotor (penjualan) atau beban (pengeluaran) — dampak ke laba rugi">Laba Rugi</th>
+          <th class="text-end" style="width:140px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);font-weight:600;padding:.6rem .75rem" title="Sisa piutang / hutang yang belum lunas dari transaksi ini">Sisa Tagihan</th>
+          <th style="width:40px"></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for r in rows %}
+      {% set is_masuk = r.flow_direction == 'MASUK' %}
+      {% set is_transfer = r.flow_direction == 'TRANSFER' %}
+      <tr>
+        <td style="color:#64748b;font-size:.79rem;padding:.6rem .75rem;white-space:nowrap">{{ r.nomor_tx }}</td>
+        <td style="color:var(--tx3);font-size:.81rem;padding:.6rem .75rem">{{ r.tanggal|tgl }}</td>
+        <td style="font-weight:500;padding:.6rem .75rem">
+          {{ r.keterangan }}
+          {% if r.pos_nomor %}
+            <span class="badge bg-dark text-white ms-1" style="font-size:.62rem;font-weight:600" title="Transaksi dari POS Kasir">
+              <i class="fas fa-cash-register me-1"></i>POS
+            </span>
+            {% if r.pos_kasir %}
+            <span class="ms-1" style="font-size:.72rem;color:#64748b" title="Kasir yang menginput">
+              <i class="fas fa-user me-1"></i>{{ r.pos_kasir }}
+            </span>
+            {% endif %}
+          {% endif %}
+        </td>
+        <td style="padding:.6rem .75rem">
+          {% set lbl = r.sub_label %}
+          <span class="badge" style="background:{% if is_transfer %}#cffafe{% elif lbl == 'Retur Penjualan' %}#ffedd5{% elif lbl == 'Retur Pembelian' %}#e0f2fe{% elif lbl == 'Penerimaan Piutang' %}#ccfbf1{% elif lbl == 'Pembayaran Hutang' %}#ede9fe{% elif is_masuk %}#dcfce7{% else %}#fee2e2{% endif %};
+              color:{% if is_transfer %}#0e7490{% elif lbl == 'Retur Penjualan' %}#c2410c{% elif lbl == 'Retur Pembelian' %}#0369a1{% elif lbl == 'Penerimaan Piutang' %}#0f766e{% elif lbl == 'Pembayaran Hutang' %}#7c3aed{% elif is_masuk %}#15803d{% else %}#b91c1c{% endif %};
+              font-size:.71rem;font-weight:600">{{ lbl }}</span>
+        </td>
+        <td class="text-end" style="font-weight:700;font-size:.9rem;padding:.6rem .75rem;
+            color:{% if is_transfer %}#0e7490{% elif r.sub_label == 'Retur Penjualan' %}#c2410c{% elif r.sub_label == 'Retur Pembelian' %}#0369a1{% elif r.sub_label == 'Penerimaan Piutang' %}#0f766e{% elif r.sub_label == 'Pembayaran Hutang' %}#7c3aed{% elif is_masuk %}#15803d{% else %}#dc2626{% endif %}">
+          {% if is_transfer %}{{ r.total|rp }}{% else %}{{ '+' if is_masuk else '−' }}{{ r.total|rp }}{% endif %}
+        </td>
+        {# ── Kas: uang riil yang bergerak (net rekening kas/bank) ── #}
+        <td class="text-end" style="padding:.6rem .75rem;font-size:.85rem;font-weight:600;white-space:nowrap">
+          {% set nk = r.get('net_kas', 0)|float %}
+          {% if nk|abs < 0.01 %}<span style="color:var(--tx3)">—</span>
+          {% elif nk > 0 %}<span style="color:#15803d">+{{ nk|rp }}</span>
+          {% else %}<span style="color:#dc2626">−{{ (nk|abs)|rp }}</span>{% endif %}
+        </td>
+        {# ── Laba Rugi: laba kotor (penjualan, + %), beban (pengeluaran), atau dampak retur ── #}
+        <td class="text-end" style="padding:.6rem .75rem;font-size:.85rem;white-space:nowrap">
+          {% if r.tipe_tx == 'PEMASUKAN' %}
+            {% set _pend = r.get('total', 0)|float %}
+            {% set _lk = _pend - r.get('hpp', 0)|float %}
+            {% set _pct = (_lk / _pend * 100) if _pend > 0 else 0 %}
+            <span style="color:{% if _lk >= 0 %}#15803d{% else %}#dc2626{% endif %};font-weight:700">{{ '+' if _lk >= 0 else '−' }}{{ (_lk|abs)|rp }}</span>
+            <span style="color:var(--tx3);font-size:.76rem">({{ _pct|round|int }}%)</span>
+          {% elif r.tipe_tx == 'PENGELUARAN' and r.get('beban', 0)|float > 0.01 %}
+            <span style="color:#dc2626;font-weight:700">−{{ r.get('beban', 0)|rp }}</span>
+          {% elif r.tipe_tx in ('RETUR_JUAL','RETUR_BELI') and r.get('laba_impact', 0)|float|abs > 0.01 %}
+            {% set _li = r.get('laba_impact', 0)|float %}
+            <span style="color:{% if _li >= 0 %}#15803d{% else %}#dc2626{% endif %};font-weight:700">{{ '+' if _li >= 0 else '−' }}{{ (_li|abs)|rp }}</span>
+          {% else %}<span style="color:var(--tx3)">—</span>{% endif %}
+        </td>
+        {# ── Sisa Tagihan: piutang (penjualan kredit) / hutang (pengeluaran kredit) belum lunas ── #}
+        <td class="text-end" style="padding:.6rem .75rem;font-size:.83rem;white-space:nowrap">
+          {% set _sp = r.get('sisa_piutang', 0)|float %}
+          {% set _sh = r.get('sisa_hutang', 0)|float %}
+          {% if _sp > 0.01 %}<span style="color:#b45309;font-weight:600">{{ _sp|rp }}</span> <span class="badge" style="background:#fef3c7;color:#92400e;font-size:.58rem;font-weight:700">PIUTANG</span>
+          {% elif _sh > 0.01 %}<span style="color:#7c3aed;font-weight:600">{{ _sh|rp }}</span> <span class="badge" style="background:#ede9fe;color:#6d28d9;font-size:.58rem;font-weight:700">HUTANG</span>
+          {% else %}<span style="color:var(--tx3)">—</span>{% endif %}
+        </td>
+        <td style="padding:.4rem .5rem">
+          <a href="{{ url_for('transaksi_detail', id=r.id) }}"
+             class="btn btn-sm btn-outline-secondary py-0 px-2" title="Lihat jurnal">
+            <i class="fas fa-eye" style="font-size:.7rem"></i>
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="border-top:2px solid #e2e8f0;background:#f8fafc">
+          <td colspan="4" style="padding:.65rem .75rem;font-size:.82rem;color:#64748b;font-weight:600;text-align:right">
+            {{ pg.total }} transaksi
+            {% if tab == 'semua' %}
+            &nbsp;·&nbsp;
+            <span style="color:#15803d">+{{ total_masuk|rp }}</span>
+            &nbsp;
+            <span style="color:#dc2626">−{{ total_keluar|rp }}</span>
+            {% if total_transfer %}
+            &nbsp;
+            <span style="color:#0e7490">tf {{ total_transfer|rp }}</span>
+            {% endif %}
+            {% endif %}
+          </td>
+          <td class="text-end" style="padding:.65rem .75rem;font-size:1rem;font-weight:800;
+              color:{% if tab=='pemasukan' %}#15803d{% elif tab=='pengeluaran' %}#dc2626{% elif tab=='retur' %}{% if total_all>=0 %}#15803d{% else %}#dc2626{% endif %}{% elif tab=='pelunasan' %}#7c3aed{% elif tab=='transfer' %}#0e7490{% elif total_all>=0 %}#15803d{% else %}#dc2626{% endif %}">
+            {% if tab == 'semua' %}{{ '+' if total_all >= 0 else '−' }}{{ (total_all|abs)|rp }}
+            {% elif tab == 'pemasukan' %}+{{ total_all|rp }}
+            {% elif tab == 'retur' %}{{ '+' if total_all >= 0 else '−' }}{{ (total_all|abs)|rp }}
+            {% elif tab == 'pelunasan' %}{{ '+' if total_all >= 0 else '-' }}{{ (total_all|abs)|rp }}
+            {% elif tab == 'transfer' %}{{ total_all|rp }}
+            {% else %}−{{ total_all|rp }}{% endif %}
+          </td>
+          <td colspan="4"></td>
+        </tr>
+        {% if tab in ('semua', 'pelunasan') %}
+        <tr style="background:#f8fafc">
+          <td colspan="4" class="text-end" style="padding:.3rem .75rem;font-size:.76rem;color:#64748b">
+            Pelunasan terpisah dari omzet / belanja:
+            <span style="color:#0f766e">penerimaan piutang +{{ total_pelunasan_masuk|rp }}</span>
+            &nbsp; | &nbsp;
+            <span style="color:#7c3aed">pembayaran hutang -{{ total_pelunasan_keluar|rp }}</span>
+          </td>
+          <td class="text-end" style="padding:.3rem .75rem;font-size:.82rem;font-weight:700;color:#7c3aed">
+            {{ '+' if (total_pelunasan_masuk-total_pelunasan_keluar) >= 0 else '-' }}{{ ((total_pelunasan_masuk-total_pelunasan_keluar)|abs)|rp }}
+          </td>
+          <td colspan="4"></td>
+        </tr>
+        {% endif %}
+        {% if tab in ('semua', 'retur') %}
+        <tr style="background:#f8fafc">
+          <td colspan="4" class="text-end" style="padding:.3rem .75rem;font-size:.76rem;color:#64748b">
+            Retur terpisah dari omzet / belanja:
+            <span style="color:#c2410c">retur penjualan -{{ total_retur_jual|rp }}</span>
+            &nbsp; | &nbsp;
+            <span style="color:#0369a1">retur pembelian +{{ total_retur_beli|rp }}</span>
+          </td>
+          <td class="text-end" style="padding:.3rem .75rem;font-size:.82rem;font-weight:700;color:#c2410c">
+            {{ '+' if (total_retur_beli-total_retur_jual) >= 0 else '-' }}{{ ((total_retur_beli-total_retur_jual)|abs)|rp }}
+          </td>
+          <td colspan="4"></td>
+        </tr>
+        {% endif %}
+      </tfoot>
+    </table>
+    </div>
+
+    {% else %}
+    <div class="text-center py-5" style="color:var(--tx3)">
+      <i class="fas fa-inbox fa-2x mb-3 d-block"></i>
+      <div style="font-size:.9rem">
+        Tidak ada transaksi
+        {% if beban %}untuk kategori <strong>{{ beban }}</strong>{% endif %}
+        {% if q %}yang cocok dengan "<strong>{{ q }}</strong>"{% endif %}
+        {% if date_from or date_to %}pada rentang tanggal yang dipilih{% endif %}
+      </div>
+      {% if beban or q or date_from or date_to %}
+      <a href="{{ url_for('daftar_transaksi', tab=tab) }}" class="btn btn-sm btn-outline-secondary mt-3">Reset filter</a>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{{ pagination(pg) }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const BLN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const HRN=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  let start=null,end=null,hover=null,selecting=false,leftYear,leftMonth,panel=null;
+  const z=n=>String(n).padStart(2,'0');
+  const ymd=d=>d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());
+  const fromYMD=s=>{if(!s)return null;const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);};
+  const disp=d=>d?d.getDate()+' '+BLN[d.getMonth()].slice(0,3)+' '+d.getFullYear():'';
+  function presets(){
+    const t=new Date();t.setHours(0,0,0,0);
+    const ago=n=>{const d=new Date(t);d.setDate(d.getDate()-n);return d;};
+    const som=d=>new Date(d.getFullYear(),d.getMonth(),1);
+    const eom=d=>new Date(d.getFullYear(),d.getMonth()+1,0);
+    const sow=d=>{const r=new Date(d),w=r.getDay();r.setDate(r.getDate()-(w===0?6:w-1));return r;};
+    const lms=new Date(t.getFullYear(),t.getMonth()-1,1),lw=sow(ago(7)),lwe=new Date(lw);lwe.setDate(lwe.getDate()+6);
+    return [
+      ['Hari Ini',t,t],['Kemarin',ago(1),ago(1)],['7 Hari Terakhir',ago(6),t],
+      ['14 Hari Terakhir',ago(13),t],['30 Hari Terakhir',ago(29),t],
+      ['Minggu Ini',sow(t),t],['Minggu Lalu',lw,lwe],['Bulan Ini',som(t),t],
+      ['Bulan Lalu',lms,eom(lms)],['Tahun Ini',new Date(t.getFullYear(),0,1),t]
+    ].map(x=>({label:x[0],start:x[1],end:x[2]}));
+  }
+  const PS=presets();
+  const cells=(y,m)=>{const a=[];for(let i=0;i<new Date(y,m,1).getDay();i++)a.push(null);for(let d=1;d<=new Date(y,m+1,0).getDate();d++)a.push(new Date(y,m,d));return a;};
+  function dayClass(d){
+    const today=new Date();today.setHours(0,0,0,0);let c='drp2-day';
+    if(+d===+today)c+=' drp2-today';
+    if(start&&ymd(d)===ymd(start))c+=' drp2-sel-s';
+    if(end&&ymd(d)===ymd(end))c+=' drp2-sel-e';
+    if(start&&end&&d>start&&d<end)c+=' drp2-in-range';
+    if(selecting&&start&&!end&&hover){
+      const lo=start<hover?start:hover,hi=start<hover?hover:start;
+      if(d>=lo&&d<=hi)c+=ymd(d)===ymd(hover)?' drp2-sel-e':' drp2-hover-range';
+    }
+    return c;
+  }
+  function month(y,m,left){
+    const min=new Date().getFullYear()-30,max=new Date().getFullYear()+10;
+    let years='';for(let n=min;n<=max;n++)years+=`<option${n===y?' selected':''}>${n}</option>`;
+    return `<div class="drp2-month"><div class="drp2-mhdr">
+      ${left?'<button type="button" class="drp2-mnav" id="txDrpPrev">&#8249;</button>':'<span></span>'}
+      <div class="drp2-mtitle">${BLN[m]} <select class="drp2-yr-sel" id="${left?'txDrpYrL':'txDrpYrR'}">${years}</select></div>
+      ${left?'<button type="button" class="drp2-mnav" id="txDrpNext">&#8250;</button>':'<span></span>'}
+      </div><div class="drp2-daynames">${HRN.map(x=>`<div>${x}</div>`).join('')}</div>
+      <div class="drp2-grid">${cells(y,m).map(d=>d?`<div class="${dayClass(d)}" data-dt="${ymd(d)}">${d.getDate()}</div>`:'<div class="drp2-empty"></div>').join('')}</div></div>`;
+  }
+  function render(){
+    const rm=leftMonth===11?0:leftMonth+1,ry=leftMonth===11?leftYear+1:leftYear;
+    const active=PS.findIndex(p=>start&&end&&ymd(p.start)===ymd(start)&&ymd(p.end)===ymd(end));
+    return `<div class="drp2-sidebar"><div class="drp2-stitle">Pilih Cepat</div>
+      ${PS.map((p,i)=>`<div class="drp2-preset${i===active?' drp2-active':''}" data-preset="${i}">${p.label}</div>`).join('')}</div>
+      <div class="drp2-right"><div class="drp2-cals">${month(leftYear,leftMonth,true)}${month(ry,rm,false)}</div>
+      <div class="drp2-foot"><div class="d-flex align-items-center gap-2">
+      <input class="drp2-inp" value="${disp(start)}" readonly><span class="drp2-sep">→</span>
+      <input class="drp2-inp" value="${disp(end)}" readonly></div><div class="ms-auto d-flex gap-2">
+      <button type="button" id="txDrpCancel" class="btn btn-sm btn-outline-secondary">Batal</button>
+      <button type="button" id="txDrpUpdate" class="btn btn-sm btn-success"${start&&end?'':' disabled'}>Update</button></div></div></div>`;
+  }
+  function trigger(){document.getElementById('txDrpLbl').textContent=start&&end?disp(start)+', '+disp(end):'Pilih Rentang Tanggal';}
+  function refresh(){if(panel){panel.innerHTML=render();bind();}}
+  // Repaint kelas hari IN-PLACE saat hover (JANGAN rebuild innerHTML — itu menghancurkan
+  // elemen hari di tengah klik → klik tanggal kedua tak ter-fire → rentang gagal di-update).
+  function paintDays(){if(panel)panel.querySelectorAll('[data-dt]').forEach(el=>el.className=dayClass(fromYMD(el.dataset.dt)));}
+  function bind(){
+    panel.querySelectorAll('[data-preset]').forEach(el=>el.onclick=()=>{const p=PS[+el.dataset.preset];start=new Date(p.start);end=new Date(p.end);selecting=false;leftYear=start.getFullYear();leftMonth=start.getMonth();trigger();refresh();});
+    panel.querySelectorAll('[data-dt]').forEach(el=>{
+      el.onclick=()=>{const d=fromYMD(el.dataset.dt);if(!selecting){start=d;end=null;selecting=true;}else{if(d<start){end=start;start=d;}else end=d;selecting=false;}trigger();refresh();};
+      el.onmouseenter=()=>{if(selecting){hover=fromYMD(el.dataset.dt);paintDays();}};
+    });
+    panel.querySelector('#txDrpPrev').onclick=()=>{if(--leftMonth<0){leftMonth=11;leftYear--;}refresh();};
+    panel.querySelector('#txDrpNext').onclick=()=>{if(++leftMonth>11){leftMonth=0;leftYear++;}refresh();};
+    panel.querySelector('#txDrpYrL').onchange=e=>{leftYear=+e.target.value;refresh();};
+    panel.querySelector('#txDrpYrR').onchange=e=>{leftYear=+e.target.value-(leftMonth===11?1:0);refresh();};
+    panel.querySelector('#txDrpCancel').onclick=close;
+    panel.querySelector('#txDrpUpdate').onclick=()=>{if(start&&end){document.getElementById('txDateFrom').value=ymd(start);document.getElementById('txDateTo').value=ymd(end);close();document.getElementById('txFilterForm').submit();}};
+  }
+  function close(){if(panel){panel.remove();panel=null;}document.removeEventListener('mousedown',outside);selecting=false;hover=null;}
+  function outside(e){const b=document.getElementById('txDrpBtn');if(panel&&!panel.contains(e.target)&&!b.contains(e.target))close();}
+  function open(){if(panel){close();return;}panel=document.createElement('div');panel.className='drp2-panel';panel.innerHTML=render();document.body.appendChild(panel);const b=document.getElementById('txDrpBtn').getBoundingClientRect();let _t=b.bottom+6;if(_t+panel.offsetHeight>window.innerHeight-8)_t=Math.max(8,window.innerHeight-panel.offsetHeight-8);panel.style.top=_t+'px';panel.style.left=Math.max(8,Math.min(b.left,window.innerWidth-panel.offsetWidth-8))+'px';bind();setTimeout(()=>document.addEventListener('mousedown',outside),0);}
+  document.addEventListener('DOMContentLoaded',()=>{start=fromYMD(document.getElementById('txDateFrom').value);end=fromYMD(document.getElementById('txDateTo').value);const b=start||new Date();leftYear=b.getFullYear();leftMonth=b.getMonth();trigger();document.getElementById('txDrpBtn').onclick=open;});
+})();
+</script>
+{% endblock %}

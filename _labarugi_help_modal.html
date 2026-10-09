@@ -1,0 +1,59 @@
+{# Modal petunjuk Laba Rugi. Di-include di laba_rugi.html; dipicu tombol [data-bs-target="#modalLabaRugiHelp"]. #}
+<div class="modal fade" id="modalLabaRugiHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Laporan Laba Rugi</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Laba Rugi merangkum apakah usaha untung atau rugi selama satu periode. Isinya
+          pendapatan dikurangi semua biaya, disusun bertingkat sampai ketemu laba bersih.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>Laba rugi memakai dasar akrual, bukan kas.</strong>
+            Penjualan dihitung saat transaksi terjadi, walaupun uangnya belum masuk. Jadi laba
+            di laporan ini bisa berbeda jauh dari saldo uang di rekening Anda.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-layer-group me-1" style="color:var(--ink)"></i>Susunannya bertingkat</div>
+        <ol class="ps-3 mb-3" style="font-size:.82rem">
+          <li class="mb-1"><strong>Pendapatan</strong> dikurangi <strong>HPP</strong> sama dengan <strong>Laba Kotor</strong>.</li>
+          <li class="mb-1"><strong>Laba Kotor</strong> dikurangi <strong>Beban Operasional</strong> (gaji, sewa, listrik, dll) sama dengan <strong>Laba Operasional</strong>.</li>
+          <li>Dikurangi lagi penyusutan, bunga, dan pajak sama dengan <strong>Laba Bersih</strong>.</li>
+        </ol>
+
+        <div class="fw-bold mb-1"><i class="fas fa-link me-1" style="color:var(--ink)"></i>Kaitan dengan Neraca</div>
+        <p class="mb-3" style="font-size:.82rem">
+          Laba bersih tidak berhenti di laporan ini. Angkanya mengalir ke Ekuitas di Neraca
+          sebagai laba ditahan. Untung menambah modal Anda, rugi menguranginya. Pengambilan
+          pemilik (prive) mengurangi lagi dari sisi ekuitas, bukan dari laba.
+        </p>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Bulan ini Anda jual barang Rp10.000.000 secara kredit (belum dibayar pelanggan). HPP-nya Rp6.000.000, dan bayar gaji Rp2.000.000.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Laba Kotor = Rp10.000.000 dikurangi Rp6.000.000 = Rp4.000.000.</li>
+            <li>Laba Bersih = Rp4.000.000 dikurangi gaji Rp2.000.000 = Rp2.000.000.</li>
+            <li>Laporan menunjukkan untung Rp2.000.000, padahal uang di rekening belum bertambah karena masih jadi piutang Rp10.000.000.</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Untuk melihat sisi uang yang benar-benar masuk dan keluar,
+          gunakan Laporan Arus Kas. Dua laporan ini memang menjawab pertanyaan yang berbeda.
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

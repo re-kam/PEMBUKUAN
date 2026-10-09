@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Laporan Perubahan Ekuitas - FinansialApp{% endblock %}
+{% block page_title %}Laporan Perubahan Ekuitas{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalPerubahanEkuitasHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_perubahanekuitas_help_modal.html' %}
+
+<form method="GET" class="d-flex gap-2 align-items-center mb-3 flex-wrap">
+  <span class="text-muted" style="font-size:.8rem">Periode</span>
+  <input type="date" name="sd" value="{{ sd }}" class="form-control form-control-sm" style="width:160px">
+  <span class="text-muted">s/d</span>
+  <input type="date" name="ed" value="{{ ed }}" class="form-control form-control-sm" style="width:160px">
+  <button class="btn btn-sm btn-primary"><i class="fas fa-filter me-1"></i>Terapkan</button>
+  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('perubahan_ekuitas') }}">Reset</a>
+  <span class="text-muted ms-auto" style="font-size:.78rem">
+    <i class="fas fa-circle-info me-1"></i>Sesuai PSAK 1 / SAK ETAP, salah satu dari 4 laporan keuangan utama.
+  </span>
+</form>
+
+{# KPI ringkas #}
+<div class="row g-2 mb-3">
+  <div class="col-md-3">
+    <div class="card kpi h-100 p-3">
+      <div class="kpi-lbl">SALDO AWAL EKUITAS</div>
+      <div class="kpi-val text-rp">{{ data.total_awal|rp }}</div>
+      <div class="kpi-sub">per {{ sd|tgl }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi grn h-100 p-3">
+      <div class="kpi-lbl">+ LABA BERSIH PERIODE</div>
+      <div class="kpi-val text-rp {% if data.laba_periode < 0 %}text-danger{% else %}text-success{% endif %}">
+        {{ data.laba_periode|rp }}</div>
+      <div class="kpi-sub">dari Laba Rugi</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi yel h-100 p-3">
+      <div class="kpi-lbl">PERUBAHAN MODAL (NET)</div>
+      <div class="kpi-val text-rp">{{ (data.total_tambah - data.total_kurang)|rp }}</div>
+      <div class="kpi-sub">setoran − penarikan</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi pur h-100 p-3">
+      <div class="kpi-lbl">SALDO AKHIR EKUITAS</div>
+      <div class="kpi-val text-rp">{{ data.total_akhir|rp }}</div>
+      <div class="kpi-sub">per {{ ed|tgl }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <span class="section-title"><i class="fas fa-scale-balanced me-2"></i>Rekonsiliasi Ekuitas</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" style="min-width:240px">Komponen Ekuitas</th>
+            <th class="text-end">Saldo Awal<br><small class="text-muted fw-normal">{{ sd|tgl }}</small></th>
+            <th class="text-end">+ Penambahan<br><small class="text-muted fw-normal">(setoran/dst)</small></th>
+            <th class="text-end">− Pengurangan<br><small class="text-muted fw-normal">(prive/dst)</small></th>
+            <th class="text-end pe-3">Saldo Akhir<br><small class="text-muted fw-normal">{{ ed|tgl }}</small></th>
+          </tr>
+        </thead>
+        <tbody>
+          {# ── Per akun ekuitas (3100, 3300, dll) ── #}
+          {% for r in data.rows %}
+          <tr>
+            <td class="ps-3">
+              <span class="text-muted fw-semibold me-1">{{ r.kode }}</span>{{ r.nama }}
+              {% if r.saldo_normal == 'DEBIT' %}
+                <span class="badge bg-warning text-dark ms-1" title="Akun kontra ekuitas (saldo normal Debit)">kontra</span>
+              {% endif %}
+            </td>
+            <td class="text-end text-rp">{{ r.awal|rp }}</td>
+            <td class="text-end text-rp {% if r.tambah > 0 %}text-success{% endif %}">
+              {% if r.tambah %}{{ r.tambah|rp }}{% else %}-{% endif %}</td>
+            <td class="text-end text-rp {% if r.kurang > 0 %}text-danger{% endif %}">
+              {% if r.kurang %}{{ r.kurang|rp }}{% else %}-{% endif %}</td>
+            <td class="text-end pe-3 text-rp fw-semibold">{{ r.akhir|rp }}</td>
+          </tr>
+          {% endfor %}
+
+          {# ── Laba Ditahan (akumulasi tahun-tahun sebelumnya) ── #}
+          {% if data.laba_sebelum %}
+          <tr>
+            <td class="ps-3">
+              <span class="text-muted me-1">-</span>Laba Ditahan (Akumulasi sebelum {{ sd|tgl }})
+            </td>
+            <td class="text-end text-rp">{{ data.laba_sebelum|rp }}</td>
+            <td class="text-end text-muted">-</td>
+            <td class="text-end text-muted">-</td>
+            <td class="text-end pe-3 text-rp fw-semibold">{{ data.laba_sebelum|rp }}</td>
+          </tr>
+          {% endif %}
+
+          {# ── Laba Bersih Periode Berjalan ── #}
+          <tr>
+            <td class="ps-3">
+              <span class="text-muted me-1">-</span>Laba Bersih Periode {{ sd|tgl }} s/d {{ ed|tgl }}
+            </td>
+            <td class="text-end text-muted">-</td>
+            <td class="text-end text-rp {% if data.laba_periode > 0 %}text-success{% endif %}">
+              {% if data.laba_periode > 0 %}{{ data.laba_periode|rp }}{% else %}-{% endif %}</td>
+            <td class="text-end text-rp {% if data.laba_periode < 0 %}text-danger{% endif %}">
+              {% if data.laba_periode < 0 %}{{ (-data.laba_periode)|rp }}{% else %}-{% endif %}</td>
+            <td class="text-end pe-3 text-rp fw-semibold {% if data.laba_periode < 0 %}text-danger{% else %}text-success{% endif %}">
+              {{ data.laba_periode|rp }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr class="table-dark">
+            <td class="ps-3 fw-bold">TOTAL EKUITAS</td>
+            <td class="text-end fw-bold text-rp">{{ data.total_awal|rp }}</td>
+            <td class="text-end fw-bold text-rp">{{ (data.total_tambah + data.laba_periode if data.laba_periode > 0 else data.total_tambah)|rp }}</td>
+            <td class="text-end fw-bold text-rp">{{ (data.total_kurang + (-data.laba_periode) if data.laba_periode < 0 else data.total_kurang)|rp }}</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ data.total_akhir|rp }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# Catatan & navigasi cross-laporan #}
+<div class="row g-2 mt-3">
+  <div class="col-md-7">
+    <div class="card h-100">
+      <div class="card-body py-2 px-3" style="font-size:.82rem">
+        <div class="fw-semibold mb-1"><i class="fas fa-circle-info text-primary me-1"></i>Cara membaca</div>
+        <ul class="mb-0 ps-3 text-muted" style="line-height:1.55">
+          <li><strong>Saldo Awal</strong> = posisi ekuitas pada awal periode (sebelum {{ sd|tgl }}).</li>
+          <li><strong>+ Penambahan</strong> = setoran modal pemilik, atau penambahan ekuitas lainnya selama periode.</li>
+          <li><strong>− Pengurangan</strong> = penarikan pribadi (Prive), distribusi/dividen, dst.</li>
+          <li><strong>Laba Bersih Periode</strong> ditambahkan dari Laporan Laba Rugi periode yang sama.</li>
+          <li><strong>Saldo Akhir</strong> harus sama dengan total Ekuitas di <a href="{{ url_for('neraca', ed=ed) }}">Neraca</a> per {{ ed|tgl }}.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-body py-2 px-3" style="font-size:.82rem">
+        <div class="fw-semibold mb-2"><i class="fas fa-link text-primary me-1"></i>Laporan terkait</div>
+        <div class="d-flex flex-column gap-1">
+          <a href="{{ url_for('laba_rugi', sd=sd, ed=ed) }}" class="text-decoration-none">
+            <i class="fas fa-chart-line me-1 text-muted"></i>Laba Rugi {{ sd|tgl }}, {{ ed|tgl }}</a>
+          <a href="{{ url_for('neraca', ed=ed) }}" class="text-decoration-none">
+            <i class="fas fa-scale-balanced me-1 text-muted"></i>Neraca per {{ ed|tgl }}</a>
+          <a href="{{ url_for('arus_kas', sd=sd, ed=ed) }}" class="text-decoration-none">
+            <i class="fas fa-water me-1 text-muted"></i>Arus Kas {{ sd|tgl }}, {{ ed|tgl }}</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

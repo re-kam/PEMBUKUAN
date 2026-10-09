@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block title %}Modul Lanjutan - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-puzzle-piece me-2" style="color:var(--tx)"></i>Modul Lanjutan{% endblock %}
+{% block content %}
+
+<style>
+/* ── Modul Lanjutan — selaras dengan Cliff.gosipinbisnis Design System (monokrom ink/paper) ── */
+.modul-info-box{
+  background:var(--card);
+  border:1px solid var(--line-hair);
+  border-radius:var(--r-md);
+  padding:.85rem 1.05rem;
+  font-size:.85rem;
+  line-height:1.65;
+  color:var(--tx2);
+  margin-top:1.1rem;
+  margin-bottom:1.25rem;
+}
+.modul-info-box strong{color:var(--ink)}
+[data-theme="dark"] .modul-info-box strong{color:var(--tx)}
+.modul-info-box .ic{color:var(--gray-500);margin-right:.35rem}
+.modul-custom-cta{
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  /* Hijau WhatsApp dipertahankan (itu yang memberi tahu tombol ini membuka
+     WhatsApp); yang diganti teksnya, karena putih di atas #25d366 cuma
+     1,98:1. Teks gelap memberi 9,98:1. Sejalan dgn .nav-link-pro-cta. */
+  background:#25d366;
+  border:1px solid #25d366;
+  color:#0A0A0A!important;
+  border-radius:999px;
+  padding:.18rem .62rem;
+  margin:0 .12rem;
+  font-weight:800;
+  line-height:1.25;
+  text-decoration:none;
+  box-shadow:0 6px 16px rgba(37,211,102,.28);
+  white-space:nowrap;
+}
+.modul-custom-cta:hover,
+.modul-custom-cta:focus{
+  background:#1ebe5d;
+  border-color:#1ebe5d;
+  color:#0A0A0A!important;
+  text-decoration:none;
+  box-shadow:0 8px 20px rgba(37,211,102,.36);
+}
+
+/* Flash alert: turunkan ke palet monokrom ala gb-alert */
+.alert-info{background:var(--paper-soft)!important;color:var(--gray-600)!important;border-color:var(--line-hair)!important}
+[data-theme="dark"] .alert-info{background:rgba(255,255,255,.06)!important;color:var(--tx2)!important;border-color:var(--bdr)!important}
+
+.modul-card{border-radius:var(--r-md);border:1px solid var(--bdr-md);box-shadow:none}
+/* Modul aktif dulu ditandai garis tebal di sisi kiri. Penandanya tetap perlu,
+   tapi dipindah ke KESELURUHAN tepi kartu: warnanya yang menguat, bukan garis
+   sesisi yang ditempel. Lompatannya besar (abu 14% -> hitam pekat) dan masih
+   ditegaskan badge AKTIF, jadi ketebalannya tak perlu ikut diubah. */
+.modul-card.modul-aktif{border-color:var(--ink)}
+[data-theme="dark"] .modul-card.modul-aktif{border-color:var(--tx)}
+.modul-card .modul-name{font-weight:700;letter-spacing:-.005em;color:var(--ink)}
+[data-theme="dark"] .modul-card .modul-name{color:var(--tx)}
+.modul-badge-off{background:var(--gray-300);color:var(--ink);font-weight:700;letter-spacing:.04em}
+[data-theme="dark"] .modul-badge-off{background:var(--bdr);color:var(--tx2)}
+.modul-badge-on{background:var(--ink);color:var(--paper);font-weight:700;letter-spacing:.04em}
+[data-theme="dark"] .modul-badge-on{background:var(--paper);color:var(--ink)}
+.modul-request-btn{
+  background:#25d366!important;
+  border-color:#25d366!important;
+  color:#0A0A0A!important;
+  font-weight:800;
+  box-shadow:0 8px 18px rgba(37,211,102,.28);
+}
+.modul-request-btn:hover,
+.modul-request-btn:focus{
+  background:#1ebe5d!important;
+  border-color:#1ebe5d!important;
+  color:#0A0A0A!important;
+  box-shadow:0 10px 22px rgba(37,211,102,.36);
+}
+
+/* ── Fitur Aktif box: dark-mode aware ── */
+.modul-fitur-box{
+  background:var(--card-h);
+  border:1px solid var(--bdr-md);
+  color:var(--tx);
+}
+.modul-fitur-box .modul-fitur-title{color:var(--tx)}
+.modul-fitur-box ul li{color:var(--tx2)}
+.modul-fitur-box ul li strong{color:var(--tx)}
+</style>
+
+<div class="modul-info-box">
+  <i class="fas fa-circle-info ic"></i>
+  Seluruh fitur aplikasi ini pada dasarnya sudah mampu mengakomodasi &plusmn;95% alur bisnis.
+  Mulai dari F&amp;B, manufaktur, jasa, hingga retail. Namun, jika alur dan struktur usaha Anda
+        memiliki kebutuhan khusus yang berbeda, Anda dapat menggunakan
+        <a class="modul-custom-cta"
+           href="https://wa.me/6282332867630?text={{ 'Halo, saya mau request aplikasi custom nih'|urlencode }}"
+           target="_blank" rel="noopener">
+          <i class="fab fa-whatsapp"></i>
+          jasa kustomisasi (custom development)
+        </a>
+        atau mengaktifkan <strong>Modul Lanjutan</strong> di bawah
+  yang sesuai dengan kebutuhan bisnis Anda.
+</div>
+
+{% for m in modul_list %}
+<div class="card modul-card mb-3{% if m.aktif %} modul-aktif{% endif %}">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-start mb-2">
+      <div>
+        <h6 class="mb-1 modul-name">
+          <i class="fas fa-crown me-1" style="color:{% if m.aktif %}var(--tx){% else %}var(--gray-400){% endif %}"></i>
+          {{ m.nama }}
+        </h6>
+        <div style="font-size:.82rem;color:var(--tx2)">{{ m.deskripsi }}</div>
+      </div>
+      <div class="text-end">
+        {% if m.aktif %}
+        <span class="badge modul-badge-on" style="font-size:.7rem"><i class="fas fa-check-circle me-1"></i>AKTIF</span>
+        {% if m.tgl_aktif %}<div class="mt-1" style="font-size:.7rem;color:var(--tx3)">Sejak: {{ m.tgl_aktif }}</div>{% endif %}
+        {% else %}
+        <span class="badge modul-badge-off" style="font-size:.7rem">BELUM AKTIF</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <hr class="my-2" style="border-color:var(--bdr-md);opacity:1">
+
+    {% if m.aktif %}
+      <form method="POST" onsubmit="return confirm('Yakin menon-aktifkan modul ini? Fitur-fiturnya akan disembunyikan.')">
+        <input type="hidden" name="action" value="nonaktif">
+        <input type="hidden" name="modul_key" value="{{ m.key }}">
+        <button type="submit" class="btn btn-sm btn-outline-danger">
+          <i class="fas fa-power-off me-1"></i>Non-aktifkan
+        </button>
+        <small class="text-muted ms-2" style="font-size:.75rem">
+          Data tidak akan dihapus - modul bisa diaktivasi ulang kapan saja.
+        </small>
+      </form>
+    {% else %}
+      <form method="POST" class="row g-2 align-items-end">
+        <input type="hidden" name="action" value="aktivasi">
+        <input type="hidden" name="modul_key" value="{{ m.key }}">
+        <div class="col-md-6">
+          <label class="form-label small mb-1">Serial Number</label>
+          <input type="text" name="serial" class="form-control form-control-sm"
+                 placeholder="Masukkan serial..." required autocomplete="off">
+        </div>
+              <div class="col-md-3">
+                <button type="submit" class="btn btn-sm btn-primary w-100">
+                  <i class="fas fa-key me-1"></i>Aktivasi
+                </button>
+              </div>
+              <div class="col-md-3">
+                <a class="btn btn-sm modul-request-btn w-100"
+                   href="https://wa.me/6282332867630?text={{ ('Halo, saya butuh modul ' ~ m.nama ~ ', boleh dibantu?')|urlencode }}"
+                   target="_blank" rel="noopener">
+                  <i class="fab fa-whatsapp me-1"></i>request akses
+                </a>
+              </div>
+            </form>
+          {% endif %}
+
+    {% if m.aktif and m.key == 'PAJAK_OTOMATIS' %}
+    <div class="modul-fitur-box mt-3 p-2 rounded-2" style="font-size:.78rem">
+      <div class="modul-fitur-title fw-semibold mb-1">
+        <i class="fas fa-list-check me-1 text-success"></i>Fitur yang aktif:
+      </div>
+      <ul class="mb-0 ps-3">
+        <li>Field <strong>PPh Pasal 23</strong> di form invoice + auto-jurnal saat posting</li>
+        <li>Hub Pajak: SPT Masa PPN, Setor Pajak, Bukti Potong, Bukti Bayar</li>
+        <li>Pembelian PKP dengan PPN Masukan otomatis</li>
+        <li>Akun pajak (1180-1182, 2111-2116) tersedia di Bagan Akun</li>
+        <li>Gaji & PPh 21: master karyawan, proses payroll, kalkulasi BPJS, slip gaji cetak</li>
+      </ul>
+    </div>
+    {% endif %}
+    {% if m.aktif and m.key == 'ANGGARAN' %}
+    <div class="modul-fitur-box mt-3 p-2 rounded-2" style="font-size:.78rem">
+      <div class="modul-fitur-title fw-semibold mb-1">
+        <i class="fas fa-list-check me-1 text-success"></i>Fitur yang aktif:
+      </div>
+      <ul class="mb-0 ps-3">
+        <li>Tetapkan <strong>target pendapatan</strong> per bulan + pantau realisasi</li>
+        <li>Anggaran beban per akun COA dengan progress bar dan indikator over-budget</li>
+        <li>Salin anggaran dari bulan sebelumnya sekali klik</li>
+        <li>Analisis selisih: anggaran vs realisasi per pos</li>
+      </ul>
+    </div>
+    {% endif %}
+    {% if m.aktif and m.key == 'POS_KASIR' %}
+    <div class="modul-fitur-box mt-3 p-2 rounded-2" style="font-size:.78rem">
+      <div class="modul-fitur-title fw-semibold mb-1">
+        <i class="fas fa-list-check me-1 text-success"></i>Fitur yang aktif:
+      </div>
+      <ul class="mb-0 ps-3">
+        <li>Portal <strong>/pos</strong> dengan login khusus kasir</li>
+        <li>Layar kasir klik produk, keranjang, diskon nota, dan checkout cepat</li>
+        <li>Pembayaran tunai, rekening kas/bank, atau piutang customer</li>
+        <li>Shift kasir: buka shift, struk transaksi, dan tutup shift dengan selisih kas</li>
+        <li>Posting otomatis ke jurnal, stok, HPP, dan laporan performa produk</li>
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+
+{% endblock %}

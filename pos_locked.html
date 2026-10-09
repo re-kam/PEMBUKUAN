@@ -1,0 +1,23 @@
+{% extends "pos_base.html" %}
+{% block title %}POS Belum Aktif{% endblock %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-center p-4" style="min-height:calc(100vh - 58px)">
+  <div class="card shadow-sm" style="max-width:520px;border:0;border-radius:12px">
+    <div class="card-body p-4 text-center">
+      <div class="mx-auto mb-3" style="width:64px;height:64px;border-radius:18px;background:#fff7ed;color:#c2410c;display:flex;align-items:center;justify-content:center;font-size:1.7rem">
+        <i class="fas fa-lock"></i>
+      </div>
+      <h4 class="fw-black mb-2" style="font-weight:900">Kamu belum aktifkan modul POS</h4>
+      <p class="text-muted mb-3" style="font-size:.92rem">
+        Portal kasir di <strong>/pos</strong> membutuhkan secret key Modul Lanjutan sebelum bisa dipakai.
+      </p>
+      <div class="alert alert-warning text-start mb-3" style="font-size:.85rem">
+        Aktifkan dari Finansial App utama: <strong>Pengaturan &gt; Modul Lanjutan &gt; POS Kasir</strong>.
+      </div>
+      <a href="/login" class="btn btn-primary btn-pos">
+        <i class="fas fa-key me-1"></i>Login Admin untuk Aktivasi
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

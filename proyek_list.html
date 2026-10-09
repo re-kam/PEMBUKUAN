@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Proyek - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-diagram-project me-2" style="color:#7c3aed"></i>Proyek (Job Costing){% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalProyekHelp">
+    <i class="fas fa-circle-question me-1" style="color:#7c3aed"></i>Petunjuk
+  </button>
+</div>
+
+<div class="row g-3">
+
+  <!-- Form Tambah Proyek -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-folder-plus" style="color:#7c3aed"></i>
+        <span class="section-title">Proyek Baru</span>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="action" value="tambah">
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Kode <span class="text-danger">*</span></label>
+              <input type="text" name="kode" class="form-control form-control-sm" required
+                     placeholder="PRJ-001" style="text-transform:uppercase">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label small fw-semibold">Nama Proyek <span class="text-danger">*</span></label>
+              <input type="text" name="nama" class="form-control form-control-sm" required
+                     placeholder="Instalasi CCTV Ruko A">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Pelanggan</label>
+              <input type="text" name="pelanggan" class="form-control form-control-sm"
+                     placeholder="Nama customer / pemberi kerja">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Nilai Kontrak (Rp)</label>
+              <input type="number" name="nilai_kontrak" class="form-control form-control-sm" min="0" step="1" value="0">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Anggaran Biaya (Rp)</label>
+              <input type="number" name="anggaran_biaya" class="form-control form-control-sm" min="0" step="1" value="0">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Tanggal Mulai</label>
+              <input type="date" name="tanggal_mulai" class="form-control form-control-sm" value="{{ today }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Target Selesai</label>
+              <input type="date" name="target_selesai" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Catatan</label>
+              <textarea name="catatan" class="form-control form-control-sm" rows="2"
+                        placeholder="Catatan / lingkup pekerjaan (opsional)"></textarea>
+            </div>
+            <div class="col-12">
+              <button class="btn btn-sm w-100 text-white" style="background:#7c3aed">
+                <i class="fas fa-plus me-1"></i>Buat Proyek</button>
+            </div>
+          </div>
+        </form>
+        <div class="form-text mt-2" style="font-size:.72rem">
+          Setelah proyek dibuat, pilih proyek di form <strong>Pemasukan</strong> /
+          <strong>Pengeluaran</strong> agar transaksi terhitung ke laba rugi proyek.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daftar Proyek -->
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-list" style="color:#7c3aed"></i>
+        <span class="section-title">Daftar Proyek</span>
+        <span class="badge bg-secondary ms-1" style="font-size:.65rem">{{ proyek_rows|length }}</span>
+      </div>
+      <div class="card-body p-0">
+        {% if proyek_rows %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover table-sticky-actions align-middle mb-0" style="font-size:.82rem">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Proyek</th>
+                <th>Pelanggan</th>
+                <th class="text-center">Status</th>
+                <th class="text-end">Nilai Kontrak</th>
+                <th class="text-end">Pendapatan</th>
+                <th class="text-end">Biaya</th>
+                <th class="text-end">Laba</th>
+                <th class="text-end">Piutang</th>
+                <th class="text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in proyek_rows %}
+              <tr>
+                <td class="ps-3">
+                  <a href="/proyek/{{ p.id }}" class="fw-semibold text-decoration-none">{{ p.kode }}</a>
+                  <div class="text-muted" style="font-size:.72rem">{{ p.nama }}</div>
+                </td>
+                <td class="text-muted">{{ p.pelanggan or '-' }}</td>
+                <td class="text-center">
+                  {% if p.status == 'AKTIF' %}<span class="badge bg-success">Aktif</span>
+                  {% elif p.status == 'SELESAI' %}<span class="badge bg-secondary">Selesai</span>
+                  {% else %}<span class="badge bg-danger">Batal</span>{% endif %}
+                </td>
+                <td class="text-end text-rp">{{ p.nilai_kontrak|rp }}</td>
+                <td class="text-end text-rp text-success">{{ p.pendapatan|rp }}</td>
+                <td class="text-end text-rp text-danger">{{ p.biaya|rp }}</td>
+                <td class="text-end text-rp fw-bold {% if p.laba > 0 %}text-success{% elif p.laba < 0 %}text-danger{% endif %}">
+                  {{ p.laba|rp }}</td>
+                <td class="text-end text-rp {% if p.piutang_outstanding > 0 %}text-info{% else %}text-muted{% endif %}">
+                  {{ p.piutang_outstanding|rp }}{% if p.status != 'AKTIF' and (p.piutang_outstanding > 0 or p.hutang_outstanding > 0) %}
+                  <i class="fas fa-triangle-exclamation text-warning ms-1" title="Proyek {{ p.status|lower }} tapi masih ada tagihan terbuka"></i>{% endif %}</td>
+                <td class="text-center" style="white-space:nowrap">
+                  <a href="/proyek/{{ p.id }}" class="btn btn-xs btn-outline-primary" title="Detail">
+                    <i class="fas fa-eye"></i></a>
+                  <button type="button" class="btn btn-xs btn-outline-warning" title="Edit"
+                          data-bs-toggle="modal" data-bs-target="#modalEditProyek"
+                          data-id="{{ p.id }}" data-kode="{{ p.kode|e }}" data-nama="{{ p.nama|e }}"
+                          data-pelanggan="{{ (p.pelanggan or '')|e }}" data-kontrak="{{ p.nilai_kontrak or 0 }}"
+                          data-anggaran="{{ p.anggaran_biaya or 0 }}" data-mulai="{{ p.tanggal_mulai or '' }}"
+                          data-target="{{ p.target_selesai or '' }}" data-catatan="{{ (p.catatan or '')|e }}"
+                          data-ntx="{{ p.n_tx }}"
+                          onclick="fillEditProyek(this)">
+                    <i class="fas fa-pen"></i></button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+          <i class="fas fa-diagram-project mb-2" style="font-size:2rem;opacity:.3"></i>
+          <div style="font-size:.85rem">Belum ada proyek. Buat proyek pertama lewat form di samping.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Proyek (form edit & form hapus = sibling, tombol pakai atribut form=) -->
+<div class="modal fade" id="modalEditProyek" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-pen me-2" style="color:#7c3aed"></i>Edit Proyek</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="POST" id="formEditProyek">
+          <input type="hidden" name="action" value="edit">
+          <input type="hidden" name="id" id="ep_id">
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Kode <span class="text-danger">*</span></label>
+              <input type="text" name="kode" id="ep_kode" class="form-control form-control-sm" required style="text-transform:uppercase">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label small fw-semibold">Nama Proyek <span class="text-danger">*</span></label>
+              <input type="text" name="nama" id="ep_nama" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Pelanggan</label>
+              <input type="text" name="pelanggan" id="ep_pelanggan" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Nilai Kontrak (Rp)</label>
+              <input type="number" name="nilai_kontrak" id="ep_kontrak" class="form-control form-control-sm" min="0" step="1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Anggaran Biaya (Rp)</label>
+              <input type="number" name="anggaran_biaya" id="ep_anggaran" class="form-control form-control-sm" min="0" step="1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Tanggal Mulai</label>
+              <input type="date" name="tanggal_mulai" id="ep_mulai" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Target Selesai</label>
+              <input type="date" name="target_selesai" id="ep_target" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Catatan</label>
+              <textarea name="catatan" id="ep_catatan" class="form-control form-control-sm" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+        <form method="POST" id="formHapusProyek" class="d-none">
+          <input type="hidden" name="action" value="hapus">
+          <input type="hidden" name="id" id="hp_id">
+        </form>
+      </div>
+      <div class="modal-footer py-2 d-flex justify-content-between">
+        <button type="submit" form="formHapusProyek" class="btn btn-sm btn-outline-danger" id="btnHapusProyek"
+                onclick="return confirm('Hapus proyek ini? Hanya bisa jika belum ada transaksi.')">
+          <i class="fas fa-trash me-1"></i>Hapus</button>
+        <div>
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" form="formEditProyek" class="btn btn-sm text-white" style="background:#7c3aed">
+            <i class="fas fa-save me-1"></i>Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function fillEditProyek(btn){
+  var d = btn.dataset;
+  document.getElementById('ep_id').value = d.id;
+  document.getElementById('hp_id').value = d.id;
+  document.getElementById('ep_kode').value = d.kode;
+  document.getElementById('ep_nama').value = d.nama;
+  document.getElementById('ep_pelanggan').value = d.pelanggan;
+  document.getElementById('ep_kontrak').value = d.kontrak;
+  document.getElementById('ep_anggaran').value = d.anggaran;
+  document.getElementById('ep_mulai').value = d.mulai;
+  document.getElementById('ep_target').value = d.target;
+  document.getElementById('ep_catatan').value = d.catatan;
+  // Tombol hapus hanya untuk proyek tanpa transaksi
+  document.getElementById('btnHapusProyek').style.display = (parseInt(d.ntx||'0') > 0) ? 'none' : '';
+}
+</script>
+{% include '_proyek_help_modal.html' %}
+{{ pagination(pg) }}
+{% endblock %}

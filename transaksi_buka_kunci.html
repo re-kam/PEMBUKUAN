@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Buka Kunci Transaksi - FinansialApp{% endblock %}
+{% block page_title %}Buka Kunci Transaksi {{ j.nomor_tx or ('#' ~ j.id) }}{% endblock %}
+{% block content %}
+{# Konfirmasi buka kunci (rute transaksi_buka_kunci). Semua yang akan terjadi disebut dulu di
+   sini: invoice yang kembali ke Draft dan pembayaran mana saja yang dibatalkan. Retur,
+   penyesuaian, dan write-off tidak dibatalkan otomatis, jadi tombolnya hilang selama masih ada. #}
+<div class="row justify-content-center">
+<div class="col-lg-8">
+  <div class="card">
+    <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+      <span class="fw-semibold"><i class="fas fa-lock-open me-2" style="color:#b45309"></i>Buka kunci untuk koreksi</span>
+      <a href="/transaksi/{{ j.id }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Kembali</a>
+    </div>
+    <div class="card-body">
+      <table class="table table-sm mb-3" style="font-size:.88rem">
+        <tr><th style="width:170px">No. Transaksi</th><td>{{ j.nomor_tx or ('#' ~ j.id) }}</td></tr>
+        <tr><th>Tanggal</th><td>{{ j.tanggal|tgl }}</td></tr>
+        <tr><th>Keterangan</th><td>{{ j.keterangan }}</td></tr>
+        {% if j.pihak %}<tr><th>Pihak</th><td>{{ j.pihak }}</td></tr>{% endif %}
+        <tr><th>Total</th><td class="fw-bold text-rp">{{ total|rp }}</td></tr>
+      </table>
+
+      {% if not info.terkunci %}
+      <div class="alert alert-info mb-3">
+        <i class="fas fa-circle-info me-1"></i>Transaksi ini tidak sedang terkunci invoice atau pembayaran, jadi tidak ada yang perlu dibuka.
+      </div>
+      <a href="/transaksi/{{ j.id }}" class="btn btn-secondary">Kembali ke Detail Transaksi</a>
+      {% else %}
+      <p class="mb-2">Transaksi ini terkunci karena {{ info.alasan }}. Membuka kunci akan:</p>
+      <ul class="mb-3" style="font-size:.9rem">
+        {% if info.invoice %}
+        <li>Mengembalikan invoice <a href="/invoice/{{ info.invoice.id }}">{{ info.invoice.nomor }}</a>
+          dari {{ label_status.get(info.invoice.status, info.invoice.status) }} ke <strong>Draft</strong>.</li>
+        {% endif %}
+        {% if info.pembayaran %}
+        <li>Membatalkan {{ info.pembayaran|length }} pembayaran di bawah ini. Jurnalnya dihapus dan jejaknya
+          disimpan di Arsip Transaksi, jadi saldo kas/bank dan sisa piutang kembali seperti sebelum dibayar.</li>
+        {% endif %}
+        <li>Transaksi {{ j.nomor_tx or ('#' ~ j.id) }} sendiri tidak diubah. Sesudah kunci dibuka, transaksi ini
+          bisa diedit atau dihapus.</li>
+      </ul>
+
+      {% if info.pembayaran %}
+      <div class="table-responsive mb-2">
+        <table class="table table-sm align-middle mb-0" style="font-size:.85rem">
+          <thead>
+            <tr><th>No. Transaksi</th><th>Tanggal</th><th>Keterangan</th><th>Masuk ke</th><th class="text-end">Jumlah</th></tr>
+          </thead>
+          <tbody>
+            {% for b in info.pembayaran %}
+            <tr>
+              <td class="text-nowrap"><a href="/transaksi/{{ b.jurnal_id }}">{{ b.nomor }}</a></td>
+              <td class="text-nowrap">{{ b.tanggal|tgl }}</td>
+              <td>{{ b.keterangan }}</td>
+              <td>{{ b.rekening }}</td>
+              <td class="text-end text-rp text-nowrap">{{ b.jumlah|rp }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          {% if info.pembayaran|length > 1 %}
+          <tfoot>
+            <tr><th colspan="4">Total dibatalkan</th><th class="text-end text-rp text-nowrap">{{ info.total_bayar|rp }}</th></tr>
+          </tfoot>
+          {% endif %}
+        </table>
+      </div>
+      <p class="text-muted mb-3" style="font-size:.8rem">
+        Kalau pelanggan memang sudah membayar, catat lagi pembayarannya sesudah transaksi selesai dikoreksi,
+        lewat tombol Terima Pembayaran di invoice atau menu Pelunasan.
+      </p>
+      {% endif %}
+
+      {% if info.penghalang %}
+      <div class="alert alert-danger mb-3">
+        <strong>Kunci belum bisa dibuka.</strong> Catatan berikut tidak dibatalkan otomatis karena ikut mengubah
+        hal lain (stok, beban, atau tagihan lain). Hapus dulu lewat Daftar Transaksi, lalu kembali ke halaman ini.
+        <ul class="mb-0 mt-2">
+          {% for x in info.penghalang %}
+          <li>{{ x.jenis }}:
+            {% if x.jurnal_id %}<a href="/transaksi/{{ x.jurnal_id }}">{{ x.nomor }}</a>{% else %}{{ x.nomor }}{% endif %}{% if x.tanggal %}, {{ x.tanggal|tgl }}{% endif %}, {{ x.jumlah|rp }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <a href="/transaksi/{{ j.id }}" class="btn btn-secondary">Kembali ke Detail Transaksi</a>
+      {% else %}
+      <form method="POST" action="/transaksi/{{ j.id }}/buka-kunci" class="d-flex flex-wrap gap-2">
+        <a href="/transaksi/{{ j.id }}" class="btn btn-outline-secondary">Batal</a>
+        <button type="submit" class="btn btn-warning"><i class="fas fa-lock-open me-1"></i>Buka Kunci</button>
+      </form>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

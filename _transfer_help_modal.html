@@ -1,0 +1,63 @@
+{# Modal petunjuk Transfer Rekening. Di-include di transfer_rekening.html; dipicu tombol [data-bs-target="#modalTransferHelp"]. #}
+<div class="modal fade" id="modalTransferHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Transfer Rekening</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Halaman ini dipakai untuk memindahkan dana antar rekening usaha Anda, misalnya dari
+          kas tunai ke rekening bank, atau antar dua bank.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>Transfer bukan pemasukan dan bukan pengeluaran.</strong>
+            Uang cuma pindah tempat, jumlah total yang Anda punya tidak berubah. Karena itu
+            Laba Rugi tidak terpengaruh sama sekali oleh transfer.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-book me-1" style="color:var(--ink)"></i>Kaitan dengan pembukuan</div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1"><i class="fas fa-scale-balanced me-1" style="color:#15803d"></i>Neraca</div>
+              Rekening asal berkurang, rekening tujuan bertambah dengan nilai yang sama. Total
+              aset tetap. Yang berubah hanya posisi uang di dalam kelompok aset.
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1"><i class="fas fa-chart-bar me-1" style="color:#ef4444"></i>Laba Rugi</div>
+              Tidak ada efek. Pendapatan dan beban tidak bergerak. Satu-satunya yang bisa
+              masuk Laba Rugi adalah biaya admin bank, kalau ada.
+            </div>
+          </div>
+        </div>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Anda pindahkan Rp5.000.000 dari Kas ke rekening Bank BCA.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Di Neraca: Kas turun Rp5.000.000, Bank BCA naik Rp5.000.000. Total aset persis sama.</li>
+            <li>Di Laba Rugi: tidak ada perubahan. Ini bukan penjualan, bukan biaya.</li>
+            <li>Kalau bank potong admin Rp6.500: Bank naik Rp4.993.500, dan Rp6.500 dicatat sebagai Beban Administrasi di Laba Rugi.</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Jangan catat pindah dana lewat menu Pemasukan atau Pengeluaran.
+          Kalau salah lewat sana, laporan jadi seolah ada penjualan atau biaya yang sebenarnya tidak terjadi.
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

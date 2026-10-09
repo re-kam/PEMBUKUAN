@@ -1,0 +1,2921 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}FinansialApp{% endblock %}</title>
+<script>try{var _e=document.documentElement;_e.setAttribute('data-theme',localStorage.getItem('theme')||'light');}catch(e){}</script>
+<script>
+/* Kompatibilitas browser lama (Android/WebView jadul, dsb). Aplikasi memakai
+   querySelectorAll(...).forEach dan element.closest/matches di banyak tempat.
+   Di browser tanpa dukungan itu, satu pemanggilan gagal bisa menghentikan seluruh
+   blok script (mis. tombol "Tambah Baris" jadi mati). Polyfill kecil ini dijalankan
+   paling awal supaya semua handler tetap terpasang. */
+(function(){
+  if (window.NodeList && !NodeList.prototype.forEach) {
+    NodeList.prototype.forEach = Array.prototype.forEach;
+  }
+  if (window.Element && !Element.prototype.matches) {
+    Element.prototype.matches = Element.prototype.msMatchesSelector ||
+                                Element.prototype.webkitMatchesSelector;
+  }
+  if (window.Element && !Element.prototype.closest) {
+    Element.prototype.closest = function(s){
+      var el = this;
+      while (el && el.nodeType === 1) {
+        if (el.matches && el.matches(s)) return el;
+        el = el.parentElement || el.parentNode;
+      }
+      return null;
+    };
+  }
+})();
+</script>
+<script>
+// ── Combobox pencarian produk (reusable), didefinisikan di HEAD agar
+//    tersedia sebelum script halaman (pemasukan/pengeluaran) memanggilnya ──
+window.initProdukCombo = function(root, products, onPick, opts){
+  if(!root || root._pc) return;
+  root._pc = true;
+  opts = opts || {};
+  var allowNew = !!opts.allowNew;   // izinkan "buat produk baru" dari teks yang diketik
+  var input = root.querySelector('.pcombo-input');
+  var hid   = root.querySelector('.pcombo-id');
+  var menu  = document.createElement('div');     // ditempel ke body (anti-clip)
+  menu.className = 'pcombo-menu';
+  document.body.appendChild(menu);
+  var actIdx = -1, shown = [], isOpen = false;
+  // Escape HTML: field produk (kode/nama/varian/satuan) berasal dari master data yg bisa
+  // diubah user ber-izin inventory. Tanpa escape saat disuntik ke innerHTML = stored XSS.
+  function esc(s){ return String(s==null?'':s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+  function render(filter){
+    var f = (filter||'').toLowerCase().trim();
+    shown = (products||[]).filter(function(p){
+      var hay = (p.kode+' '+p.nama+' '+(p.varian||'')).toLowerCase();
+      return !f || hay.indexOf(f) !== -1;
+    }).slice(0, 60);
+    var html = '';
+    // Opsi "buat produk baru" di atas (jika allowNew & ada teks & belum sama persis)
+    var rawTyped = (input.value||'').trim();
+    var exact = shown.some(function(p){ return (p.nama||'').toLowerCase() === f; });
+    if(allowNew && rawTyped && !exact){
+      html += '<div class="pcombo-item pcombo-new" data-new="1">'+
+              '<i class="fas fa-plus-circle me-1" style="color:#15803d"></i>'+
+              'Buat produk baru: <strong>'+esc(rawTyped)+'</strong></div>';
+    }
+    if(!shown.length && !html){
+      menu.innerHTML = '<div class="pcombo-empty">'+((products||[]).length? 'Produk tidak ditemukan':'Belum ada produk di inventory')+'</div>';
+    } else {
+      html += shown.map(function(p,i){
+        var stok = (p.stok!==undefined && p.stok!==null) ? '<span class="pc-stok">Stok: '+p.stok+' '+esc(p.satuan||'')+'</span>' : '';
+        return '<div class="pcombo-item" data-i="'+i+'">'+stok+
+               '<div><span class="pc-kode">'+esc(p.kode)+'</span> '+esc(p.nama)+
+               (p.varian?' <span class="pc-kode">('+esc(p.varian)+')</span>':'')+'</div></div>';
+      }).join('');
+      menu.innerHTML = html;
+    }
+    actIdx = -1;
+  }
+  function position(){
+    var r = input.getBoundingClientRect();
+    var spaceBelow = window.innerHeight - r.bottom;
+    menu.style.left  = r.left + 'px';
+    menu.style.width = Math.max(220, r.width) + 'px';
+    menu.style.maxHeight = Math.max(160, Math.min(260, spaceBelow - 10)) + 'px';
+    menu.style.top   = (r.bottom + 2) + 'px';
+  }
+  function open(showAll){ render(showAll ? '' : input.value); position(); menu.classList.add('open'); isOpen = true; }
+  function close(){ menu.classList.remove('open'); isOpen = false; }
+  function pick(p){
+    if(!p) return;
+    hid.value = p.id;
+    input.value = p.nama + (p.varian ? ' ('+p.varian+')' : '');
+    close();
+    if(typeof onPick === 'function') onPick(p);
+  }
+
+  input.addEventListener('focus', function(){ open(true); });
+  input.addEventListener('click', function(){ if(!isOpen) open(true); });
+  input.addEventListener('input', function(){ hid.value=''; open(false); });
+  input.addEventListener('keydown', function(e){
+    if(!isOpen){ if(e.key==='ArrowDown'){ open(true); } return; }
+    var items = menu.querySelectorAll('.pcombo-item');
+    if(e.key==='ArrowDown'){ e.preventDefault(); actIdx=Math.min(actIdx+1,items.length-1); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); actIdx=Math.max(actIdx-1,0); }
+    else if(e.key==='Enter'){ if(actIdx>=0){ e.preventDefault(); pick(shown[actIdx]); } return; }
+    else if(e.key==='Escape'){ close(); return; }
+    items.forEach(function(it,i){ it.classList.toggle('active', i===actIdx); });
+    if(items[actIdx]) items[actIdx].scrollIntoView({block:'nearest'});
+  });
+  menu.addEventListener('mousedown', function(e){
+    var it = e.target.closest('.pcombo-item');
+    if(!it) return;
+    e.preventDefault();
+    if(it.dataset.new){           // "buat produk baru": pertahankan teks, kosongkan id
+      hid.value = '';
+      close();
+      if(typeof onPick === 'function') onPick(null);
+    } else {
+      pick(shown[+it.dataset.i]);
+    }
+  });
+  document.addEventListener('mousedown', function(e){
+    if(isOpen && !root.contains(e.target) && !menu.contains(e.target)) close();
+  });
+  window.addEventListener('scroll', function(e){
+    if(!isOpen) return;
+    if(menu.contains(e.target)) return;   // scroll DI DALAM daftar → biarkan terbuka
+    position();                            // halaman discroll → ikuti posisi input
+  }, true);
+  window.addEventListener('resize', function(){ if(isOpen) position(); });
+};
+
+// ── Combobox NAMA (customer/vendor), input teks = field submit, bebas ketik baru ──
+window.initNamaCombo = function(input, names){
+  if(!input || input._nc) return;
+  input._nc = true;
+  var root = input.closest('.pcombo') || input.parentElement;
+  if(getComputedStyle(root).position === 'static') root.style.position='relative';
+  var menu = document.createElement('div');
+  menu.className = 'pcombo-menu';
+  document.body.appendChild(menu);
+  var shown = [], actIdx = -1, isOpen = false;
+  names = names || [];
+
+  function render(f){
+    f = (f||'').toLowerCase().trim();
+    shown = names.filter(function(n){ return !f || n.toLowerCase().indexOf(f)!==-1; }).slice(0,60);
+    menu.innerHTML = shown.length
+      ? shown.map(function(n,i){ return '<div class="pcombo-item" data-i="'+i+'"><div>'+n+'</div></div>'; }).join('')
+      : '<div class="pcombo-empty">'+(names.length?'Tidak ada yang cocok, ketik nama baru':'Belum ada data, ketik nama baru')+'</div>';
+    actIdx = -1;
+  }
+  function position(){
+    var r = input.getBoundingClientRect();
+    menu.style.left = r.left+'px'; menu.style.width = Math.max(200,r.width)+'px';
+    menu.style.maxHeight = Math.max(140, Math.min(240, window.innerHeight-r.bottom-10))+'px';
+    menu.style.top = (r.bottom+2)+'px';
+  }
+  function open(showAll){ render(showAll?'':input.value); if(!shown.length && !names.length){ return; } position(); menu.classList.add('open'); isOpen=true; }
+  function close(){ menu.classList.remove('open'); isOpen=false; }
+  function pick(n){ input.value = n; close(); input.dispatchEvent(new Event('change',{bubbles:true})); }
+
+  input.addEventListener('focus', function(){ if(names.length) open(true); });
+  input.addEventListener('click', function(){ if(!isOpen && names.length) open(true); });
+  input.addEventListener('input', function(){ open(false); });
+  input.addEventListener('keydown', function(e){
+    if(!isOpen) return;
+    var items = menu.querySelectorAll('.pcombo-item');
+    if(e.key==='ArrowDown'){ e.preventDefault(); actIdx=Math.min(actIdx+1,items.length-1); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); actIdx=Math.max(actIdx-1,0); }
+    else if(e.key==='Enter'){ if(actIdx>=0){ e.preventDefault(); pick(shown[actIdx]); } return; }
+    else if(e.key==='Escape'){ close(); return; }
+    items.forEach(function(it,i){ it.classList.toggle('active', i===actIdx); });
+    if(items[actIdx]) items[actIdx].scrollIntoView({block:'nearest'});
+  });
+  menu.addEventListener('mousedown', function(e){
+    var it = e.target.closest('.pcombo-item');
+    if(it){ e.preventDefault(); pick(shown[+it.dataset.i]); }
+  });
+  document.addEventListener('mousedown', function(e){
+    if(isOpen && !root.contains(e.target) && !menu.contains(e.target)) close();
+  });
+  window.addEventListener('scroll', function(e){
+    if(!isOpen) return;
+    if(menu.contains(e.target)) return;   // scroll DI DALAM daftar → biarkan terbuka
+    position();                            // halaman discroll → ikuti posisi input
+  }, true);
+  window.addEventListener('resize', function(){ if(isOpen) position(); });
+};
+</script>
+<script>
+// ── FORMAT ANGKA OTOMATIS (ribuan pakai titik) ──
+(function(){
+  function addDots(str){
+    // strip existing dots, then add thousand separators
+    str = String(str).replace(/\./g,'');
+    var neg = str.charAt(0)==='-'; if(neg) str=str.slice(1);
+    var parts = str.split(',');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+    return (neg?'-':'')+parts.join(',');
+  }
+
+  function isQtyInput(el){
+    if(!el) return false;
+    var name = String(el.getAttribute('name') || '').toLowerCase();
+    return el.dataset.nfMode === 'qty'
+      || (el.classList && (el.classList.contains('um-qty') || el.classList.contains('item-qty') || el.classList.contains('it-qty') || el.classList.contains('bahan-qty') || el.classList.contains('non-sku-qty')))
+      || /(^|[\[\]_\-])qty($|[\[\]_\-])/.test(name);
+  }
+
+  function normalizeQty(v){
+    v = String(v == null ? '' : v).trim().replace(/\s+/g,'');
+    if(v.indexOf(',') >= 0) v = v.replace(/\./g,'').replace(',', '.');
+    return v.replace(/[^\d.\-]/g,'');
+  }
+
+  function qtyVal(el){
+    var n = parseFloat(normalizeQty(el && el.value || ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  // ── Parser nominal uang, SATU sumber kebenaran ────────────────────────────
+  // Dipakai numVal() (baca saat hitung) & saat submit, supaya aturannya tak kembar.
+  //
+  // `managed` = field ini dikelola numFmt (punya data-nf="1"), artinya isinya DIJAMIN
+  // format Indonesia (titik=ribuan, koma=desimal). Termasuk string TRANSISI saat user
+  // mengetik, mis. field berisi "58.000" lalu diketik satu digit jadi "58.0000"
+  // (applyFmt baru merapikannya SETELAH handler hitung jalan). Untuk kasus ini titik
+  // WAJIB selalu dianggap ribuan; kalau tidak, "58.0000" salah dibaca 58 dan
+  // "1.234.5678" jadi kacau. Jadi field ter-manage TETAP memakai aturan lama.
+  //
+  // `managed=false` = isi field bisa float mentah gaya Inggris hasil render server
+  // (mis. angka 465283,3333333333 ditulis dgn TITIK desimal pada input type=number yang
+  // belum sempat diformat, atau saat numFmtInitAll gagal/terlambat). Di sini titik desimal
+  // TIDAK boleh dibuang, karena membuangnya membengkakkan nilai 10^n
+  // (bug nyata: total belanja tampil Rp 9,3 kuadriliun).
+  function _legacyMoney(s){ return parseFloat(s.replace(/\./g,'').replace(',','.')) || 0; }
+  function parseMoney(raw, managed){
+    var s = String(raw == null ? '' : raw).trim().replace(/\s+/g,'');
+    if(!s) return 0;
+    s = s.replace(/[^0-9.,\-]/g,'');        // buang "Rp" dsb
+    if(!s) return 0;
+    if(managed) return _legacyMoney(s);
+    if(s.indexOf(',') !== -1) return _legacyMoney(s);   // ada koma -> koma = desimal
+    var parts = s.split('.');
+    if(parts.length === 1) return parseFloat(s) || 0;   // tanpa titik
+    var intPart = parts[0].replace('-','');
+    // Pola ribuan yang sah: 1-3 digit di depan, tiap grup sesudahnya TEPAT 3 digit,
+    // dan tak diawali "0" ("0.125" mustahil berarti 125).
+    var ribuan = intPart.length >= 1 && intPart.length <= 3 && intPart !== '0'
+      && parts.slice(1).every(function(p){ return /^\d{3}$/.test(p); });
+    // Titik ganda tapi bukan pola ribuan = input ngawur -> pakai perilaku lama (jangan diam2 jadi 0).
+    if(ribuan || parts.length > 2) return _legacyMoney(s);
+    return parseFloat(s) || 0;                          // "465283.3333", "937500.0", "0.125"
+  }
+  window.parseMoney = parseMoney;
+
+  // Expose: get raw float from a formatted input element
+  window.numVal = function(el){
+    if(isQtyInput(el)) return qtyVal(el);
+    return parseMoney(el && el.value, !!(el && el.dataset && el.dataset.nf === '1'));
+  };
+
+  // Set nilai numerik dari JS lalu tampilkan memakai format Indonesia.
+  window.numFmtSet = function(el, value){
+    if(!el) return;
+    if(value===null || value===undefined || value===''){ el.value=''; return; }
+    if(isQtyInput(el)){
+      var q = Number(value);
+      el.value = Number.isFinite(q) ? String(q) : normalizeQty(value);
+      return;
+    }
+    var n = Number(value);
+    var text = Number.isFinite(n) ? String(n).replace('.',',') : String(value);
+    el.value = addDots(text.replace(/[^\d,\-]/g,''));
+  };
+
+  function applyFmt(el){
+    var pos  = el.selectionStart;
+    var oldV = el.value;
+    // anchor: non-dot chars before caret
+    var rawBefore = oldV.substring(0,pos).replace(/\./g,'').length;
+    // strip dots, keep digits / comma / minus
+    var stripped = oldV.replace(/\./g,'').replace(/[^\d,\-]/g,'');
+    var newV = addDots(stripped);
+    if(newV===oldV) return;
+    el.value = newV;
+    // restore caret: walk newV counting non-dot chars until we reach rawBefore
+    var cnt=0, newPos=newV.length;
+    if(rawBefore===0){ newPos=0; }
+    else{
+      for(var i=0;i<newV.length;i++){
+        if(newV[i]!=='.') cnt++;
+        if(cnt===rawBefore){ newPos=i+1; break; }
+      }
+    }
+    try{ el.setSelectionRange(newPos,newPos); }catch(e){}
+  }
+
+  function initEl(el){
+    if(el._nf) return;          // already done
+    el._nf = true;
+    if(isQtyInput(el)){
+      el.dataset.nfMode = 'qty';
+      el.dataset.nfQty = '1';
+      el.type = 'text';
+      el.inputMode = 'decimal';
+      el.addEventListener('input', function(){
+        var clean = this.value.replace(/[^\d.,\-]/g,'');
+        if(clean !== this.value) this.value = clean;
+      });
+      return;
+    }
+    el.dataset.nf = '1';
+    el.type      = 'text';
+    el.inputMode = 'decimal';
+    if(el.value) window.numFmtSet(el, el.value);
+    el.addEventListener('input',  function(){ applyFmt(this); });
+    el.addEventListener('paste',  function(){ setTimeout(()=>applyFmt(this),0); });
+  }
+
+  function initAll(){
+    document.querySelectorAll('input[type="number"]').forEach(initEl);
+  }
+
+  // strip dots before every form POST so backend receives plain numbers
+  function initForms(){
+    document.querySelectorAll('form').forEach(function(f){
+      if(f._nf) return; f._nf=true;
+      f.addEventListener('submit',function(){
+        f.querySelectorAll('input[data-nf-qty="1"]').forEach(function(el){
+          el.value = normalizeQty(el.value);
+        });
+        f.querySelectorAll('input[data-nf="1"]').forEach(function(el){
+          // Lewat parseMoney (managed=true) supaya aturannya SAMA PERSIS dengan numVal,
+          // tidak ada lagi salinan aturan "buang semua titik" yang bisa menyimpang.
+          if(!String(el.value || '').trim()) return;   // biarkan kosong tetap kosong
+          // KOMA sebagai desimal saat dikirim, BUKAN titik. String(Number) JS selalu
+          // pakai titik ("52.417"), dan parse_rp() di server membaca titik yg diikuti
+          // TEPAT 3 digit sebagai pemisah ribuan (aturan yang sama dgn parseMoney di
+          // atas, untuk kasus SEBALIKNYA: string mentah tanpa koma). Akibatnya nominal
+          // seperti Rp 52,417 terkirim "52.417" lalu dibaca 52417 -- meledak 1000x,
+          // dan cuma kejadian pada nominal yg int-nya 1-3 digit + desimalnya PAS 3
+          // digit, itu sebabnya lolos lama (kebanyakan nominal tak masuk pola itu).
+          // Koma tidak pernah ambigu bagi parse_rp(): begitu ada koma, sisanya SELALU
+          // dibaca sbg desimal apa pun panjangnya, jadi ini pintu keluar yang aman.
+          el.value = String(parseMoney(el.value, true)).replace('.', ',');
+        });
+      }, true);
+    });
+  }
+
+  // Expose for dynamic content (e.g. rows added by JS)
+  window.numFmtInitAll   = initAll;
+  window.numFmtInitForms = initForms;
+
+  window.APP_DECIMAL_AKTIF = {{ 'true' if app_pref.decimal_aktif else 'false' }};
+  window.rpFmt = function(value, opts){
+    opts = opts || {};
+    var n = Number(value || 0);
+    if(!Number.isFinite(n)) n = 0;
+    if(opts.abs) n = Math.abs(n);
+    var digits = window.APP_DECIMAL_AKTIF ? 2 : 0;
+    var sign = n < 0 ? '-' : '';
+    var s = Math.abs(n).toLocaleString('id-ID', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+    return sign + 'Rp ' + s;
+  };
+  window.rpAbsFmt = function(value){ return window.rpFmt(value, {abs:true}); };
+  window.rpPlainFmt = function(value){
+    var n = Number(value || 0);
+    if(!Number.isFinite(n)) n = 0;
+    var digits = window.APP_DECIMAL_AKTIF ? 2 : 0;
+    return n.toLocaleString('id-ID', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+  };
+  window.moneyInputValue = function(value){
+    var n = Number(value || 0);
+    if(!Number.isFinite(n)) n = 0;
+    return window.APP_DECIMAL_AKTIF ? n.toFixed(2) : String(Math.round(n));
+  };
+
+  document.addEventListener('DOMContentLoaded',function(){
+    initAll();
+    initForms();
+  });
+})();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+<style>
+:root{
+  /* ════ Cliff.gosipinbisnis Design System — shared tokens ════ */
+  --ink:#0A0A0A; --paper:#FFFFFF; --paper-soft:#F4F4F2;
+  --gray-600:#5C5C5C; --gray-500:#7C7C7C; --gray-400:#A0A0A0; --gray-300:#C9C9C9; --gray-200:#E2E2E0;
+  --line-hair:rgba(10,10,10,.14);
+  --font-display:'Anton','Arial Narrow',sans-serif;
+  --font-body:'Montserrat',system-ui,-apple-system,sans-serif;
+  --r-md:12px; --r-lg:20px; --r-pill:999px;
+  --shadow-lg:0 18px 50px rgba(10,10,10,.16);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+
+  --sb:245px;--sbg:var(--ink);--sbh:#1f1f1f;--acc:#0A0A0A;
+  /* structural */
+  --bg:var(--paper-soft);--card:var(--paper);--card-h:var(--paper);--bdr:var(--paper-soft);--bdr-md:var(--line-hair);
+  /* --tx3 dulu var(--gray-400) #A0A0A0 = 2,61:1 di atas putih, jadi teks
+     keterangan praktis tak terbaca. #6E6E6E memberi 4,63:1 pada latar terang
+     TERGELAP yang benar-benar dipakai app (#F4F4F2), dan masih jelas lebih
+     terang dari --tx2 sehingga tingkatannya tetap terasa. --gray-400 sendiri
+     tidak diubah karena masih dipakai untuk garis dan ikon. */
+  --tx:var(--ink);--tx2:var(--gray-600);--tx3:#6E6E6E;--inp:#fff;
+  /* p&l rows */
+  --ph:#f8fafc;--pht:#5B6B80;
+  /* --pgp #16a34a cuma 3,15:1 di atas --pg #f0fdf4. Kedua warna teks digeser
+     satu tingkat lebih gelap supaya dua-duanya lulus TANPA menyamakannya:
+     judul #166534 (6,81:1) dan teks pendukung #15803d (4,79:1). Tingkatannya
+     tetap terbaca, ronanya tetap hijau yang sama. */
+  --pg:#f0fdf4;--pgb:#dcfce7;--pgt:#166534;--pgp:#15803d;
+  --pb:#eff6ff;--pbb:#dbeafe;--pbt:#1d4ed8;--pbp:#3b82f6;
+  --pp:#faf5ff;--ppb:#e9d5ff;--ppt:#6d28d9;--ppp:#7c3aed;
+  --pd:#fff;--pdl:#334155;--ps:#fff;--psl:#cbd5e1;--pst:#475569;--pbar:#f1f5f9;
+  /* cashflow */
+  --cfb:#f1f5f9;--cfl:#5B6B80;
+  --ctpbg:#f0fdf4;--ctpbd:#dcfce7;--ctpl:#166534;--ctpv:#15803d;--ctpi:#bbf7d0;
+  --ctnbg:#fef2f2;--ctnbd:#fecaca;--ctnl:#991b1b;--ctnv:#dc2626;--ctni:#fecaca;
+  --csbg:#eff6ff;--csl:#1d4ed8;--csv:#1e40af;--csi:#bfdbfe;
+  /* tagihan */
+  --tb:#f1f5f9;--tl:#5B6B80;--tv:#1e293b;--ts:#5B6B80;--tch:#cbd5e1;
+  --tdb:#fffbeb;--tdd:#fde68a;--tdt:#92400e;--tdv:#78350f;--tds:#a16207;--tdc:#92400e;
+  --tab:#fff7ed;--tad:#fed7aa;--tat:#c2410c;--tan:#1e293b;--tas:#92400e;
+  /* saldo */
+  --slb:#f1f5f9;--sll:#475569;--sls:#94a3b8
+}
+[data-theme="dark"]{
+  --bg:#0A0A0A;--card:#161616;--card-h:#1f1f1f;--bdr:#2A2A2A;--bdr-md:#3A3A3A;
+  --tx:#F4F4F2;--tx2:#C9C9C9;--tx3:#A0A0A0;--inp:#1f1f1f;
+  --sbg:#0A0A0A;--sbh:#1f1f1f;--acc:#F4F4F2;
+  --ph:#253347;--pht:#64748b;
+  --pg:rgba(20,83,45,.35);--pgb:#14532d;--pgt:#4ade80;--pgp:#22c55e;
+  --pb:rgba(30,58,95,.35);--pbb:#1e3a5f;--pbt:#93c5fd;--pbp:#60a5fa;
+  --pp:rgba(46,16,101,.35);--ppb:#2e1065;--ppt:#c4b5fd;--ppp:#a78bfa;
+  --pd:#1e293b;--pdl:#cbd5e1;--ps:#1e293b;--psl:#475569;--pst:#94a3b8;--pbar:#334155;
+  --cfb:#334155;--cfl:#94a3b8;
+  --ctpbg:rgba(20,83,45,.3);--ctpbd:#14532d;--ctpl:#4ade80;--ctpv:#22c55e;--ctpi:#166534;
+  --ctnbg:rgba(127,29,29,.3);--ctnbd:#7f1d1d;--ctnl:#fca5a5;--ctnv:#ef4444;--ctni:#7f1d1d;
+  --csbg:rgba(30,58,95,.35);--csl:#93c5fd;--csv:#bfdbfe;--csi:#1d4ed8;
+  --tb:#334155;--tl:#94a3b8;--tv:#f1f5f9;--ts:#64748b;--tch:#475569;
+  --tdb:#451a03;--tdd:#78350f;--tdt:#fde68a;--tdv:#fff;--tds:#fcd34d;--tdc:#fde68a;
+  --tab:#3b1200;--tad:#78350f;--tat:#fdba74;--tan:#f1f5f9;--tas:#fde68a;
+  --slb:#334155;--sll:#cbd5e1;--sls:#64748b
+}
+
+body{background:var(--bg);color:var(--tx);font-family:var(--font-body);font-size:.9rem;transition:background .2s,color .2s;-webkit-font-smoothing:antialiased}
+
+/* ── SIDEBAR (ink brand panel, mirrors gb-brand on login) ── */
+.sidebar{position:fixed;top:0;left:0;width:var(--sb);height:100vh;background:var(--sbg);overflow-y:auto;z-index:1000}
+.sb-brand{padding:1.25rem 1rem;border-bottom:1px solid rgba(255,255,255,.12)}
+.sb-brand .brand-name{font-family:var(--font-display);color:var(--paper);font-weight:400;font-size:1.2rem;text-transform:uppercase;letter-spacing:.01em;margin:0;line-height:1.2;word-break:break-word}
+.sb-brand .brand-sub{color:rgba(255,255,255,.4);font-size:.62rem;margin-top:.25rem;display:block;letter-spacing:.12em;text-transform:uppercase;font-weight:600}
+.sb-sec{padding:.8rem 1rem .25rem;font-size:.6rem;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.18em;margin-top:.5rem;font-weight:700;border-top:1px solid rgba(255,255,255,.1)}
+.sb-sec.sb-first{margin-top:0;border-top:none}
+.sb-inner{margin:4px 6px;border-top:1px solid rgba(255,255,255,.06)}
+/* Item nav: dulu kapsul penuh (radius 999px) yang mengambang dgn margin di
+   KEDUA sisi. Kapsul mengambang membuat item terpilih terbaca sebagai lencana
+   yang ditempel, bukan sebagai posisi di dalam navigasi. Sekarang item menempel
+   ke tepi kanan sidebar dan hanya disudutkan di kiri, sehingga item aktif
+   terbaca menyambung ke area konten seperti tab. Radius turun dari 999px ke 8px
+   supaya bentuknya tegas, bukan lonjong. */
+.sidebar .nav-link,.offcanvas .nav-link{color:rgba(255,255,255,.65)!important;padding:.46rem .75rem;border-radius:8px 0 0 8px;margin:1px 0 1px 6px;display:flex;align-items:center;gap:.55rem;font-size:.84rem;font-weight:500;transition:all .15s var(--ease-out);text-decoration:none;min-height:44px}
+/* Kontainer nav memakai utility .px-1 (4px kiri-kanan). Padding kanannya harus
+   nol, kalau tidak item berhenti 4px sebelum tepi dan efek "menyambung ke
+   konten" hilang. Sisa jarak yang masih terlihat itu batang gulir sidebar, dan
+   itu memang harus tetap ada; item menempel ke tepi area isinya, persis seperti
+   sidebar VS Code. */
+.sidebar .px-1{padding-right:0!important}
+.sidebar .nav-link:hover,.offcanvas .nav-link:hover{background:var(--sbh);color:#fff!important}
+.sidebar .nav-link.active,.offcanvas .nav-link.active{background:var(--paper);color:var(--ink)!important;font-weight:700}
+.sidebar .nav-link i,.offcanvas .nav-link i{width:16px;text-align:center;font-size:.82rem;flex-shrink:0}
+.sidebar .nav-link-pro-cta,
+.offcanvas .nav-link-pro-cta,
+.sidebar .nav-link-pro-cta.active,
+.offcanvas .nav-link-pro-cta.active{
+  background:#25d366!important;
+  /* Dulu putih di atas #25d366 = 1,98:1, jauh di bawah ambang. Yang diganti
+     TEKSNYA, bukan hijaunya: hijau WhatsApp itu yang memberi tahu tombol ini
+     membuka WhatsApp, jadi memudarkannya justru membuang maksudnya. Teks
+     gelap di atas hijau terang memberi 9,98:1 dan di sidebar gelap malah
+     lebih menonjol daripada versi putihnya. */
+  color:#0A0A0A!important;
+  font-weight:800;
+  box-shadow:0 8px 18px rgba(37,211,102,.28);
+}
+.sidebar .nav-link-pro-cta:hover,
+.offcanvas .nav-link-pro-cta:hover{
+  background:#1ebe5d!important;
+  color:#0A0A0A!important;
+  box-shadow:0 10px 22px rgba(37,211,102,.36);
+}
+.nav-link-pro-cta .badge{
+  background:#0A0A0A!important;
+  color:#fff!important;
+  font-weight:800;
+}
+
+/* ── "Bonus" section: tema-aware (amber yang readable di light & dark) ── */
+.sb-sec-bonus{color:#facc15!important}                                    /* dark sidebar default */
+.nav-link-bonus:not(.active){color:#fde68a!important}                     /* dark sidebar default */
+.sb-sec-pro{color:#facc15!important}
+[data-theme="dark"] .sb-sec-pro{color:#facc15!important}
+
+/* ── Custom sidebar item colors ── */
+.sidebar .nav-link-settings:not(.active),.offcanvas .nav-link-settings:not(.active){color:#facc15!important}
+.sidebar .nav-link-pos:not(.active),.offcanvas .nav-link-pos:not(.active){color:#facc15!important}
+.sidebar .nav-link-green:not(.active),.offcanvas .nav-link-green:not(.active){color:#4ade80!important}
+.sidebar .nav-link-dark-bg:not(.active),.offcanvas .nav-link-dark-bg:not(.active){background:#7f1d1d!important;color:#fff!important}
+
+/* ── MOBILE OFFCANVAS SIDEBAR ── */
+#sbCanvas{width:var(--sb);max-width:85vw;background:var(--sbg)}
+#sbCanvas .offcanvas-header{background:var(--sbg);border-bottom:1px solid rgba(255,255,255,.1);padding:.75rem 1rem}
+#sbCanvas .offcanvas-body{background:var(--sbg);padding:0;overflow-y:auto}
+.sb-toggle{color:var(--tx2);border:1px solid var(--bdr-md);border-radius:8px;background:transparent;width:36px;height:36px;display:flex;align-items:center;justify-content:center;padding:0;font-size:1.05rem;flex-shrink:0;cursor:pointer;transition:all .15s}
+.sb-toggle:hover{background:var(--bdr);color:var(--tx)}
+
+/* ── TOPBAR (paper panel, mirrors gb-formSide kicker rhythm) ── */
+.main{margin-left:var(--sb);min-height:100vh;overflow-x:hidden}
+.topbar{background:var(--paper);border-bottom:1px solid var(--line-hair);padding:.6rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:.5rem}
+.topbar .page-title{font-family:var(--font-display);margin:0;font-weight:400;color:var(--ink);font-size:1.65rem;text-transform:uppercase;letter-spacing:.005em;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.topbar .page-title small{font-family:var(--font-body);font-size:.72rem;color:var(--gray-400);font-weight:500;margin-left:.6rem;letter-spacing:0;vertical-align:middle;text-transform:none}
+.topbar-actions{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+
+/* ── CONTENT ── */
+.body-content{padding:1.25rem 1.5rem}
+.card{border:1px solid var(--bdr-md);border-radius:var(--r-md);box-shadow:none}
+.card-header{border-radius:var(--r-md) var(--r-md) 0 0!important;background:var(--card);border-bottom:1px solid var(--bdr-md);padding:.65rem 1rem}
+.card-header .section-title{font-size:.92rem;font-weight:700;color:var(--ink);margin:0;letter-spacing:-.005em}
+.card-header .section-title i{font-size:.85rem}
+
+/* ── KPI CARDS ──────────────────────────────────────────────────────────────
+   Dulu: `.card` memberi border 1px keliling, lalu `.kpi` menimpa border-left
+   jadi 3px, dan `.grn/.red/...` mewarnai KEEMPAT sisi. Hasilnya garis tipis
+   mengelilingi kartu yang tiba-tiba menebal di satu sisi. Itu murni hiasan:
+   garis tebal sesisi tidak pernah membawa informasi, cuma menempelkan warna.
+
+   Sekarang: kartu tanpa garis tepi sama sekali, dan LABELNYA yang naik pangkat
+   jadi pita header bergradasi. Warna semantik tetap terbaca, tapi lewat
+   struktur (header vs badan), bukan lewat garis pinggir. Hierarki kartu jadi
+   jelas dari bentuknya sendiri.
+
+   Semua gradasi SUDAH diuji kontras: teks putih >= 4.5:1 di SELURUH rentang,
+   termasuk ujung paling terang. Ujung itu titik yang paling sering luput, dan
+   tiga varian (hijau, kuning, oranye) memang gagal di percobaan pertama lalu
+   ujung terangnya digelapkan sampai lolos. Jangan mencerahkan ujung `--kpi-b`
+   tanpa menghitung ulang rasionya. */
+.kpi{
+  --kpi-a:#0A0A0A;            /* ujung gelap gradasi  */
+  --kpi-b:#3A3A3A;            /* ujung terang gradasi */
+  border:0;
+  border-radius:var(--r-md);
+  overflow:hidden;            /* pita header ikut terpotong radius kartu */
+  padding:0!important;        /* menetralkan .p-3 yang menempel di markup lama */
+}
+.kpi.grn{--kpi-a:#064E3B;--kpi-b:#047857}   /* 9,72:1 -> 5,48:1 */
+.kpi.red{--kpi-a:#7F1D1D;--kpi-b:#DC2626}   /* 10,02:1 -> 4,83:1 */
+.kpi.yel{--kpi-a:#713F12;--kpi-b:#A16207}   /* 8,67:1 -> 4,92:1 */
+.kpi.orn{--kpi-a:#7C2D12;--kpi-b:#C2410C}   /* 9,37:1 -> 5,18:1 */
+.kpi.pur{--kpi-a:#4C1D95;--kpi-b:#7C3AED}   /* 10,95:1 -> 5,70:1 */
+.kpi.blu{--kpi-a:#1E3A8A;--kpi-b:#2563EB}   /* 10,36:1 -> 5,17:1 */
+.kpi.sla{--kpi-a:#334155;--kpi-b:#64748B}   /* 10,35:1 -> 4,76:1 (netral, utk nilai nol) */
+
+/* Pita header. Dipakai kartu .kpi lewat .kpi-lbl, dan bisa dipasang di kartu
+   LAIN lewat .sec-band. Keduanya berbagi satu aturan supaya perlakuannya tidak
+   bisa melenceng sendiri-sendiri kalau salah satunya diubah nanti. */
+.kpi .kpi-lbl,
+.sec-band{
+  margin:0;
+  padding:.5rem .85rem;
+  background:linear-gradient(90deg,var(--kpi-a,#0A0A0A),var(--kpi-b,#3A3A3A));
+  color:#fff;
+}
+/* .sec-band menempel di kartu yang bukan .kpi, jadi nilai bawaan gradien dan
+   gaya hurufnya dibawa sendiri (kartu .kpi mendapatkannya dari .kpi/.kpi-lbl).
+   Warna gradiennya dioper kartu induk lewat --kpi-a/--kpi-b; nilai bawaannya
+   ditaruh sebagai FALLBACK di dalam var(), BUKAN dideklarasikan di sini, karena
+   custom property yang dideklarasikan pada elemen sendiri mengalahkan yang
+   diwarisi dari induk (itu yang bikin pitanya sempat hitam, bukan hijau).
+   Kartu pemakainya WAJIB punya overflow:hidden + border-radius, kalau tidak
+   sudut pitanya menonjol keluar dari lengkungan kartu. */
+.sec-band{
+  font-size:.82rem;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.07em;
+  line-height:1.3;
+}
+/* Padding badan diberikan ke SEMUA anak selain pita header, supaya kartu yang
+   isinya beda-beda (ada yang punya .kpi-sub, ada yang punya baris margin lepas)
+   tetap rapi tanpa perlu markup diseragamkan di 98 tempat. */
+.kpi>*:not(.kpi-lbl){padding-left:.85rem;padding-right:.85rem}
+.kpi>.kpi-lbl+*{padding-top:.7rem}
+.kpi>*:last-child{padding-bottom:.8rem}
+
+/* ── Kotak "Contoh kasus" di modal bantuan ──────────────────────────────────
+   Dulu: judul di luar, isinya ditempeli garis 3px di sisi kiri. Garis itu cuma
+   mengulang apa yang sudah dikatakan judulnya. Sekarang judul ikut masuk ke
+   dalam satu blok bertint, jadi terbaca sebagai satu kutipan contoh yang utuh. */
+.contoh-kasus{
+  background:var(--paper-soft);
+  border:1px solid var(--line-hair);
+  border-radius:var(--r-md);
+  padding:.75rem .9rem;
+}
+.contoh-kasus .ck-hd{font-weight:700;color:var(--ink);margin-bottom:.4rem}
+.contoh-kasus .ck-hd .ic{color:var(--gray-500);margin-right:.35rem}
+.contoh-kasus>*:last-child{margin-bottom:0!important}
+/* --ink & --paper-soft sengaja tidak ikut berubah di tema gelap, jadi keduanya
+   dipetakan ulang di sini. Tanpa ini ikon & judulnya hitam di atas hitam. */
+[data-theme="dark"] .contoh-kasus{background:#1F1F1F;border-color:var(--bdr-md)}
+[data-theme="dark"] .contoh-kasus .ck-hd{color:var(--tx)}
+[data-theme="dark"] .contoh-kasus .ck-hd .ic{color:var(--tx3)}
+
+.kpi-val{font-size:1.4rem;font-weight:800;color:var(--ink);letter-spacing:-.01em}
+/* Label pita header dibesarkan dari .7rem (11,2px). Di ukuran lama tulisan
+   kapital ber-tracking lebar itu terbaca sebagai keterangan kecil, padahal
+   dialah yang memberi tahu angka di bawahnya ini angka apa. Tracking sedikit
+   dirapatkan karena huruf kapital yang lebih besar tak perlu dijarangkan
+   sebanyak itu untuk tetap terbaca. */
+.kpi-lbl{font-size:.82rem;color:var(--gray-600);margin-bottom:.25rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em}
+.kpi-sub{font-size:.72rem;color:var(--tx3)}
+
+/* ── BUTTONS (pill-shaped CTAs, per Cliff.gosipinbisnis design system) ── */
+.btn{border-radius:var(--r-pill);font-weight:600;letter-spacing:.005em;transition:transform .14s var(--ease-out),box-shadow .14s var(--ease-out),background .14s,color .14s,border-color .14s}
+.btn-sm,.btn-xs{border-radius:var(--r-pill)}
+.btn-lg{border-radius:var(--r-pill)}
+.btn-primary{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.btn-primary:hover,.btn-primary:focus{background:#262626;border-color:#262626;color:var(--paper)}
+.btn-check:checked+.btn-primary,.btn-primary:active{background:#000!important;border-color:#000!important}
+.btn-outline-primary{color:var(--ink);border-color:var(--ink)}
+.btn-outline-primary:hover{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn-outline-secondary{border-color:var(--bdr-md);color:var(--tx2)}
+.btn-outline-secondary:hover{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+.btn-dark{background:var(--ink);border-color:var(--ink)}
+
+/* ── BADGES (rounded chips) ── */
+.badge{border-radius:var(--r-pill);font-weight:600;letter-spacing:.02em}
+
+/* ── ALERTS ── */
+.alert{border-radius:var(--r-md);font-weight:500}
+
+/* ── FORM CONTROLS / MODALS / DROPDOWNS (rounded per design system) ── */
+.form-control,.form-select,.input-group-text{border-radius:var(--r-md)!important}
+.form-control:focus,.form-select:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(10,10,10,.08)}
+.form-control-sm,.form-select-sm{border-radius:var(--r-md)!important}
+.modal-content{border-radius:var(--r-lg);border:none}
+.modal-header,.modal-footer{border-color:var(--bdr-md)}
+.dropdown-menu{border-radius:var(--r-md);border-color:var(--bdr-md)}
+.dropdown-item:active{background:var(--ink)}
+.nav-tabs .nav-link.active{border-color:var(--bdr-md) var(--bdr-md) var(--card);color:var(--ink);font-weight:700}
+.nav-pills .nav-link.active{background:var(--ink);border-radius:var(--r-pill)}
+
+tfoot td{font-weight:600;background:#f8fafc}
+.table-sm td,.table-sm th{padding:.42rem .6rem}
+.btn-xs{padding:2px 7px;font-size:.72rem}
+.badge-lunas{background:#dcfce7;color:#166534;font-size:.7rem}
+.badge-sebagian{background:#fef9c3;color:#854d0e;font-size:.7rem}
+.badge-belum{background:#fee2e2;color:#991b1b;font-size:.7rem}
+.badge-lewat{background:#dc2626;color:#fff;font-size:.7rem}
+.badge-mendekati{background:#f59e0b;color:#fff;font-size:.7rem}
+.badge-belumjt{background:#e0f2fe;color:#0369a1;font-size:.7rem}
+.badge-op{background:#e0f2fe;color:#0369a1}
+.badge-inv{background:#fef3c7;color:#92400e}
+.badge-fin{background:#ede9fe;color:#5b21b6}
+.badge-pem{background:#dcfce7;color:#166534}
+.badge-pen{background:#ffe4e6;color:#9f1239}
+.badge-pel{background:#e0f2fe;color:#0369a1}
+.text-rp{font-variant-numeric:tabular-nums}
+.pnl-row{display:flex;justify-content:space-between;padding:.22rem 0;border-bottom:1px solid #f1f5f9}
+.pnl-row.total-row{font-weight:600;background:#f8fafc;padding:.3rem .5rem;border-radius:6px;margin:.2rem 0}
+.pnl-row.final-row{font-weight:700;font-size:1rem;background:#1e293b;color:#fff;padding:.35rem .5rem;border-radius:6px;margin:.3rem 0}
+.pnl-pct{color:#94a3b8;font-size:.75rem;min-width:50px;text-align:right}
+
+/* ── MOBILE RESPONSIVE ── */
+@media(max-width:767.98px){
+  .main{margin-left:0}
+  .topbar{padding:.5rem .6rem;gap:.45rem}
+  .topbar .page-title{font-size:1.05rem;letter-spacing:0}
+  .topbar-actions{gap:.35rem}
+  .sb-toggle{width:34px;height:34px;border-radius:9px}
+  .theme-pill{border-radius:9px}
+  .theme-pill button{width:31px;height:31px;padding:0;justify-content:center}
+  .topbar-account{gap:.3rem!important}
+  .topbar-account .btn{width:31px;height:31px;padding:0!important;display:inline-flex;align-items:center;justify-content:center}
+  .body-content{padding:.75rem}
+  .card-body{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .kpi-val{font-size:1.1rem}
+}
+
+@media(max-width:575.98px){
+  .topbar .page-title{font-size:1rem}
+}
+
+@media(max-width:420px){
+  #sw-theme{display:none}
+  .mobile-theme-btn{display:inline-flex}
+  .topbar{padding:.48rem .55rem}
+}
+
+/* ── FORM DI MOBILE: lebih mudah diketik + angka panjang terlihat penuh (SEMUA form) ── */
+@media(max-width:575.98px){
+  /* Font 16px = cegah iOS auto-zoom saat fokus + teks input lebih terbaca. */
+  .form-control,.form-select,.form-control-sm,.form-select-sm,textarea,
+  input[type="text"],input[type="number"],input[type="tel"],input[type="email"],input[type="search"],input[type="date"]{
+    font-size:16px!important;
+  }
+  /* Target sentuh lebih tinggi (input-sm terlalu pendek di HP). */
+  .form-control-sm,.form-select-sm,.input-group-sm>.form-control,
+  .input-group-sm>.form-select,.input-group-sm>.input-group-text{ min-height:40px; }
+  .input-group-text{ padding-left:.55rem; padding-right:.55rem; }
+  /* Input angka/uang di dalam tabel: beri lebar minimum agar digit banyak (mis. 2.500.000)
+     muat penuh; kelebihan lebar tabel di-scroll horizontal via .table-responsive. */
+  .table-responsive input[type="number"],
+  .table-responsive input[type="text"],
+  .table-responsive .form-control,.table-responsive .form-select{ min-width:6.6rem; }
+  /* Kolom Qty umumnya pendek → jangan boros tempat. */
+  .table-responsive input.um-qty,.table-responsive input.item-qty,
+  .table-responsive input[data-nf-mode="qty"]{ min-width:3.6rem; }
+  .table-responsive{ -webkit-overflow-scrolling:touch; }
+}
+
+/* ── P&L TABLE ── */
+.pnl-tbl{font-size:.75rem;width:100%;border-collapse:collapse}
+.pnl-tbl td{padding:.3rem .45rem;vertical-align:middle;white-space:nowrap}
+.pnl-tbl td.label-col{white-space:normal;min-width:100px}
+.pnl-th td{background:#1e293b;color:#fff;font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;font-weight:600;padding:.28rem .45rem}
+.pnl-norm td{background:#fff;color:#374151}
+.pnl-deduct td{background:#fafafa;color:#64748b}
+.pnl-ded td{background:#fef2f2!important;color:#111827!important}
+.pnl-sep{border-top:2px solid #475569!important}
+.pnl-result td{background:#14532d;color:#fff;font-weight:700}
+.pnl-result-blue td{background:#1e3a5f;color:#fff;font-weight:700}
+.pnl-result-net td{background:#166534;color:#fff;font-weight:800;font-size:.8rem}
+.pnl-result-kept td{background:#059669;color:#fff;font-weight:800;font-size:.8rem}
+.pnl-bar-bg{height:7px;background:rgba(0,0,0,.12);border-radius:3px;overflow:hidden;width:64px;display:inline-block;vertical-align:middle}
+.pnl-bar-fill{height:100%;border-radius:3px}
+
+/* ── DARK MODE STRUCTURAL ── */
+[data-theme="dark"] .card{background:var(--card)!important;box-shadow:0 1px 6px rgba(0,0,0,.4)}
+[data-theme="dark"] .card-header{background:var(--card-h)!important;border-bottom-color:var(--bdr)!important}
+[data-theme="dark"] .nav-tabs .nav-link:not(.active){color:#fff!important;font-weight:700}
+[data-theme="dark"] .card-footer{background:var(--card)!important;border-top-color:var(--bdr)!important}
+[data-theme="dark"] .topbar{background:var(--card)!important;border-bottom-color:var(--bdr)!important}
+[data-theme="dark"] .topbar .page-title{color:var(--tx)}
+[data-theme="dark"] .section-title{color:var(--tx)!important}
+[data-theme="dark"] .text-muted{color:var(--tx3)!important}
+[data-theme="dark"] .table{color:var(--tx);border-color:var(--bdr);--bs-table-color:var(--tx);--bs-table-bg:transparent}
+/* COMPREHENSIVE: semua sel tabel terbaca di dark mode (kecuali yg punya warna util !important spt text-danger/success) */
+[data-theme="dark"] .table>:not(caption)>*>*{color:var(--tx)}
+[data-theme="dark"] .table-light{--bs-table-bg:var(--card-h);--bs-table-color:var(--tx2)}
+[data-theme="dark"] .table-hover>tbody>tr:hover>*{--bs-table-bg-state:rgba(255,255,255,.04)}
+[data-theme="dark"] .table td,[data-theme="dark"] .table th{border-color:var(--bdr)}
+[data-theme="dark"] .form-control,[data-theme="dark"] .form-select{background:var(--inp)!important;border-color:var(--bdr-md)!important;color:var(--tx)!important}
+[data-theme="dark"] .form-control::placeholder{color:var(--tx3)}
+[data-theme="dark"] .form-text{color:var(--tx3)!important}
+[data-theme="dark"] legend{color:var(--tx)!important}
+[data-theme="dark"] .btn-outline-secondary{color:var(--tx2);border-color:var(--bdr-md)}
+[data-theme="dark"] .btn-outline-secondary:hover{background:var(--bdr);color:var(--tx);border-color:var(--bdr-md)}
+[data-theme="dark"] .btn-outline-primary{color:#60a5fa;border-color:#1d4ed8}
+[data-theme="dark"] .btn-outline-primary:hover{background:#1d4ed8;color:#fff}
+[data-theme="dark"] .modal-content{background:var(--card);color:var(--tx)}
+[data-theme="dark"] .modal-header,[data-theme="dark"] .modal-footer{border-color:var(--bdr)}
+[data-theme="dark"] tfoot td{background:var(--card-h)!important}
+[data-theme="dark"] .alert{border-color:var(--bdr)}
+[data-theme="dark"] .alert-info{background:rgba(3,105,161,.22)!important;border-color:rgba(14,165,233,.42)!important;color:#bae6fd!important}
+[data-theme="dark"] .alert-warning{background:rgba(120,53,15,.28)!important;border-color:rgba(245,158,11,.48)!important;color:#fde68a!important}
+[data-theme="dark"] .alert-success{background:rgba(20,83,45,.28)!important;border-color:rgba(34,197,94,.42)!important;color:#bbf7d0!important}
+[data-theme="dark"] .alert-danger{background:rgba(127,29,29,.30)!important;border-color:rgba(239,68,68,.46)!important;color:#fecaca!important}
+[data-theme="dark"] .alert-primary{background:rgba(30,64,175,.26)!important;border-color:rgba(96,165,250,.42)!important;color:#bfdbfe!important}
+[data-theme="dark"] .alert-secondary{background:rgba(51,65,85,.34)!important;border-color:rgba(148,163,184,.34)!important;color:#cbd5e1!important}
+[data-theme="dark"] .alert strong{color:inherit!important}
+[data-theme="dark"] .alert a{color:#93c5fd!important}
+[data-theme="dark"] .badge.bg-secondary{background:#334155!important}
+[data-theme="dark"] .badge.bg-light{background:rgba(248,250,252,.16)!important;color:#e2e8f0!important;border-color:rgba(226,232,240,.22)!important}
+[data-theme="dark"] .badge.bg-dark{background:#020617!important;color:#f8fafc!important}
+[data-theme="dark"] .badge.bg-info:not(.text-dark){background:#155e75!important;color:#cffafe!important}
+[data-theme="dark"] .badge.bg-warning{background:#78350f!important;color:#fde68a!important}
+[data-theme="dark"] .badge.bg-success:not(.text-dark){background:#14532d!important;color:#bbf7d0!important}
+[data-theme="dark"] .badge.bg-danger:not(.text-dark){background:#7f1d1d!important;color:#fecaca!important}
+[data-theme="dark"] .badge.bg-primary:not(.text-dark){background:#1d4ed8!important;color:#dbeafe!important}
+[data-theme="dark"] .dropdown-menu{background:var(--card);border-color:var(--bdr)}
+[data-theme="dark"] .dropdown-item{color:var(--tx2)}
+[data-theme="dark"] .dropdown-item:hover{background:var(--bdr);color:var(--tx)}
+[data-theme="dark"] a.text-dark{color:var(--tx)!important}
+[data-theme="dark"] .fw-600,.fw-semibold:not(.badge){color:var(--tx)}
+[data-theme="dark"] small.text-muted{color:var(--tx3)!important}
+/* KPI cards */
+[data-theme="dark"] .kpi-val{color:var(--tx)!important}
+[data-theme="dark"] .kpi-lbl{color:var(--tx3)!important}
+[data-theme="dark"] .kpi-sub{color:var(--tx3)!important}
+/* Label KPI sekarang duduk di atas pita gradien, bukan di atas badan kartu.
+   Pita itu warnanya sama di tema terang maupun gelap, jadi labelnya harus tetap
+   putih di keduanya. Tanpa baris ini aturan --tx3 di atas menang lewat
+   !important dan labelnya jatuh ke 1,8:1 di tema gelap. */
+[data-theme="dark"] .kpi .kpi-lbl{color:#fff!important}
+
+/* ── Preview Jurnal (Pemasukan / Pengeluaran), dark-mode aware ── */
+/* Targetkan semua tbody dengan id berakhiran _journal_preview */
+[id$="_journal_preview"]                        { color:var(--tx) }
+[id$="_journal_preview"] td                     { color:var(--tx)!important; background:transparent!important }
+[id$="_journal_preview"] td.text-muted          { color:var(--tx2)!important }
+[id$="_journal_preview"] td.fw-semibold         { color:var(--tx)!important; font-weight:600 }
+/* Header & note */
+[data-theme="dark"] [id$="_journal_preview"] td                 { color:var(--tx)!important }
+[data-theme="dark"] [id$="_journal_preview"] td.text-muted      { color:#cbd5e1!important }
+[data-theme="dark"] [id$="_journal_preview"] td.fw-semibold     { color:#f8fafc!important }
+[data-theme="dark"] [id$="_journal_note"]                       { color:var(--tx2)!important }
+/* Header row (th) di tabel preview, force terang */
+[data-theme="dark"] [id$="_journal_preview"] ~ thead th,
+[data-theme="dark"] table:has([id$="_journal_preview"]) thead th { color:var(--tx2)!important; font-weight:700 }
+/* Fallback untuk browser tanpa :has() */
+[data-theme="dark"] .table thead th                              { color:var(--tx2) }
+
+/* Wrapper preview jurnal: enhance visibility di dark mode */
+.journal-preview-wrap{
+  background:var(--card-h)!important;
+  border:1px solid var(--bdr-md)!important;
+}
+[data-theme="dark"] .journal-preview-wrap{
+  background:rgba(59,130,246,.06)!important;
+  border-color:rgba(96,165,250,.30)!important;
+  box-shadow:inset 0 0 0 1px rgba(96,165,250,.08);
+}
+.journal-preview-wrap .preview-title{color:var(--tx2);font-weight:700}
+[data-theme="dark"] .journal-preview-wrap .preview-title{color:#93c5fd}
+
+/* ── Panel ringkasan/summary dgn tinted bg (--pg / --pb / --pp) ────────────
+   Pola: <div style="background:var(--pg);border:1px solid var(--pgb)">
+   Issue: sub-text dgn `color:var(--tx3)` terlalu redup di dark mode (bg dark
+   + text grey medium = invisible). Brighten secara paksa di dark. */
+[data-theme="dark"] [style*="background:var(--pg)"] [style*="color:var(--tx3)"],
+[data-theme="dark"] [style*="background:var(--pb)"] [style*="color:var(--tx3)"],
+[data-theme="dark"] [style*="background:var(--pp)"] [style*="color:var(--tx3)"],
+[data-theme="dark"] [style*="background:var(--card-h)"] [style*="color:var(--tx3)"]{
+  color:#cbd5e1!important;
+}
+/* Hardcoded muted colors (#64748b slate-500, #94a3b8 slate-400, #9ca3af gray-400,
+   #6b7280 gray-500, #71717a zinc-500), semua diangkat di dark mode */
+[data-theme="dark"] [style*="color:#64748b"],
+[data-theme="dark"] [style*="color:#94a3b8"],
+[data-theme="dark"] [style*="color:#9ca3af"],
+[data-theme="dark"] [style*="color:#6b7280"],
+[data-theme="dark"] [style*="color:#71717a"]{
+  color:#cbd5e1!important;
+}
+/* Hardcoded dark colors di KPI/label/sub-text yg sering invisible di dark */
+[data-theme="dark"] [style*="color:#475569"],
+[data-theme="dark"] [style*="color:#1e293b"],
+[data-theme="dark"] [style*="color:#334155"],
+[data-theme="dark"] [style*="color:#0f172a"]{
+  color:var(--tx)!important;
+}
+/* Badges */
+[data-theme="dark"] .badge-lunas{background:#14532d;color:#86efac}
+[data-theme="dark"] .badge-sebagian{background:#451a03;color:#fde68a}
+[data-theme="dark"] .badge-belum{background:#7f1d1d;color:#fca5a5}
+[data-theme="dark"] .badge-lewat{background:#991b1b;color:#fecaca}
+[data-theme="dark"] .badge-mendekati{background:#78350f;color:#fcd34d}
+[data-theme="dark"] .badge-belumjt{background:#1e3a5f;color:#93c5fd}
+[data-theme="dark"] .badge-op{background:#1e3a5f;color:#93c5fd}
+[data-theme="dark"] .badge-inv{background:#451a03;color:#fde68a}
+[data-theme="dark"] .badge-fin{background:#2e1065;color:#c4b5fd}
+[data-theme="dark"] .badge-pem{background:#14532d;color:#86efac}
+[data-theme="dark"] .badge-pen{background:#4c0519;color:#fda4af}
+[data-theme="dark"] .badge-pel{background:#1e3a5f;color:#93c5fd}
+/* P&L rows */
+[data-theme="dark"] .pnl-norm td{background:var(--card)!important;color:var(--tx)!important}
+[data-theme="dark"] .pnl-deduct td{background:var(--card-h)!important;color:var(--tx3)!important}
+[data-theme="dark"] .pnl-ded td{background:rgba(239,68,68,.13)!important;color:var(--tx)!important}
+[data-theme="dark"] .pnl-row{border-bottom-color:var(--bdr)!important}
+[data-theme="dark"] .pnl-row.total-row{background:var(--card-h)!important;color:var(--tx)!important}
+[data-theme="dark"] .pnl-pct{color:var(--tx3)!important}
+/* Input group */
+[data-theme="dark"] .input-group-text{background:var(--card-h)!important;border-color:var(--bdr-md)!important;color:var(--tx2)!important}
+/* Table footer */
+[data-theme="dark"] tfoot td{color:var(--tx)!important}
+/* Card header section title */
+[data-theme="dark"] .card-header{color:var(--tx)!important}
+/* Ikon dengan inline style color:var(--ink) → di dark mode jadi --tx2 agar tidak hitam */
+[data-theme="dark"] [style*="color:var(--ink)"]{color:var(--tx2)!important}
+/* text-dark (Bootstrap) hardcoded hitam → override di dark mode */
+[data-theme="dark"] .text-dark{color:var(--tx)!important}
+/* bg-warning dengan text putih di dark mode */
+[data-theme="dark"] .badge.bg-warning{color:#fff!important}
+/* Outline buttons */
+[data-theme="dark"] .btn-outline-danger{color:#fca5a5;border-color:#7f1d1d}
+[data-theme="dark"] .btn-outline-danger:hover{background:#7f1d1d;color:#fca5a5}
+[data-theme="dark"] .btn-outline-success{color:#86efac;border-color:#14532d}
+[data-theme="dark"] .btn-outline-success:hover{background:#14532d;color:#86efac}
+[data-theme="dark"] .btn-outline-warning{color:#fcd34d;border-color:#78350f}
+[data-theme="dark"] .btn-outline-warning:hover{background:#78350f;color:#fcd34d}
+/* fw-bold, fw-semibold text in tables */
+[data-theme="dark"] .fw-bold{color:var(--tx)!important}
+[data-theme="dark"] .fw-semibold{color:var(--tx)!important}
+/* Bootstrap contextual table rows, override di dark mode agar terbaca */
+[data-theme="dark"] .table-primary  {--bs-table-bg:rgba(37,99,235,.25);--bs-table-color:#93c5fd;--bs-table-border-color:rgba(37,99,235,.35)}
+[data-theme="dark"] .table-danger   {--bs-table-bg:rgba(185,28,28,.25);--bs-table-color:#fca5a5;--bs-table-border-color:rgba(185,28,28,.35)}
+[data-theme="dark"] .table-success  {--bs-table-bg:rgba(22,163,74,.25);--bs-table-color:#86efac;--bs-table-border-color:rgba(22,163,74,.35)}
+[data-theme="dark"] .table-warning  {--bs-table-bg:rgba(180,83,9,.25);--bs-table-color:#fcd34d;--bs-table-border-color:rgba(180,83,9,.35)}
+[data-theme="dark"] .table-info     {--bs-table-bg:rgba(8,145,178,.25);--bs-table-color:#67e8f9;--bs-table-border-color:rgba(8,145,178,.35)}
+[data-theme="dark"] .table-secondary{--bs-table-bg:rgba(71,85,105,.3);--bs-table-color:#cbd5e1;--bs-table-border-color:rgba(71,85,105,.4)}
+[data-theme="dark"] .table-light    {--bs-table-bg:var(--card-h);--bs-table-color:var(--tx2)}
+
+/* ════════════════════════════════════════════════════════════
+   DARK MODE: Inline background overrides (global, semua template)
+   Inline style tidak bisa di-override CSS biasa → pakai
+   attribute selector + !important
+   ════════════════════════════════════════════════════════════ */
+
+/* Slate/abu: tab bar, thead/tfoot rows, role legend header */
+[data-theme="dark"] [style*="background:#f8fafc"]{background:var(--card-h)!important;color:var(--tx2)!important}
+[data-theme="dark"] [style*="background:#f1f5f9"]{background:var(--card-h)!important;color:var(--tx3)!important}
+[data-theme="dark"] [style*="background:#e2e8f0"]{background:rgba(71,85,105,.35)!important;color:var(--tx3)!important}
+
+/* Biru muda: Arus Kas Operasional header/footer, Operator role box */
+[data-theme="dark"] [style*="background:#e0f2fe"]{background:rgba(3,105,161,.25)!important;color:#67e8f9!important}
+[data-theme="dark"] [style*="background:#f0f9ff"]{background:rgba(3,105,161,.2)!important;color:#67e8f9!important}
+[data-theme="dark"] [style*="background:#dbeafe"]{background:rgba(30,64,175,.25)!important;color:#93c5fd!important}
+[data-theme="dark"] [style*="background:#eff6ff"]{background:rgba(30,64,175,.2)!important;color:#93c5fd!important}
+
+/* Kuning-amber: Arus Kas Investasi, stok rendah, info box */
+[data-theme="dark"] [style*="background:#fef3c7"]{background:rgba(120,53,15,.3)!important;color:#fcd34d!important}
+[data-theme="dark"] [style*="background:#fffbeb"]{background:rgba(120,53,15,.25)!important;color:#fcd34d!important}
+[data-theme="dark"] [style*="background:#fef9c3"]{background:rgba(120,53,15,.25)!important;color:#fcd34d!important}
+[data-theme="dark"] [style*="background:#fff7ed"]{background:rgba(154,52,18,.2)!important;color:#fdba74!important}
+
+/* Ungu: Arus Kas Pendanaan, Investor role box, Penarikan Owner badge */
+[data-theme="dark"] [style*="background:#ede9fe"]{background:rgba(91,33,182,.25)!important;color:#c4b5fd!important}
+[data-theme="dark"] [style*="background:#f5f3ff"]{background:rgba(91,33,182,.2)!important;color:#c4b5fd!important}
+
+/* Hijau: Finance role box, export info, Penjualan/Bahan Baku badge */
+[data-theme="dark"] [style*="background:#f0fdf4"]{background:rgba(20,83,45,.25)!important;color:#86efac!important}
+[data-theme="dark"] [style*="background:#dcfce7"]{background:rgba(20,83,45,.3)!important;color:#86efac!important}
+[data-theme="dark"] [style*="background:#d1fae5"]{background:rgba(6,78,59,.3)!important;color:#6ee7b7!important}
+
+/* Merah muda: Settings delete section, ikon Pengeluaran */
+[data-theme="dark"] [style*="background:#fff1f2"]{background:rgba(159,18,57,.25)!important;color:#fda4af!important}
+[data-theme="dark"] [style*="background:#fee2e6"]{background:rgba(159,18,57,.2)!important}
+[data-theme="dark"] [style*="background:#ffe4e6"]{background:rgba(159,18,57,.2)!important;color:#fda4af!important}
+/* Dua latar muda ini terlewat dari daftar. Warnanya berpasangan dengan teks
+   gelap yang SUDAH punya aturan tema gelap, jadi tanpa baris ini teksnya
+   menerang sementara latarnya tetap muda: muda di atas muda. */
+[data-theme="dark"] [style*="background:#fee2e2"]{background:rgba(127,29,29,.3)!important}
+[data-theme="dark"] [style*="background:#ffedd5"]{background:rgba(154,52,18,.3)!important}
+
+/* Teal/cyan: Pajak badge */
+[data-theme="dark"] [style*="background:#cffafe"]{background:rgba(22,78,99,.3)!important;color:#67e8f9!important}
+
+/* Indigo: ikon Inventory operator */
+[data-theme="dark"] [style*="background:#eef2ff"]{background:rgba(55,48,163,.2)!important;color:#a5b4fc!important}
+/* Dark amber/brown teks di dalam info box yang jadi anak elemen */
+[data-theme="dark"] [style*="color:#78350f"]{color:#fcd34d!important}
+[data-theme="dark"] [style*="color:#92400e"]{color:#fcd34d!important}
+[data-theme="dark"] [style*="color:#0f172a"]{color:var(--tx)!important}
+[data-theme="dark"] [style*="color:#1e293b"]{color:var(--tx)!important}
+[data-theme="dark"] [style*="color:#334155"]{color:var(--tx2)!important}
+[data-theme="dark"] [style*="color:#374151"]{color:var(--tx2)!important}
+[data-theme="dark"] [style*="color:#475569"]{color:var(--tx2)!important}
+[data-theme="dark"] [style*="color:#64748b"]{color:var(--tx3)!important}
+[data-theme="dark"] [style*="color:#1e40af"]{color:#93c5fd!important}
+[data-theme="dark"] [style*="color:#1d4ed8"]{color:#93c5fd!important}
+[data-theme="dark"] [style*="color:#0369a1"]{color:#67e8f9!important}
+[data-theme="dark"] [style*="color:#15803d"]{color:#86efac!important}
+[data-theme="dark"] [style*="color:#991b1b"]{color:#fca5a5!important}
+[data-theme="dark"] [style*="color:#c2410c"]{color:#fdba74!important}
+[data-theme="dark"] [style*="color:#4338ca"]{color:#a5b4fc!important}
+[data-theme="dark"] [style*="color:#4c1d95"]{color:#c4b5fd!important}
+[data-theme="dark"] [style*="color:#0c4a6e"]{color:#67e8f9!important}
+[data-theme="dark"] [style*="color:#075985"]{color:#67e8f9!important}
+/* Warna gelap yang belum punya pasangan terang di sini, plus warna yang baru
+   dipakai sewaktu memperbaiki kontras tema TERANG. Tanpa baris-baris ini,
+   memperbaiki tema terang justru akan merusak tema gelap: warnanya makin
+   gelap sementara latarnya di sana memang sudah gelap. */
+[data-theme="dark"] [style*="color:#166534"]{color:#86efac!important}
+[data-theme="dark"] [style*="color:#9a3412"]{color:#fdba74!important}
+[data-theme="dark"] [style*="color:#b45309"]{color:#fcd34d!important}
+[data-theme="dark"] [style*="color:#b91c1c"]{color:#fca5a5!important}
+[data-theme="dark"] [style*="color:#5B6B80"]{color:var(--tx3)!important}
+[data-theme="dark"] [style*="color:#6E6E6E"]{color:var(--tx3)!important}
+/* ── Warna semantik Bootstrap di TEMA TERANG ───────────────────────────────
+   Tema gelap sudah lama punya penggantinya (blok tepat di bawah ini), tema
+   terang belum, jadi selama ini terang memakai nilai bawaan Bootstrap apa
+   adanya: text-warning #ffc107 cuma 1,63:1 di atas putih dan text-info #0dcaf0
+   cuma 1,96:1. Angka kuning di kartu Piutang praktis tak terbaca karena ini.
+
+   Penggantinya memakai RONA yang sama, cuma diturunkan gelapnya sampai lulus
+   4,5:1 pada latar terang TERGELAP yang benar-benar dipakai app (#F4F4F2),
+   bukan cuma di atas putih murni. Warning tetap kuning-jingga, info tetap
+   sian. Diberi !important karena utility Bootstrap juga !important.       */
+.text-warning{color:#B45309!important}          /* 5,02:1 putih / 4,56:1 paper-soft */
+.text-info{color:#0E7490!important}             /* 5,36:1 putih / 4,87:1 paper-soft */
+.btn-outline-warning{color:#B45309!important;border-color:#B45309!important}
+.btn-outline-info{color:#0E7490!important;border-color:#0E7490!important}
+.btn-outline-warning:hover,.btn-outline-warning:focus{color:#1A1A1A!important;background:#F5C842!important}
+.btn-outline-info:hover,.btn-outline-info:focus{color:#fff!important;background:#0E7490!important}
+.badge.bg-info{background:#0E7490!important;color:#fff!important}   /* putih di atasnya 5,36:1 */
+/* Badge "subtle": latar berwarna sangat muda + teks berwarna sedang. Pasangan
+   bawaan Bootstrap cuma 3,49:1. Teksnya dipakaikan warna "emphasis" resmi
+   Bootstrap (yang memang disediakan untuk pasangan ini) sehingga naik ke 7:1
+   ke atas tanpa mengubah latarnya. Selektor menyebut .badge supaya alert dan
+   komponen lain yang memakai bg-*-subtle tidak ikut terpengaruh. */
+.badge.bg-success-subtle{color:#0F5132!important}   /* 7,21:1 */
+.badge.bg-danger-subtle{color:#58151C!important}    /* 10,22:1 */
+.badge.bg-warning-subtle{color:#664D03!important}   /* 7,21:1 */
+.badge.bg-info-subtle{color:#055160!important}      /* 7,65:1 */
+.badge.bg-primary-subtle{color:#052C65!important}   /* 10,28:1 */
+.badge.bg-secondary-subtle{color:#2B2F32!important} /* 10,51:1 */
+/* Tema gelap sudah punya nilainya sendiri di bawah; selektor [data-theme]
+   spesifisitasnya lebih tinggi jadi otomatis menang, urutan tak jadi soal. */
+
+/* text-danger, text-success, text-warning keep readable */
+[data-theme="dark"] .text-danger{color:#fca5a5!important}
+[data-theme="dark"] .text-success{color:#86efac!important}
+[data-theme="dark"] .text-warning{color:#fcd34d!important}
+[data-theme="dark"] .text-info{color:#67e8f9!important}
+/* Badge "subtle" Bootstrap = teks berwarna di atas latar berwarna SANGAT muda.
+   Di tema gelap teksnya ikut dicerahkan oleh aturan .text-success di atas,
+   tapi latarnya tetap muda, jadi jadinya muda-di-atas-muda (1,08:1). Latarnya
+   ikut digelapkan supaya pasangannya kembali nyambung. */
+[data-theme="dark"] .bg-success-subtle{background:#14532D!important;border-color:#166534!important}
+[data-theme="dark"] .bg-danger-subtle{background:#7F1D1D!important;border-color:#991B1B!important}
+[data-theme="dark"] .bg-warning-subtle{background:#713F12!important;border-color:#854D0E!important}
+[data-theme="dark"] .bg-info-subtle{background:#155E75!important;border-color:#0E7490!important}
+[data-theme="dark"] .bg-primary-subtle{background:#1E3A8A!important;border-color:#1D4ED8!important}
+/* Item dropdown terpilih: latarnya biru penuh dari Bootstrap, tapi aturan
+   dark .dropdown-item di bawah menurunkan warnanya jadi --tx2 abu, sehingga
+   abu-di-atas-biru. Yang terpilih harus putih. */
+[data-theme="dark"] .dropdown-item.active,
+[data-theme="dark"] .dropdown-item:active{color:#fff!important}
+/* Tombol outline gelap di atas latar gelap = hampir tak terlihat. */
+[data-theme="dark"] .btn-outline-dark{color:var(--tx)!important;border-color:var(--bdr-md)!important}
+[data-theme="dark"] .btn-outline-dark:hover{background:var(--bdr)!important;color:var(--tx)!important}
+/* form labels */
+[data-theme="dark"] .form-label{color:var(--tx2)!important}
+[data-theme="dark"] label{color:var(--tx2)!important}
+/* select options */
+[data-theme="dark"] select option{background:var(--card);color:var(--tx)}
+/* offcanvas dark */
+[data-theme="dark"] .sb-toggle{border-color:var(--bdr-md);color:var(--tx2)}
+[data-theme="dark"] .sb-toggle:hover{background:var(--bdr);color:var(--tx)}
+
+/* ── theme + display pill switchers ── */
+.theme-pill{display:inline-flex;border:1px solid var(--bdr-md);border-radius:var(--r-pill);overflow:hidden;background:var(--card-h);flex-shrink:0}
+.theme-pill button{border:none;background:transparent;padding:4px 9px;cursor:pointer;font-size:.72rem;font-weight:600;color:var(--tx3);transition:all .15s var(--ease-out);display:flex;align-items:center;gap:4px;line-height:1.4}
+.theme-pill button:hover{color:var(--tx)}
+.theme-pill button.on{background:var(--tx);color:var(--bg)}
+.theme-pill button+button{border-left:1px solid var(--bdr-md)}
+.mobile-theme-btn{display:none;border:1px solid var(--bdr-md);background:var(--card-h);color:var(--tx2);width:34px;height:34px;border-radius:9px;align-items:center;justify-content:center;padding:0;flex-shrink:0}
+.mobile-theme-btn:hover{background:var(--bdr);color:var(--tx)}
+.mobile-theme-btn .fa-sun{display:none}
+[data-theme="dark"] .mobile-theme-btn .fa-moon{display:none}
+[data-theme="dark"] .mobile-theme-btn .fa-sun{display:inline-block}
+.onboarding-btn{white-space:nowrap;font-size:.72rem;font-weight:700}
+.onboarding-hero{background:linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%);border-bottom:1px solid var(--bdr);padding:1rem 1.25rem}
+[data-theme=dark] .onboarding-hero{background:linear-gradient(135deg,rgba(30,58,95,.55) 0%,rgba(20,83,45,.4) 100%)}
+.onboarding-step{display:none}
+.onboarding-step.active{display:block}
+.onboarding-icon{width:54px;height:54px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.onboarding-num{font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3)}
+.onboarding-dot{width:8px;height:8px;border-radius:50%;background:var(--bdr-md);transition:all .15s}
+.onboarding-dot.active{width:22px;border-radius:8px;background:var(--acc)}
+.onboarding-check{display:flex;gap:.55rem;margin-bottom:.5rem;color:var(--tx2);font-size:.83rem}
+.onboarding-check i{color:#15803d;margin-top:.18rem}
+.onboarding-link{font-size:.78rem;font-weight:700}
+@media(max-width:575.98px){
+  #modalOnboarding .modal-dialog{width:calc(100vw - 1rem);max-width:calc(100vw - 1rem);margin:.5rem}
+  #modalOnboarding .modal-content{width:100%;max-width:100%;overflow:hidden}
+  #modalOnboarding .onboarding-hero{padding:.85rem 1rem}
+  #modalOnboarding .modal-body{padding:1rem!important}
+  #modalOnboarding .modal-footer{padding:.75rem 1rem!important}
+  #modalOnboarding .onboarding-icon{width:46px;height:46px;border-radius:13px;font-size:1.1rem}
+  #modalOnboarding .onboarding-step .d-flex>div:last-child,
+  #modalOnboarding .onboarding-hero .d-flex>div:nth-child(2){min-width:0}
+  #modalOnboarding h5{font-size:1.03rem}
+}
+
+/* ── Year dropdown (shared by SDRP + DRP2) ── */
+.drp2-yr-sel{appearance:none;-webkit-appearance:none;border:none;background:transparent;font-size:inherit;font-weight:inherit;color:inherit;cursor:pointer;outline:none;padding:1px 14px 1px 3px;border-radius:3px;border-bottom:1.5px dashed var(--bdr-md);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 2px center;background-size:8px 5px}
+.drp2-yr-sel:hover,.drp2-yr-sel:focus{border-bottom-color:#16a34a;background-color:var(--bdr)}
+
+/* ── Single Date Picker (sdrp) ── */
+.sdrp-trig{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.sdrp-trig:hover,.sdrp-trig:focus-visible{border-color:#16a34a!important;outline:none}
+.sdrp-panel{position:fixed;z-index:9999;background:var(--card);border:1px solid var(--bdr-md);border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:.75rem;width:228px}
+.sdrp-mhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
+.sdrp-nav{background:none;border:none;cursor:pointer;color:var(--tx2);font-size:1.15rem;line-height:1;padding:2px 7px;border-radius:4px;transition:background .1s}
+.sdrp-nav:hover{background:var(--bdr)}
+.sdrp-mtitle{font-size:.83rem;font-weight:700;color:var(--tx)}
+.sdrp-daynames{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:.2rem}
+.sdrp-daynames div{text-align:center;font-size:.58rem;font-weight:600;color:var(--tx3);padding:.14rem 0}
+.sdrp-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.sdrp-day,.sdrp-empty{text-align:center;font-size:.77rem;padding:.3rem .1rem;cursor:pointer;border-radius:4px;color:var(--tx);line-height:1.4;user-select:none}
+.sdrp-empty{cursor:default}
+.sdrp-day:hover{background:var(--bdr)}
+.sdrp-today{font-weight:700;color:#15803d;outline:1.5px solid #16a34a;outline-offset:-1px}
+.sdrp-sel{background:#15803d!important;color:#fff!important;font-weight:700}
+.sdrp-sel.sdrp-today{outline-color:#fff}
+.sdrp-day-dis{opacity:.28;cursor:not-allowed;color:var(--tx3)!important}
+[data-theme=dark] .sdrp-panel{box-shadow:0 6px 24px rgba(0,0,0,.5)}
+
+/* ── Flatpickr theme integration ── */
+.flatpickr-calendar{border-radius:10px!important;border:1px solid var(--bdr)!important;box-shadow:0 8px 24px rgba(0,0,0,.12)!important;background:var(--card)!important;font-family:inherit!important}
+.flatpickr-months,.flatpickr-weekdays{background:var(--card)!important}
+.flatpickr-month{color:var(--tx)!important;fill:var(--tx)!important}
+.flatpickr-weekday{color:var(--tx3)!important;background:var(--card)!important}
+.flatpickr-day{color:var(--tx)!important;border-radius:7px!important}
+.flatpickr-day:hover{background:var(--card-h)!important;border-color:var(--bdr)!important}
+.flatpickr-day.selected,.flatpickr-day.startRange,.flatpickr-day.endRange{background:#16a34a!important;border-color:#16a34a!important;color:#fff!important}
+.flatpickr-day.inRange{background:#dcfce7!important;border-color:#dcfce7!important;box-shadow:-5px 0 0 #dcfce7,5px 0 0 #dcfce7!important;color:#15803d!important}
+.flatpickr-day.today{border-color:#16a34a!important}
+.flatpickr-day.flatpickr-disabled,.flatpickr-day.flatpickr-disabled:hover{color:var(--tx3)!important;opacity:.4}
+.numInputWrapper span{border-color:var(--bdr)!important}
+.numInputWrapper span:hover{background:var(--card-h)!important}
+.flatpickr-current-month input.cur-year,.flatpickr-current-month .flatpickr-monthDropdown-months{color:var(--tx)!important;background:var(--card)!important;border:none!important}
+.flatpickr-prev-month,.flatpickr-next-month{fill:var(--tx2)!important}
+.flatpickr-prev-month:hover svg,.flatpickr-next-month:hover svg{fill:#16a34a!important}
+[data-theme=dark] .flatpickr-day.inRange{background:#14532d!important;border-color:#14532d!important;box-shadow:-5px 0 0 #14532d,5px 0 0 #14532d!important;color:#86efac!important}
+/* range picker input styling */
+.drp-input{cursor:pointer;background:var(--card)!important;color:var(--tx)!important;min-width:200px}
+.drp-input:read-only:focus{border-color:#16a34a;box-shadow:0 0 0 .2rem rgba(22,163,74,.2)}
+
+/* ── Combobox pencarian produk (reusable) ── */
+.pcombo{position:relative}
+.pcombo-input{cursor:text;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2394a3b8'%3E%3Cpath d='M11.74 10.66 15 13.91 13.91 15l-3.25-3.26a6 6 0 1 1 1.08-1.08ZM7 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right .55rem center;background-size:13px;padding-right:1.7rem!important}
+.pcombo-menu{position:fixed;z-index:3000;background:var(--card);
+  border:1px solid var(--bdr-md);border-radius:8px;box-shadow:0 8px 28px rgba(0,0,0,.22);
+  max-height:260px;overflow-y:auto;display:none}
+.pcombo-menu.open{display:block}
+.pcombo-item{padding:.4rem .6rem;font-size:.82rem;cursor:pointer;color:var(--tx);border-bottom:1px solid var(--bdr);line-height:1.3}
+.pcombo-item:last-child{border-bottom:none}
+.pcombo-item:hover,.pcombo-item.active{background:var(--bdr)}
+.pcombo-item .pc-kode{font-size:.68rem;color:var(--tx3);font-family:monospace}
+.pcombo-item .pc-stok{font-size:.68rem;color:var(--tx3);float:right}
+.pcombo-empty{padding:.5rem .6rem;font-size:.78rem;color:var(--tx3);text-align:center}
+.pcombo-group{padding:.3rem .6rem .2rem;font-size:.64rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--tx3);background:var(--bg)}
+.pcombo-um{position:relative}
+.pcombo-um .um-desc{padding-right:24px}
+.pcombo-caret{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-size:.66rem;color:var(--tx3);cursor:pointer;pointer-events:auto}
+.pcombo-chips{display:flex;flex-wrap:wrap;gap:5px;padding:7px 8px;position:sticky;top:0;z-index:2;
+  background:var(--card);border-bottom:1px solid var(--bdr)}
+.pcombo-chip{font-size:.68rem;font-weight:600;padding:2px 9px;border:1px solid var(--bdr-md);border-radius:999px;
+  cursor:pointer;color:var(--tx2);background:var(--bg);white-space:nowrap;user-select:none}
+.pcombo-chip:hover{background:var(--bdr)}
+.pcombo-chip.active{background:#0d9488;color:#fff;border-color:#0d9488}
+</style>
+<script>
+// ── Single Date Picker, auto-replaces every input[type="date"] ──────────────
+(function(){
+  var BLN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus',
+           'September','Oktober','November','Desember'];
+  var HRN=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+
+  function ymd(d){
+    return d.getFullYear()+'-'+(d.getMonth()+1).toString().padStart(2,'0')+
+           '-'+d.getDate().toString().padStart(2,'0');
+  }
+  function fromYMD(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+  function dispFmt(d){
+    return d.getDate().toString().padStart(2,'0')+' '+BLN[d.getMonth()]+' '+d.getFullYear();
+  }
+  function calCells(y,m){
+    var first=new Date(y,m,1),dow=first.getDay(),last=new Date(y,m+1,0),cells=[];
+    for(var i=0;i<dow;i++)cells.push(null);
+    for(var n=1;n<=last.getDate();n++)cells.push(new Date(y,m,n));
+    return cells;
+  }
+
+  function initPicker(inp){
+    if(inp._sdrp||inp.readOnly||inp.disabled)return;
+    inp._sdrp=true;
+
+    var raw=inp.value||ymd(new Date());
+    var val=fromYMD(raw);
+    var cy=val.getFullYear(),cm=val.getMonth();
+    var panel=null;
+    var isSmall=inp.className.indexOf('form-control-sm')>=0;
+
+    // wrap + hide native input
+    var wrap=document.createElement('div');
+    wrap.style.cssText='position:relative;display:block';
+    inp.parentNode.insertBefore(wrap,inp);
+    wrap.appendChild(inp);
+    inp.type='hidden';
+
+    // trigger element
+    var trig=document.createElement('div');
+    trig.className='sdrp-trig form-control'+(isSmall?' form-control-sm':'');
+    trig.setAttribute('tabindex','0');
+    function updTrig(){
+      trig.innerHTML='<i class="fas fa-calendar-days" style="color:var(--acc);font-size:.88em;flex-shrink:0"></i>'+
+                     '<span>'+dispFmt(val)+'</span>'+
+                     '<i class="fas fa-chevron-down" style="font-size:.6rem;color:var(--tx3);margin-left:auto"></i>';
+    }
+    updTrig();
+    wrap.insertBefore(trig,inp);
+
+    var MIN_YR=new Date().getFullYear()-30;
+    var maxDate=inp.max?fromYMD(inp.max):null;
+    var minDate=inp.min?fromYMD(inp.min):null;
+
+    function buildPanel(){
+      var maxYr=maxDate?maxDate.getFullYear():new Date().getFullYear()+10;
+      var minYr=minDate?minDate.getFullYear():MIN_YR;
+      var yrOpts='',y2;
+      for(y2=minYr;y2<=maxYr;y2++)
+        yrOpts+='<option value="'+y2+'"'+(y2===cy?' selected':'')+'>'+y2+'</option>';
+
+      var todayStr=ymd(new Date());
+      var cells=calCells(cy,cm);
+      var grid=cells.map(function(d){
+        if(!d)return'<div class="sdrp-empty"></div>';
+        var ds=ymd(d),cls='sdrp-day';
+        var disabled=(maxDate&&d>maxDate)||(minDate&&d<minDate);
+        if(disabled){cls+=' sdrp-day-dis';}
+        else{
+          if(ds===ymd(val))cls+=' sdrp-sel';
+          if(ds===todayStr)cls+=' sdrp-today';
+        }
+        return'<div class="'+cls+'" data-dt="'+ds+'">'+d.getDate()+'</div>';
+      }).join('');
+
+      var atMax=maxDate&&cy>=maxDate.getFullYear()&&cm>=maxDate.getMonth();
+      var atMin=minDate&&cy<=minDate.getFullYear()&&cm<=minDate.getMonth();
+      panel.innerHTML=
+        '<div class="sdrp-mhdr">'+
+          '<button type="button" class="sdrp-nav" id="sdrpP"'+(atMin?' disabled style="opacity:.3;cursor:default"':'')+'>&#8249;</button>'+
+          '<div class="sdrp-mtitle">'+BLN[cm]+
+            ' <select class="drp2-yr-sel" id="sdrpY">'+yrOpts+'</select>'+
+          '</div>'+
+          '<button type="button" class="sdrp-nav" id="sdrpN"'+(atMax?' disabled style="opacity:.3;cursor:default"':'')+'>&#8250;</button>'+
+        '</div>'+
+        '<div class="sdrp-daynames">'+HRN.map(function(h){return'<div>'+h+'</div>';}).join('')+'</div>'+
+        '<div class="sdrp-grid">'+grid+'</div>';
+
+      panel.querySelector('#sdrpP').addEventListener('click',function(e){
+        e.stopPropagation();if(this.disabled)return;cm--;if(cm<0){cm=11;cy--;}buildPanel();});
+      panel.querySelector('#sdrpN').addEventListener('click',function(e){
+        e.stopPropagation();if(this.disabled)return;cm++;if(cm>11){cm=0;cy++;}buildPanel();});
+      panel.querySelector('#sdrpY').addEventListener('change',function(){
+        cy=parseInt(this.value);buildPanel();});
+      panel.querySelectorAll('.sdrp-day').forEach(function(el){
+        el.addEventListener('click',function(e){
+          e.stopPropagation();
+          if(el.classList.contains('sdrp-day-dis'))return;
+          val=fromYMD(el.dataset.dt);
+          cy=val.getFullYear();cm=val.getMonth();
+          inp.value=ymd(val);
+          inp.dispatchEvent(new Event('change',{bubbles:true}));
+          updTrig();closePanel();
+        });
+      });
+    }
+
+    function posPanel(){
+      var r=trig.getBoundingClientRect(),w=232,h=290;
+      var left=r.left,top=r.bottom+4;
+      if(left+w>window.innerWidth-8)left=Math.max(8,window.innerWidth-w-8);
+      if(top+h>window.innerHeight-8)top=Math.max(8,r.top-h-4);
+      panel.style.top=top+'px';panel.style.left=left+'px';
+    }
+
+    function openPanel(){
+      if(panel){closePanel();return;}
+      panel=document.createElement('div');
+      panel.className='sdrp-panel';
+      document.body.appendChild(panel);
+      buildPanel();posPanel();
+      setTimeout(function(){document.addEventListener('mousedown',outer);},0);
+    }
+    function closePanel(){
+      if(panel){panel.remove();panel=null;}
+      document.removeEventListener('mousedown',outer);
+    }
+    function outer(e){
+      if(panel&&!panel.contains(e.target)&&!trig.contains(e.target))closePanel();
+    }
+    trig.addEventListener('click',openPanel);
+    trig.addEventListener('keydown',function(e){
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();openPanel();}
+    });
+  }
+
+  function initAll(){
+    document.querySelectorAll('input[type="date"]').forEach(initPicker);
+  }
+  document.addEventListener('DOMContentLoaded',initAll);
+  window.initSingleDRP=initAll;
+})();
+</script>
+<style>@media (max-width:640px){form.d-flex{flex-wrap:wrap;row-gap:8px}input.form-control[type="date"]{width:auto !important;flex:1 1 130px;min-width:110px}.table-sticky-actions{border-collapse:separate;border-spacing:0}.table-sticky-actions thead th:last-child,.table-sticky-actions tbody td:last-child,.table-sticky-actions tfoot td:last-child{position:sticky;right:0;background:var(--card);box-shadow:-6px 0 8px -6px rgba(0,0,0,.18);z-index:2}}</style>
+</head>
+<body>
+
+{# ── SIDEBAR NAV MACRO, used in both desktop sidebar and mobile offcanvas ── #}
+{% macro sb_nav() %}
+  <div class="py-2 px-1">
+    {% set role = session.get('role','') %}
+
+    {# ── DASHBOARD ─────────────────────────────────── #}
+    {% if role == 'ADMIN' %}
+    <form method="POST" action="/settings/simple-mode" class="px-2 pb-2">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)">
+        <button type="submit" name="mode" value="simple"
+                class="border-0"
+                style="border-radius:7px;padding:.45rem .35rem;font-size:.72rem;font-weight:800;letter-spacing:.01em;color:{% if app_pref.simple_mode %}#052e16{% else %}rgba(255,255,255,.62){% endif %};background:{% if app_pref.simple_mode %}#86efac{% else %}transparent{% endif %}">
+          <i class="fas fa-eye-slash me-1"></i>Simple
+        </button>
+        <button type="submit" name="mode" value="detail"
+                class="border-0"
+                style="border-radius:7px;padding:.45rem .35rem;font-size:.72rem;font-weight:800;letter-spacing:.01em;color:{% if not app_pref.simple_mode %}#0f172a{% else %}rgba(255,255,255,.62){% endif %};background:{% if not app_pref.simple_mode %}#e2e8f0{% else %}transparent{% endif %}">
+          <i class="fas fa-layer-group me-1"></i>Detail
+        </button>
+      </div>
+      <div class="mt-1 px-1" style="font-size:.62rem;color:rgba(255,255,255,.38);line-height:1.35">
+        Filter menu Simple diatur dari Pengaturan.
+      </div>
+    </form>
+    <a href="/settings" class="nav-link nav-link-settings {% if request.endpoint=='settings' %}active{% endif %}">
+      <i class="fas fa-gear"></i> Pengaturan</a>
+    {% endif %}
+    <a href="/" class="nav-link {% if request.endpoint=='dashboard' %}active{% endif %}">
+      <i class="fas fa-house"></i> Dashboard</a>
+
+    {# ── INPUT TRANSAKSI ───────────────────────────── #}
+    {% if can.sales_input or can.expense_input or role in ('ADMIN','FINANCE','OPERATOR','DEMO') %}
+    <div class="sb-sec">Input Transaksi</div>
+    {% if can.sales_input %}
+    <a href="/pemasukan" class="nav-link {% if request.endpoint=='pemasukan' %}active{% endif %}">
+      <i class="fas fa-arrow-trend-up"></i> Penjualan</a>
+    {% endif %}
+    {% if can.expense_input %}
+    <a href="/pembelian" class="nav-link {% if request.endpoint=='pembelian' %}active{% endif %}">
+      <i class="fas fa-cart-shopping"></i> Pembelian</a>
+    <a href="/pengeluaran" class="nav-link {% if request.endpoint=='pengeluaran' %}active{% endif %}">
+      <i class="fas fa-arrow-trend-down"></i> Pengeluaran</a>
+    {% endif %}
+    {% if role in ('ADMIN','FINANCE','OPERATOR','DEMO') %}
+    {% if show_feature.transfer %}
+    <a href="/transfer-rekening" class="nav-link {% if request.endpoint=='transfer_rekening' %}active{% endif %}">
+      <i class="fas fa-right-left"></i> Transfer Rekening</a>
+    {% endif %}
+    {% if show_feature.retur_penjualan or show_feature.retur_pembelian %}
+    <a href="{{ '/retur-penjualan' if show_feature.retur_penjualan else '/retur-pembelian' }}"
+       class="nav-link {% if request.endpoint in ('retur_penjualan','retur_pembelian') %}active{% endif %}">
+      <i class="fas fa-rotate-left"></i> Retur</a>
+    {% endif %}
+    {% if role in ('ADMIN','FINANCE','DEMO') %}
+    {% if show_feature.pelunasan %}
+    <a href="/pelunasan" class="nav-link {% if request.endpoint=='pelunasan' %}active{% endif %}">
+      <i class="fas fa-handshake"></i> Pelunasan</a>
+    {% endif %}
+    {% if show_feature.pendanaan %}
+    <a href="/pendanaan" class="nav-link {% if request.endpoint=='pendanaan' %}active{% endif %}">
+      <i class="fas fa-sack-dollar"></i> Pendanaan</a>
+    {% endif %}
+    {% endif %}
+    {% if show_feature.invoice %}
+    <a href="/invoice" class="nav-link {% if 'invoice' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-file-invoice"></i> Invoice</a>
+    {% endif %}
+    {% if show_feature.po %}
+    <a href="/po" class="nav-link {% if 'po_' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-cart-flatbed"></i> Purchase Order</a>
+    {% endif %}
+    {% if can.sales_input %}
+    <a href="/import-marketplace" class="nav-link {% if (request.endpoint or '').startswith('import_marketplace') %}active{% endif %}">
+      <i class="fas fa-store"></i> Import Marketplace</a>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+
+    {# ── POS (section terpisah) ────────────────────── #}
+    {% if modul_aktif and modul_aktif.POS_KASIR and (can.pos_sales or can.manage_master_pos) %}
+    <div class="sb-sec">POS</div>
+    {% if can.pos_sales %}
+    <a href="/pos" class="nav-link nav-link-pos {% if (request.endpoint or '').startswith('pos_') and request.endpoint != 'pos_master' %}active{% endif %}">
+      <i class="fas fa-cash-register"></i> POS Kasir</a>
+    {% endif %}
+    {% if can.manage_master_pos %}
+    <a href="/pos/master" class="nav-link nav-link-pos {% if request.endpoint=='pos_master' or (request.endpoint or '').startswith('pos_master_') %}active{% endif %}">
+      <i class="fas fa-chart-pie"></i> Master POS</a>
+    {% endif %}
+    {% endif %}
+    {% if can.show_journal or can.inventory_input or role in ('ADMIN','FINANCE','INVESTOR','OPERATOR','DEMO') %}
+    <div class="sb-sec">Tracker</div>
+    {% if can.show_journal %}
+    <a href="/daftar-transaksi?tab=semua" class="nav-link {% if request.endpoint=='daftar_transaksi' %}active{% endif %}">
+      <i class="fas fa-list-ul"></i> Daftar Transaksi</a>
+    {% endif %}
+    <a href="/piutang" class="nav-link {% if 'piutang' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-file-invoice-dollar"></i> Piutang</a>
+    <a href="/hutang" class="nav-link {% if 'hutang' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-hand-holding-dollar"></i> Hutang</a>
+    {% if can.inventory_input %}
+    <a href="/stok" class="nav-link nav-link-green {% if 'stok' in (request.endpoint or '') or 'produk_' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-boxes-stacked"></i> Inventory</a>
+    {% endif %}
+    {% if can.inventory_input and can.inventory_hpp and show_feature.produksi %}
+    <a href="/produksi" class="nav-link {% if 'produksi' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-industry"></i> Produksi</a>
+    {% endif %}
+    {% if can.show_hpp_margin and role in ('ADMIN','FINANCE','INVESTOR','DEMO') and show_feature.hpp_kalkulator %}
+    <a href="/kalkulator-hpp" class="nav-link {% if request.endpoint=='kalkulator_hpp' %}active{% endif %}">
+      <i class="fas fa-calculator"></i> Master HPP</a>
+    {% endif %}
+
+    {# ── DATABASE ──────────────────────────────────── #}
+    {% endif %}
+    {% set _show_db  = role in ('ADMIN','FINANCE','INVESTOR','DEMO') and show_feature.database %}
+    {% set _show_prj = role in ('ADMIN','FINANCE','DEMO') and show_feature.proyek %}
+    {% if _show_db or _show_prj %}
+    <div class="sb-sec">Database</div>
+    {% if _show_db %}
+    <a href="/database/customer" class="nav-link nav-link-green {% if 'db_customer' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-user-group"></i> Customer</a>
+    <a href="/database/vendor" class="nav-link nav-link-green {% if 'db_vendor' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-truck-field"></i> Vendor</a>
+    {% endif %}
+    {% if _show_prj %}
+    <a href="/proyek" class="nav-link nav-link-green {% if request.endpoint in ('proyek_list','proyek_detail') %}active{% endif %}">
+      <i class="fas fa-diagram-project"></i> Proyek</a>
+    {% endif %}
+    {% endif %}
+
+    {% if role in ('ADMIN','FINANCE','INVESTOR','DEMO') %}
+    <div class="sb-sec">Laporan</div>
+    {% if show_feature.aset_tetap %}
+    <a href="/aset-tetap" class="nav-link {% if request.endpoint=='aset_tetap_list' %}active{% endif %}">
+      <i class="fas fa-building"></i> Aset Tetap</a>
+    {% endif %}
+    <div class="sb-inner"></div>
+    <a href="/laba-rugi" class="nav-link {% if request.endpoint=='laba_rugi' %}active{% endif %}">
+      <i class="fas fa-chart-bar"></i> Laba Rugi</a>
+    <a href="/arus-kas" class="nav-link {% if request.endpoint=='arus_kas' %}active{% endif %}">
+      <i class="fas fa-droplet"></i> Arus Kas</a>
+    {% if show_feature.grafik %}
+    <a href="/charts" class="nav-link {% if request.endpoint=='charts' %}active{% endif %}">
+      <i class="fas fa-chart-pie"></i> Grafik</a>
+    {% endif %}
+    {% if show_feature.performa_penjualan %}
+    <a href="/performa-penjualan" class="nav-link {% if request.endpoint=='performa_penjualan' %}active{% endif %}">
+      <i class="fas fa-ranking-star"></i> Performa Penjualan</a>
+    {% endif %}
+    <a href="/neraca" class="nav-link {% if request.endpoint=='neraca' %}active{% endif %}">
+      <i class="fas fa-scale-balanced"></i> Neraca</a>
+    {% if show_feature.perubahan_ekuitas %}
+    <a href="/perubahan-ekuitas" class="nav-link {% if request.endpoint=='perubahan_ekuitas' %}active{% endif %}">
+      <i class="fas fa-arrows-rotate"></i> Perubahan Ekuitas</a>
+    {% endif %}
+    {% if show_feature.analisis_rasio %}
+    <a href="/analisis-rasio" class="nav-link {% if request.endpoint=='analisis_rasio' %}active{% endif %}">
+      <i class="fas fa-gauge-high"></i> Analisis Rasio</a>
+    {% endif %}
+    {% if show_feature.buku_besar %}
+    <a href="/buku-besar" class="nav-link {% if request.endpoint=='buku_besar' %}active{% endif %}">
+      <i class="fas fa-book-open"></i> Buku Besar</a>
+    {% endif %}
+    {% endif %}
+
+    {# ── LAINNYA ───────────────────────────────────── #}
+    {% if (can.show_journal and show_feature.jurnal) or (role in ('ADMIN','FINANCE','INVESTOR','DEMO') and show_feature.bagan_akun) %}
+    <div class="sb-sec">Lainnya</div>
+    {% if can.show_journal and show_feature.jurnal %}
+    <a href="/transaksi" class="nav-link {% if 'transaksi' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-receipt"></i> Jurnal</a>
+    {% endif %}
+    {% if role in ('ADMIN','FINANCE','INVESTOR','DEMO') and show_feature.bagan_akun %}
+    <a href="/akun" class="nav-link {% if 'akun' in (request.endpoint or '') %}active{% endif %}">
+      <i class="fas fa-list-check"></i> Bagan Akun</a>
+    {% endif %}
+    {% endif %}
+    {% if role in ('ADMIN','FINANCE') and show_feature.setup_saldo_awal %}
+    <a href="/setup/saldo-awal" class="nav-link nav-link-dark-bg {% if request.endpoint in ('saldo_awal_form','saldo_awal_simpan') %}active{% endif %}">
+      <i class="fas fa-flag-checkered"></i> Setup Saldo Awal</a>
+    {% endif %}
+    {% if role == 'ADMIN' and not ((request.endpoint or '') == 'pos_master' or (request.endpoint or '').startswith('pos_master_')) %}
+    <a href="/pengaturan/modul" class="nav-link nav-link-pro-cta {% if request.endpoint=='pengaturan_modul' %}active{% endif %}">
+      <i class="fas fa-puzzle-piece"></i> Modul Lanjutan
+      {% if modul_aktif and modul_aktif.values()|select|list|length > 0 %}
+      <span class="badge bg-success ms-auto" style="font-size:.62rem;padding:.15rem .4rem">{{ modul_aktif.values()|select|list|length }}</span>
+      {% endif %}
+    </a>
+    {% endif %}
+    {% if role in ('ADMIN','FINANCE') %}
+    <a href="/log" class="nav-link {% if request.endpoint=='log_aktivitas' %}active{% endif %}">
+      <i class="fas fa-clock-rotate-left"></i> Log Aktivitas</a>
+    {% endif %}
+
+    {# ── Modul Lanjutan: Pajak & Gaji ─────────────────── #}
+    {% if modul_aktif and modul_aktif.PAJAK_OTOMATIS and role in ('ADMIN','FINANCE') and show_feature.pajak %}
+    <div class="sb-sec sb-sec-pro"><i class="fas fa-file-invoice-dollar me-1"></i>Modul Pajak</div>
+    <a href="/pajak" class="nav-link {% if request.endpoint=='pajak_hub' %}active{% endif %}">
+      <i class="fas fa-gauge"></i> Hub Pajak</a>
+    <a href="/pajak/setor" class="nav-link {% if request.endpoint=='pajak_setor' %}active{% endif %}">
+      <i class="fas fa-money-bill-transfer"></i> Bayar Pajak/Gaji</a>
+    <a href="/pajak/pembelian-pkp" class="nav-link {% if request.endpoint=='pajak_pembelian_pkp' %}active{% endif %}">
+      <i class="fas fa-cart-shopping"></i> Pembelian PKP</a>
+    <a href="/pajak/spt-masa" class="nav-link {% if request.endpoint=='pajak_spt_masa' %}active{% endif %}">
+      <i class="fas fa-file-invoice-dollar"></i> SPT Masa PPN</a>
+    <a href="/pajak/pph22" class="nav-link {% if request.endpoint=='pajak_pph22' %}active{% endif %}">
+      <i class="fas fa-landmark"></i> Rekap PPh 22</a>
+    <a href="/pajak/bukti-potong" class="nav-link {% if request.endpoint in ('pajak_bukti_potong_list','pajak_bukti_potong_cetak') %}active{% endif %}">
+      <i class="fas fa-file-contract"></i> Bukti Potong PPh23</a>
+    <a href="/pajak/bukti-potong-keluar" class="nav-link {% if request.endpoint in ('pajak_bukti_potong_keluar_list','pajak_bukti_potong_keluar_cetak') %}active{% endif %}">
+      <i class="fas fa-scissors"></i> Bukti Potong Keluar</a>
+    <a href="/pajak/bukti-bayar" class="nav-link {% if request.endpoint in ('pajak_bukti_bayar_list','pajak_bukti_bayar_cetak') %}active{% endif %}">
+      <i class="fas fa-receipt"></i> Bukti Bayar Pajak</a>
+    {% endif %}
+    {% if modul_aktif and modul_aktif.PAJAK_OTOMATIS and role in ('ADMIN','FINANCE') and show_feature.gaji %}
+    <div class="sb-sec sb-sec-pro" style="margin-top:.25rem"><i class="fas fa-users me-1"></i>Modul Gaji</div>
+    <a href="/gaji/karyawan" class="nav-link {% if request.endpoint=='gaji_karyawan' %}active{% endif %}">
+      <i class="fas fa-id-card"></i> Data Karyawan</a>
+    <a href="/gaji/proses" class="nav-link {% if request.endpoint=='gaji_proses' %}active{% endif %}">
+      <i class="fas fa-calculator"></i> Proses Gaji</a>
+    <a href="/gaji/riwayat" class="nav-link {% if request.endpoint in ('gaji_riwayat','gaji_slip') %}active{% endif %}">
+      <i class="fas fa-clock-rotate-left"></i> Riwayat Gaji</a>
+    {% endif %}
+    {# ── Modul Lanjutan: Anggaran & Target ─────────────── #}
+    {% if modul_aktif and modul_aktif.ANGGARAN and role in ('ADMIN','FINANCE') and show_feature.anggaran %}
+    <div class="sb-sec sb-sec-pro"><i class="fas fa-bullseye me-1"></i>Modul Anggaran</div>
+    <a href="/anggaran" class="nav-link {% if request.endpoint=='anggaran_home' %}active{% endif %}">
+      <i class="fas fa-chart-bar"></i> Anggaran & Target</a>
+    {% endif %}
+
+    {# ── BONUS ─────────────────────────────────────── #}
+    {# Role badge at bottom of sidebar #}
+    <div style="padding:.6rem .75rem;margin-top:.5rem;border-top:1px solid rgba(255,255,255,.08)">
+      <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.3);margin-bottom:.3rem">Role</div>
+      {% if role == 'ADMIN' %}
+        <span style="font-size:.72rem;font-weight:700;color:#60a5fa"><i class="fas fa-shield-halved me-1"></i>Admin</span>
+      {% elif role == 'FINANCE' %}
+        <span style="font-size:.72rem;font-weight:700;color:#34d399"><i class="fas fa-coins me-1"></i>Finance</span>
+      {% elif role == 'MANAJER' %}
+        <span style="font-size:.72rem;font-weight:700;color:#2dd4bf"><i class="fas fa-chart-pie me-1"></i>Manajer POS</span>
+      {% elif role == 'INVESTOR' %}
+        <span style="font-size:.72rem;font-weight:700;color:#c4b5fd"><i class="fas fa-eye me-1"></i>Investor</span>
+      {% elif role == 'OPERATOR' %}
+        <span style="font-size:.72rem;font-weight:700;color:#67e8f9"><i class="fas fa-pen-to-square me-1"></i>Operator</span>
+      {% elif role == 'KASIR' %}
+        <span style="font-size:.72rem;font-weight:700;color:#fb923c"><i class="fas fa-cash-register me-1"></i>Kasir Only</span>
+      {% elif role == 'DEMO' %}
+        <span style="font-size:.72rem;font-weight:700;color:#fb923c"><i class="fas fa-flask me-1"></i>Demo</span>
+        <div style="font-size:.58rem;color:rgba(251,146,60,.6);margin-top:.2rem">Read-only</div>
+      {% endif %}
+    </div>
+
+    {# Version label — klik untuk lihat catatan rilis (Apa yang Baru) #}
+    <div style="padding:.45rem .75rem .95rem;text-align:left">
+      <a href="{{ url_for('changelog') }}"
+              title="Lihat apa yang baru di versi ini"
+              style="background:none;border:none;padding:0;cursor:pointer;display:inline-flex;align-items:center;gap:.35rem;
+                     font-size:.76rem;color:rgba(255,255,255,.58);letter-spacing:.01em;font-weight:700;text-decoration:none"
+              onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,.58)'">
+        <i class="fas fa-circle-info" style="font-size:.7rem;opacity:.8"></i>VERSI 7 (18 AGUSTUS 2026)
+      </a>
+    </div>
+
+  </div>
+{% endmacro %}
+
+{# ── MOBILE OFFCANVAS SIDEBAR ── #}
+<div class="offcanvas offcanvas-start" tabindex="-1" id="sbCanvas" aria-labelledby="sbCanvasLabel">
+  <div class="offcanvas-header">
+    <div>
+      <div id="sbCanvasLabel" style="font-family:var(--font-display);color:var(--paper);font-weight:400;text-transform:uppercase;letter-spacing:.01em;font-size:1.15rem;line-height:1.25">
+        <i class="fas fa-chart-line me-2"></i>{{ nama_usaha }}
+      </div>
+      <span style="color:rgba(255,255,255,.35);font-size:.62rem">Sistem Akuntansi Bisnis</span>
+    </div>
+    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="offcanvas" aria-label="Tutup"></button>
+  </div>
+  <div class="offcanvas-body">
+    {{ sb_nav() }}
+  </div>
+</div>
+
+{# ── DESKTOP SIDEBAR, hidden on mobile, shown md+ ── #}
+<nav class="sidebar d-none d-md-block">
+  <div class="sb-brand">
+    <div class="brand-name"><i class="fas fa-chart-line me-2"></i>{{ nama_usaha }}</div>
+    <span class="brand-sub">Sistem Akuntansi Bisnis</span>
+  </div>
+  {{ sb_nav() }}
+</nav>
+
+<div class="main">
+  <div class="topbar">
+    {# Hamburger button, mobile only #}
+    <button class="sb-toggle d-md-none" data-bs-toggle="offcanvas" data-bs-target="#sbCanvas" aria-label="Buka menu">
+      <i class="fas fa-bars"></i>
+    </button>
+    <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+    <div class="topbar-actions">
+      <span class="text-muted d-none d-lg-inline" style="font-size:.78rem">
+        <i class="fas fa-calendar-day me-1"></i>{{ now.strftime('%d %B %Y') }}
+      </span>
+      {% if session.role in ('ADMIN','FINANCE') and show_feature.setup_saldo_awal %}
+      <a href="/setup/saldo-awal" class="btn btn-outline-primary btn-sm onboarding-btn d-none d-lg-inline-flex"
+         title="Input saldo awal akun (kas, piutang, hutang, aset tetap) untuk migrasi pembukuan">
+        <i class="fas fa-flag-checkered me-lg-1"></i><span class="d-none d-lg-inline">Setup Awal</span>
+      </a>
+      {% endif %}
+      <!-- Toggle 1: Warna Light / Dark -->
+      <div class="theme-pill" id="sw-theme" title="Mode warna">
+        <button data-v="light" onclick="setTheme('light')" title="Light">
+          <i class="fas fa-sun"></i><span class="d-none d-lg-inline">Light</span></button>
+        <button data-v="dark" onclick="setTheme('dark')" title="Dark">
+          <i class="fas fa-moon"></i><span class="d-none d-lg-inline">Dark</span></button>
+      </div>
+      <button type="button" class="mobile-theme-btn" onclick="toggleTheme()" title="Night / Light" aria-label="Ganti mode Night atau Light">
+        <i class="fas fa-moon"></i><i class="fas fa-sun"></i>
+      </button>
+      {% if session.get('nama') %}
+      <div class="topbar-account d-flex align-items-center gap-1">
+        <span class="badge {% if session.role=='ADMIN' %}bg-primary{% elif session.role=='DEMO' %}bg-warning text-dark{% else %}bg-secondary{% endif %} d-none d-sm-inline">
+          {{ session.role }}</span>
+        <span class="text-muted d-none d-sm-inline" style="font-size:.78rem">{{ session.nama }}</span>
+        {# Ganti Password dipindah ke Pengaturan -> Manajemen User (baris user sendiri). #}
+        <a href="/logout" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:.72rem">
+          <i class="fas fa-sign-out-alt"></i><span class="d-none d-sm-inline ms-1">Keluar</span></a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="body-content">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}
+      <div class="alert alert-{{ cat }} alert-dismissible fade show py-2 mb-3" role="alert">
+        {{ msg }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+// ── Preserve scroll position sidebar antar navigasi halaman ──
+(function(){
+  const KEY_SB = 'sbScrollY';
+  const KEY_OC = 'ocScrollY';
+  const sb = document.querySelector('nav.sidebar');
+  const oc = document.querySelector('#sbCanvas .offcanvas-body');
+
+  function getSaved(key){ return parseInt(sessionStorage.getItem(key) || '0', 10); }
+
+  function restore(){
+    if(sb){
+      const y = getSaved(KEY_SB);
+      if(y > 0 && sb.scrollTop !== y) sb.scrollTop = y;
+    }
+    if(oc){
+      const y = getSaved(KEY_OC);
+      if(y > 0 && oc.scrollTop !== y) oc.scrollTop = y;
+    }
+  }
+
+  // Lapisi multiple lifecycle event supaya untuk halaman berat (tabel besar / icon belum load),
+  // posisi sidebar tetap akurat setelah scrollHeight final.
+  restore();
+  document.addEventListener('DOMContentLoaded', restore);
+  window.addEventListener('load', restore);
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(restore); }
+  // Safety net: re-apply setelah browser sempat layout (1 frame + 100ms)
+  requestAnimationFrame(()=> setTimeout(restore, 100));
+
+  // Live tracking scroll
+  if(sb) sb.addEventListener('scroll', ()=> sessionStorage.setItem(KEY_SB, sb.scrollTop));
+  if(oc) oc.addEventListener('scroll', ()=> sessionStorage.setItem(KEY_OC, oc.scrollTop));
+
+  // Save juga di tiga titik: klik link, pagehide, beforeunload — jaga-jaga
+  function saveAll(){
+    if(sb) sessionStorage.setItem(KEY_SB, sb.scrollTop);
+    if(oc) sessionStorage.setItem(KEY_OC, oc.scrollTop);
+  }
+  document.addEventListener('click', (e)=>{
+    const a = e.target.closest('a[href]');
+    if(!a) return;
+    const href = a.getAttribute('href') || '';
+    if(href.startsWith('#') || href.startsWith('javascript:') || a.target === '_blank') return;
+    saveAll();
+  }, true);
+  window.addEventListener('pagehide', saveAll);
+  window.addEventListener('beforeunload', saveAll);
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/id.js"></script>
+{% block scripts %}{% endblock %}
+<script>
+// ── Toggle warna (light/dark) ──
+function _syncSwitchers(){
+  const th = document.documentElement.getAttribute('data-theme') || 'light';
+  document.querySelectorAll('#sw-theme button').forEach(function(b){
+    b.classList.toggle('on', b.dataset.v === th);
+  });
+}
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('theme', t);
+  _syncSwitchers();
+}
+// Kompat lama
+function toggleTheme(){
+  setTheme((document.documentElement.getAttribute('data-theme')||'light')==='dark'?'light':'dark');
+}
+document.addEventListener('DOMContentLoaded', _syncSwitchers);
+
+var onboardingStep = 0;
+function renderOnboarding(){
+  var steps = document.querySelectorAll('#modalOnboarding .onboarding-step');
+  if(!steps.length) return;
+  steps.forEach(function(step, idx){ step.classList.toggle('active', idx === onboardingStep); });
+  document.querySelectorAll('#modalOnboarding .onboarding-dot').forEach(function(dot, idx){
+    dot.classList.toggle('active', idx === onboardingStep);
+  });
+  document.getElementById('onboardingCounter').textContent = (onboardingStep + 1) + ' dari ' + steps.length;
+  document.getElementById('onboardingPrev').classList.toggle('d-none', onboardingStep === 0);
+  document.getElementById('onboardingNext').classList.toggle('d-none', onboardingStep === steps.length - 1);
+  document.getElementById('onboardingDone').classList.toggle('d-none', onboardingStep !== steps.length - 1);
+}
+function moveOnboarding(delta){
+  var max = document.querySelectorAll('#modalOnboarding .onboarding-step').length - 1;
+  onboardingStep = Math.max(0, Math.min(max, onboardingStep + delta));
+  renderOnboarding();
+}
+function closeOnboarding(){
+  var el = document.getElementById('modalOnboarding');
+  var modal = el && bootstrap.Modal.getInstance(el);
+  if(modal) modal.hide();
+}
+document.addEventListener('DOMContentLoaded', function(){
+  var modal = document.getElementById('modalOnboarding');
+  if(modal) modal.addEventListener('show.bs.modal', function(){ onboardingStep = 0; renderOnboarding(); });
+});
+
+// Close offcanvas when a nav link inside it is clicked
+document.addEventListener('DOMContentLoaded', function(){
+  var canvas = document.getElementById('sbCanvas');
+  if(canvas){
+    canvas.querySelectorAll('.nav-link').forEach(function(link){
+      link.addEventListener('click', function(){
+        var bsOffcanvas = bootstrap.Offcanvas.getInstance(canvas);
+        if(bsOffcanvas) bsOffcanvas.hide();
+      });
+    });
+  }
+});
+</script>
+
+{% if session.role == 'ADMIN' %}
+<!-- Tutorial setup awal untuk Admin -->
+<div class="modal fade" id="modalOnboarding" tabindex="-1" aria-labelledby="modalOnboardingLabel">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="onboarding-hero">
+        <div class="d-flex align-items-start gap-3">
+          <div class="onboarding-icon" style="background:#dbeafe;color:#1d4ed8">
+            <i class="fas fa-compass"></i>
+          </div>
+          <div>
+            <div class="onboarding-num mb-1">Panduan Hari Pertama</div>
+            <h5 class="mb-1 fw-bold" id="modalOnboardingLabel">Mulai dengan 3 langkah awal</h5>
+            <div class="text-muted" style="font-size:.82rem">Siapkan fondasi aplikasi sebelum mencatat transaksi harian.</div>
+          </div>
+          <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Tutup"></button>
+        </div>
+      </div>
+      <div class="modal-body px-4 py-4">
+        <div class="onboarding-step active">
+          <div class="d-flex gap-3 mb-3">
+            <div class="onboarding-icon" style="background:#fef3c7;color:#b45309"><i class="fas fa-wallet"></i></div>
+            <div>
+              <div class="onboarding-num mb-1">Langkah 1</div>
+              <h5 class="mb-1">Tambah rekening kas & bank</h5>
+              <div class="text-muted" style="font-size:.82rem">Masukkan dan daftarkan rekening kas atau bank yang akan dipakai sebelum mencatat transaksi apa pun.</div>
+            </div>
+          </div>
+          <div class="onboarding-check"><i class="fas fa-circle-check"></i><span>Tambahkan rekening kas, bank, atau dompet digital yang aktif.</span></div>
+          <div class="onboarding-check"><i class="fas fa-circle-check"></i><span>Isi saldo awal tiap rekening sesuai kondisi terkini.</span></div>
+          <a href="/settings#rekening" onclick="closeOnboarding()" class="btn btn-warning btn-sm onboarding-link mt-2">
+            <i class="fas fa-arrow-up-right-from-square me-1"></i>Buka Pengaturan Rekening
+          </a>
+        </div>
+        <div class="onboarding-step">
+          <div class="d-flex gap-3 mb-3">
+            <div class="onboarding-icon" style="background:#dbeafe;color:#2563eb"><i class="fas fa-user-shield"></i></div>
+            <div>
+              <div class="onboarding-num mb-1">Langkah 2</div>
+              <h5 class="mb-1">Atur user dan role</h5>
+              <div class="text-muted" style="font-size:.82rem">Buat akun tim lalu berikan akses sesuai tugas masing-masing.</div>
+            </div>
+          </div>
+          <div class="onboarding-check"><i class="fas fa-circle-check"></i><span><strong>Finance</strong> untuk staf keuangan dan laporan.</span></div>
+          <div class="onboarding-check"><i class="fas fa-circle-check"></i><span><strong>Operator</strong> untuk input transaksi dan stok.</span></div>
+          <div class="onboarding-check"><i class="fas fa-circle-check"></i><span><strong>Investor</strong> untuk akses laporan read-only.</span></div>
+          <a href="/settings#manajemen-user" onclick="closeOnboarding()" class="btn btn-primary btn-sm onboarding-link mt-2">
+            <i class="fas fa-arrow-up-right-from-square me-1"></i>Buka Manajemen User
+          </a>
+        </div>
+        <div class="onboarding-step">
+          <div class="d-flex gap-3 mb-3">
+            <div class="onboarding-icon" style="background:#ede9fe;color:#7c3aed"><i class="fas fa-boxes-stacked"></i></div>
+            <div>
+              <div class="onboarding-num mb-1">Langkah 3</div>
+              <h5 class="mb-1">Siapkan inventory</h5>
+              <div class="text-muted" style="font-size:.82rem">Daftarkan produk dan isi stok awal agar penjualan serta HPP tercatat rapi.</div>
+            </div>
+          </div>
+          <div class="onboarding-check"><i class="fas fa-circle-check"></i><span>Tambah produk satu per satu atau gunakan template Excel.</span></div>
+          <div class="onboarding-check"><i class="fas fa-circle-check"></i><span>Punya stok yang sudah ada sebelum pakai app ini? Pilih <strong>"Input Saldo Awal"</strong> saat upload, stok tercatat tanpa dihitung sebagai pengeluaran baru.</span></div>
+          <a href="/stok" onclick="closeOnboarding()" class="btn btn-success btn-sm onboarding-link mt-2">
+            <i class="fas fa-arrow-up-right-from-square me-1"></i>Buka Inventory
+          </a>
+        </div>
+      </div>
+      <div class="modal-footer py-3 px-4">
+        <div class="me-auto">
+          <div class="d-flex gap-1 mb-1">
+            <span class="onboarding-dot active"></span><span class="onboarding-dot"></span><span class="onboarding-dot"></span>
+          </div>
+          <span class="text-muted" id="onboardingCounter" style="font-size:.7rem">1 dari 3</span>
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm d-none" id="onboardingPrev" onclick="moveOnboarding(-1)">
+          <i class="fas fa-arrow-left me-1"></i>Kembali
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="onboardingNext" onclick="moveOnboarding(1)">
+          Lanjut<i class="fas fa-arrow-right ms-1"></i>
+        </button>
+        <button type="button" class="btn btn-success btn-sm d-none" id="onboardingDone" data-bs-dismiss="modal">
+          <i class="fas fa-check me-1"></i>Selesai
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if not demo_lock %}
+<!-- Modal Ganti Password -->
+<div class="modal fade" id="modalGantiPw" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-key me-2"></i>Ganti Password</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/ganti-password">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Password Lama *</label>
+            <input type="password" name="pw_lama" class="form-control form-control-sm" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Password Baru * <span class="text-muted fw-normal">(min 6 karakter)</span></label>
+            <input type="password" name="pw_baru" class="form-control form-control-sm" required minlength="6">
+          </div>
+          <div class="mb-0">
+            <label class="form-label small fw-semibold">Konfirmasi Password Baru *</label>
+            <input type="password" name="pw_konfirm" class="form-control form-control-sm" required minlength="6">
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save me-1"></i>Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Modal Catatan Rilis / Apa yang Baru (dibuka dari label versi di sidebar) -->
+<div class="modal fade" id="modalChangelog" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-rocket me-2 text-primary"></i>Apa yang Baru</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        {# Konten dibagi jadi beberapa slide (paginasi) — dinavigasi dari footer. #}
+        <div class="cl-slide">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge bg-primary" style="font-size:.72rem">Versi 7</span>
+            <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>18 September 2026</span>
+            <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:.6rem">TERBARU</span>
+          </div>
+          <ul class="list-unstyled mb-0">
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-lock-open mt-1" style="color:#b45309;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Transaksi yang terkunci invoice Lunas kini bisa dibuka untuk dikoreksi</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Penjualan yang invoicenya sudah Lunas atau Terkirim, atau yang sudah menerima pembayaran,
+                  dikunci supaya tidak bisa diedit atau dihapus. Sebelumnya kunci ini tidak disertai petunjuk
+                  cara membukanya. Mengubah status invoice ke Draft ditolak dengan pesan "hapus dulu pembayaran
+                  itu" tanpa menyebut pembayaran yang mana, dan form edit baru menolak setelah semua isian diisi.
+                  Sekarang Detail Transaksi menyebut alasan terkuncinya. Admin dan Finance mendapat tombol Buka
+                  Kunci untuk Koreksi di Detail Transaksi, halaman invoice, dan halaman Hapus. Halaman itu merinci
+                  apa saja yang dibatalkan: invoice kembali ke Draft, dan pembayaran yang tercatat dihapus dengan
+                  jejak tersimpan di Arsip Transaksi, sehingga saldo kas dan sisa piutang kembali seperti sebelum
+                  dibayar. Sesudahnya transaksi bisa diedit atau dihapus, lalu pembayarannya dicatat ulang kalau
+                  memang sudah diterima. Retur dan write-off tidak ikut dibatalkan otomatis, dan halaman itu
+                  menyebutkan mana yang perlu dihapus lebih dulu.
+                  Penyebab invoice tunai terkunci Lunas padahal tidak punya piutang juga sudah diperbaiki. Restore
+                  database dengan mode tambah data dulu menyalin tautan piutang ke invoice apa adanya dari database
+                  lama, padahal urutan invoice di database tujuan berbeda. Akibatnya piutang pelanggan lain bisa
+                  menempel ke invoice yang salah, dan menandai invoice itu Lunas bisa ikut melunasi piutang pelanggan
+                  lain tersebut. Tautan yang salah kini dibetulkan otomatis saat aplikasi dijalankan, dan restore
+                  berikutnya tidak lagi membuatnya.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-file-invoice mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Invoice bisa dicetak mendatar dengan format A4 Landscape</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Menu Format cetak di halaman cetak invoice dan di Pengaturan Invoice kini punya pilihan
+                  A4 Landscape. Pilihan A4 yang lama sekarang bernama A4 Portrait, dan setelan yang sudah
+                  tersimpan tidak berubah.
+                  Sebelumnya dialog print di browser tidak menawarkan posisi landscape karena halaman cetak
+                  sudah menentukan ukuran kertasnya sendiri. Kalau kertas dibuat mendatar lewat pengaturan
+                  printer, isinya tidak ikut melebar sehingga banyak ruang kosong.
+                  Format A4 Landscape punya tata letak sendiri yang memakai lebar kertas. Nama usaha, kotak
+                  pelanggan, detail invoice, dan judul INVOICE diletakkan sejajar dalam satu baris. Rekening,
+                  catatan, syarat, dan tanda tangan diletakkan berdampingan di bawah tabel. Invoice dengan
+                  sekitar 8 barang biasanya muat satu halaman, lengkap dengan rekening dan syarat. Karena
+                  kertasnya lebih pendek, invoice yang panjang memakai lebih banyak halaman daripada A4 Portrait.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-cash-register mt-1" style="color:#2563eb;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Struk POS kini pas di kertas thermal 58 mm dan 80 mm</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Struk POS sebelumnya bisa keluar dengan ukuran kertas yang salah. Halaman struk
+                  meminta ukuran kertas dengan format yang tidak dikenali browser, sehingga browser
+                  memakai ukuran kertas bawaan dan struk yang panjang bisa terpecah menjadi beberapa
+                  lembar. Sekarang panjang struk dihitung otomatis setiap kali mencetak, jadi struk
+                  keluar sebagai satu gulungan selebar area cetak printer.
+                  Di kertas 58 mm, struk sebelumnya tercetak lebih lebar dari kertasnya sehingga
+                  terpotong di sisi kiri dan kanan. Lebarnya kini sudah pas. Nominal seperti Rp 18.000
+                  juga tidak lagi terbelah ke dua baris. Kalau rincian item tidak muat dalam satu
+                  baris, subtotal item pindah ke baris berikutnya dan tetap rata kanan.
+                  Tampilan struk untuk kertas 80 mm tidak berubah.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-receipt mt-1" style="color:#0f766e;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Invoice bisa dicetak untuk printer thermal dan dot matrix</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di Pengaturan Invoice kini ada kartu Format Cetak untuk memilih printer yang dipakai:
+                  A4 untuk printer laser atau inkjet, thermal 58 mm atau 80 mm, dot matrix kertas
+                  continuous 9,5 x 11 inci, atau dot matrix setengah halaman. Pilihan itu menjadi
+                  tampilan awal setiap kali invoice dibuka untuk dicetak.
+                  Di halaman cetak ada menu Format cetak untuk mengganti format sekali pakai, misalnya
+                  toko yang biasa mencetak thermal tapi sesekali perlu invoice A4. Pilihan di menu ini
+                  diingat di masing-masing perangkat, jadi komputer kasir dan komputer admin boleh
+                  memakai format yang berbeda. Tombol Struk Mode yang lama digantikan menu ini.
+                  Format dot matrix memakai huruf mesin ketik, semuanya hitam pekat, tanpa warna latar
+                  dan tanpa logo, karena printer jenis ini tidak bisa mencetak abu-abu dengan rapi.
+                  Karena dicetak lewat browser, printer dot matrix bekerja lebih lambat daripada saat
+                  mencetak teks biasa. Format thermal kini mengikuti lebar area cetak printer dan keluar
+                  sebagai satu gulungan utuh.
+                  Sekalian dirapikan dua hal kecil: garis tipis yang sempat muncul di bawah baris
+                  Subtotal, Diskon, dan TOTAL pada invoice A4 sudah hilang, dan kartu di halaman
+                  Pengaturan Invoice kembali tersusun rapi selebar halaman.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-boxes-stacked mt-1" style="color:#0369a1;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Produksi tidak lagi terkunci oleh saldo bahan non-SKU yang minus</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Sebagian pengguna yang mencatat semua belanja dan bahan produksi lewat SKU mendapati
+                  tombol Simpan di halaman Produksi tetap menolak dengan pesan nilai bahan non-SKU
+                  melebihi saldo, padahal tidak ada satu pun bahan non-SKU yang diisi. Ini terjadi kalau
+                  saldo persediaan non-SKU pernah menjadi minus, misalnya dari penjualan produk yang
+                  Master HPP atau resepnya memuat bahan non-SKU. Pemeriksaannya dulu tetap berjalan
+                  walau kolom non-SKU kosong, dan saldo yang minus malah dipakai sebagai batas.
+                  Sekarang pemeriksaan itu hanya berjalan kalau Anda memang mengisi bahan non-SKU.
+                  Kalau nilainya melebihi saldo yang tersedia, aplikasi bertanya apakah tetap mau
+                  lanjut, tidak lagi langsung menolak. Peringatan bahwa nilai persediaan non-SKU menjadi
+                  minus juga hanya muncul untuk produksi yang benar-benar memakai bahan non-SKU. Saldo
+                  terkininya tetap bisa dilihat di halaman Produksi.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-print mt-1" style="color:#475569;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Cetak invoice: kaki halaman tidak lagi tertimpa, dan TOTAL cuma sekali</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kalau daftar barangnya panjang sampai invoice tercetak beberapa halaman, baris nama
+                  usaha dan nomor invoice di kaki halaman bisa tertimpa isi tabel sampai sulit dibaca.
+                  Penyebabnya kaki halaman itu tidak punya jatah ruang sendiri, jadi daftar barang
+                  mengalir terus sampai menabraknya. Sekarang jatahnya dipesan di setiap halaman, jadi
+                  seberapa pun panjang daftarnya kaki halaman tetap bersih. Sudah dicoba sampai 150
+                  barang atau sembilan halaman.
+                  Sekalian dibetulkan satu hal lain yang ketemu di halaman yang sama. Blok Subtotal,
+                  TOTAL, Sudah Dibayar, dan Lunas dulu ikut tercetak di setiap halaman. Itu bisa
+                  menyesatkan, karena angka di halaman pertama gampang dikira total halaman itu saja
+                  padahal isinya total seluruh invoice. Sekarang blok itu muncul sekali saja di halaman
+                  terakhir, tepat di bawah baris barang yang paling akhir.
+                  Satu perubahan tampilan yang perlu Anda tahu: di halaman terakhir, baris nama usaha
+                  kini menempel tepat di bawah isi, tidak lagi dipaku ke dasar kertas.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-scale-balanced mt-1" style="color:#b45309;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Beban pajak dan bunga kini selalu mengikuti Peran akun yang Anda tetapkan</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Aplikasi mempersilakan nama akun bawaan diganti, dan sejak ada pengaturan Peran di
+                  Laba Rugi, laporan membaca arti sebuah akun dari Perannya, bukan dari nomornya.
+                  Ternyata masih ada dua tempat yang belum ikut aturan itu.
+                  Pertama, Pajak lalu Setor Pajak. Saat Anda menyetor PPh Badan yang belum pernah
+                  dicatat, aplikasi membuatkan jurnal bebannya otomatis, dan jurnal itu dulu selalu
+                  diarahkan ke akun bernomor 6170 apa pun namanya sekarang. Kalau nomor itu sudah Anda
+                  pakai ulang untuk hal lain, misalnya Beban Pengiriman, beban pajaknya masuk ke ongkos
+                  kirim tanpa ketahuan. Kedua, Pengeluaran dengan sub-kategori Bunga, yang diarahkan ke
+                  akun bernomor 6160 dengan cara yang sama.
+                  Sekarang keduanya mencari akun lewat Perannya. Kalau belum ada akun yang berperan
+                  sebagai Pajak atau Bunga, aplikasi menolak dan mengarahkan Anda ke Daftar Akun untuk
+                  menetapkannya, bukan menebak lalu salah menaruh. Bagi Anda yang tidak pernah mengubah
+                  nama akun bawaan, tidak ada yang berubah sama sekali.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-user-pen mt-1" style="color:#0f766e;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Ganti nama vendor kini ikut menyapu transaksi Pembelian PKP</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Menyambung perbaikan ganti nama sebelumnya, satu jenis transaksi masih tertinggal,
+                  yaitu pembelian yang dicatat lewat Pajak lalu Pembelian PKP. Setelah nama vendor
+                  diubah, daftar hutangnya sudah memakai nama baru tetapi transaksinya di Daftar
+                  Transaksi masih memakai nama lama, sehingga satu pemasok terlihat seperti dua pihak
+                  yang berbeda. Sekarang transaksi itu ikut diperbarui bersama yang lain.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-user-tag mt-1" style="color:#0f766e;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Nama pelanggan atau vendor kini terlihat di Detail Transaksi</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Nama pelanggan atau vendor yang Anda isi lewat Edit Transaksi selama ini
+                  tersimpan, tapi tidak pernah ditampilkan lagi di halaman transaksinya. Satu-satunya
+                  cara melihatnya adalah membuka kembali form editnya. Sekarang nama itu muncul
+                  sebagai label kecil di sebelah keterangan, di halaman Detail Transaksi.
+                  Label hijau dengan ikon orang berarti pelanggan, label cokelat dengan ikon truk
+                  berarti vendor. Untuk transaksi yang arahnya memang tidak jelas, seperti pelunasan,
+                  transfer antar rekening, dan jurnal umum, labelnya abu-abu dan hanya bertulis Pihak,
+                  sebab aplikasi tidak menebak siapa yang pelanggan dan siapa yang vendor.
+                  Transaksi yang kolom pelanggan atau vendornya kosong tidak menampilkan label apa pun.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-clock mt-1" style="color:#0891b2;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Jam di Log Aktivitas dan riwayat POS sekarang ikut jam Anda</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Beberapa layar menampilkan jam pencatatan otomatis: Log Aktivitas, jam transaksi
+                  di POS, jam buka dan tutup shift, waktu transaksi diarsipkan, serta baris Dibuat
+                  di detail transaksi. Jam di layar-layar itu dulu tampil mundur 7 jam untuk pemakai
+                  WIB. Penyebabnya, aplikasi menyimpan jam tersebut dalam waktu standar dunia (UTC)
+                  lalu menampilkannya begitu saja tanpa dikembalikan dulu ke waktu setempat.
+                  Sekarang semuanya dikonversi sebelum tampil. Di aplikasi Windows dan Mac, jamnya
+                  mengikuti jam komputer yang Anda pakai. Di versi online, jamnya mengikuti pilihan
+                  di Pengaturan bagian Zona Waktu. Tanggal transaksi, struk, dan seluruh laporan
+                  tidak ikut berubah karena memang sudah benar sejak awal.
+                  Pilihan Zona Waktu sendiri kini tidak lagi muncul di aplikasi Windows, sebab di
+                  sana aplikasi selalu memakai jam komputer dan pilihan itu tidak berpengaruh apa pun.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-barcode mt-1" style="color:#0369a1;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Scan barcode di kasir, barcodenya diisi lewat Stok</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Produk kini punya kolom Barcode sendiri, terpisah dari kode SKU. Isinya lewat
+                  Stok, Edit Produk, klik kolom Barcode, lalu tembak barangnya dengan alat scan.
+                  Setelah terisi, barang itu bisa langsung discan di POS Kasir. Arahkan alatnya ke
+                  barcode, barangnya masuk keranjang, dan kotak pencarian langsung siap untuk scan
+                  berikutnya. Scan barang yang sama dua kali menambah jumlahnya, bukan membuat baris
+                  baru. Kalau barcodenya belum terdaftar, muncul pesan merah singkat yang hilang
+                  sendiri, jadi tidak ada kotak dialog yang harus ditutup di tengah antrean.
+                  Barcode juga ikut terjaring saat mencari di halaman Stok, dan sudah ada kolomnya
+                  di template Excel untuk mengisi banyak barang sekaligus. Berkas Excel lama Anda
+                  tetap bisa dipakai seperti biasa, karena kolomnya dicocokkan berdasarkan nama,
+                  bukan urutan. Barcode disimpan sebagai teks, jadi angka nol di depan seperti
+                  0012345 tidak hilang. Alat yang didukung jenis USB atau Bluetooth yang bekerja
+                  seperti keyboard, bukan kamera.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-triangle-exclamation mt-1" style="color:#d97706;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Peringatan baru saat HPP tidak bisa dihitung ulang otomatis</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kalau sebuah produk pernah terjual habis sampai stoknya 0 lalu direstock, kemudian
+                  ada transaksi lama di sekitar titik itu yang dihapus, HPP produk tersebut dulu bisa
+                  diam-diam berubah jadi angka campuran yang tidak benar. Sekarang aplikasi mendeteksi
+                  situasi ini dan TIDAK menebak angkanya, cukup memberi peringatan lewat notifikasi
+                  dan mencatatnya di Log Aktivitas, supaya HPP-nya diperiksa dan dibetulkan manual
+                  lewat Edit Produk. Tombol Perbaiki HPP di halaman Stok juga ikut melewati produk
+                  dengan riwayat seperti ini, tidak lagi ikut menimpanya secara otomatis.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-palette mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Tampilan dirapikan: kartu ringkasan, menu samping, dan kotak contoh</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Banyak kartu di aplikasi ini dulu ditandai garis tipis yang menebal di satu sisi saja,
+                  sehingga terlihat seperti tempelan. Sekarang judul kartu ringkasan memakai pita warna
+                  penuh selebar kartunya, jadi jenis angkanya langsung kebaca tanpa perlu garis tambahan.
+                  Warna pitanya sudah dicek supaya tulisan putih di atasnya tetap jelas, baik di tema
+                  terang maupun gelap.
+                  Menu samping juga disesuaikan: sudutnya tidak lagi terlalu membulat dan menu yang
+                  sedang dibuka kini memanjang sampai tepi kanan, jadi jelas kelihatan mana yang aktif.
+                  Kotak Contoh kasus di setiap halaman Petunjuk sekarang jadi satu blok berlatar
+                  lembut dengan judulnya ikut di dalam, bukan paragraf yang ditempeli garis.
+                  Tidak ada perhitungan atau data yang berubah, hanya tampilannya.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-boxes-stacked mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Bahan tanpa SKU tidak lagi mengunci produksi dan retur</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Usaha yang memakai bahan tanpa kode barang, misalnya kacang curah, kemasan, atau
+                  stiker, sempat terjebak dua hal. Produksi yang memakai bahan itu tidak bisa dihapus
+                  atau diedit karena muncul peringatan agar menghapus retur penjualan lebih dulu,
+                  padahal returnya memang tidak pernah ada sehingga tidak akan pernah ketemu.
+                  Retur penjualan berikut nilai modalnya juga selalu ditolak dengan alasan melebihi
+                  persediaan yang bisa dikembalikan.
+                  Penyebabnya satu: saldo awal dan pembelian bahan ikut dihitung sebagai retur.
+                  Sekarang hanya retur penjualan yang benar-benar dihitung, jadi kedua alur itu
+                  berjalan normal. Kalau memang ada retur yang menghalangi, pesannya kini menyebut
+                  nomor transaksi returnya supaya langsung bisa dituju.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-tags mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Akun yang Anda ganti nama kini dibaca sesuai maksudnya</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Aplikasi mempersilakan nama akun bawaan disesuaikan dengan istilah usaha Anda,
+                  tetapi laporan masih menebak artinya dari nomor akun. Akibatnya kalau akun
+                  bawaan dipakai ulang, misalnya akun pajak diganti nama jadi Beban Pengiriman,
+                  ongkos kirim tampil bertanda Pajak dan tidak ikut mengurangi Laba Usaha,
+                  sehingga laba terlihat lebih besar dari kenyataan.
+                  Sekarang tiap akun beban punya pengaturan <strong>Peran di Laba Rugi</strong>
+                  di menu Daftar Akun, isinya Penyusutan, Bunga, Pajak, atau dibiarkan sebagai
+                  beban operasional biasa. Saat aplikasi diperbarui, akun yang namanya masih
+                  bawaan tetap seperti semula sehingga laporan lama tidak berubah, sedangkan
+                  akun yang sudah Anda ganti nama otomatis dihitung sebagai beban operasional.
+                  Total biaya dan laba bersih tidak berubah, yang dirapikan adalah
+                  pengelompokannya.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-calculator mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Saldo awal berdesimal tidak lagi menggelembung 100 kali lipat</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Saat mode dua angka desimal aktif, isian di <strong>Setup Saldo Awal</strong> yang memakai
+                  koma tersimpan seratus kali lipat. Contohnya 10.000,05 masuk ke pembukuan sebagai
+                  1.000.005. Halaman ini memakai cara baca angka sendiri yang berbeda dari form lain,
+                  sehingga titik desimal ikut terbuang. Sekarang saldo awal memakai pembaca angka yang
+                  sama dengan seluruh aplikasi, termasuk untuk harga perolehan dan akumulasi penyusutan
+                  aset tetap. Form lain tidak pernah terpengaruh masalah ini.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-list-check mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Hutang bisa dicatat ke akun pilihan sendiri</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Saat belanja atau mencatat pengeluaran yang belum dibayar penuh, kini ada pilihan
+                  <strong>Dicatat sebagai akun</strong> di kotak Detail Hutang. Semua hutang tidak lagi
+                  harus menumpuk di satu akun Hutang Usaha, jadi bisa dipisah misalnya hutang ke bank,
+                  hutang ke pemilik, atau hutang ke pemasok tertentu, dan pemisahan itu langsung
+                  terlihat di Neraca. Pelunasannya nanti otomatis mengurangi akun yang sama, tidak
+                  perlu diatur ulang. Biarkan pilihan <strong>Otomatis</strong> kalau tidak yakin,
+                  hasilnya persis seperti sebelumnya.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-key mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Lupa password tidak lagi bikin data terkunci</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di halaman masuk aplikasi versi desktop sekarang ada tautan <strong>Lupa password?</strong>
+                  Aplikasi akan menampilkan daftar semua pengguna, lalu mengembalikan password mereka ke
+                  bawaan dan menampilkannya di layar untuk dicatat. Seluruh transaksi, laporan, produk,
+                  dan stok tidak tersentuh sama sekali, yang berubah hanya passwordnya.
+                  Semua pengguna sengaja ikut direset, bukan cuma admin, supaya tidak ada yang bisa
+                  diam-diam mengambil akses admin tanpa ketahuan, dan setiap pemulihan tercatat di
+                  Log Aktivitas. Semuanya berjalan di komputer Anda sendiri, jadi file pembukuan tidak
+                  perlu dikirim ke mana pun.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-flag-checkered mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Hutang dan piutang dari Saldo Awal kini bisa dilunasi</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Hutang dan piutang lama yang diisi lewat <strong>Setup Saldo Awal</strong> dulu hanya
+                  masuk ke Neraca. Di Dashboard, halaman Hutang, dan menu Pelunasan semuanya tidak
+                  kelihatan, jadi tidak pernah bisa dicicil dan total hutang tampil lebih kecil dari
+                  yang sebenarnya. Sekarang saldo awal langsung membuat tagihannya, ditandai lencana
+                  <strong>SALDO AWAL</strong> supaya jelas ini bawaan pembukuan lama dan bukan belanja
+                  baru. Ada juga kolom rincian per pemasok dan per pelanggan, jadi hutang lama bisa
+                  dipecah dan dilunasi satu per satu. Kolom rincian boleh dilewati, hutangnya tetap
+                  bisa dilunasi sebagai satu tagihan gabungan. Untuk mencegah angka dobel, Setup Saldo
+                  Awal kini menolak diisi dua kali dan mengarahkan Anda menghapus yang lama lebih dulu.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-file-excel mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Upload Excel inventory tidak lagi gagal total karena satu baris salah ketik</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kalau ada kolom angka (Harga Beli, Harga Jual, Stok, Min Stok) yang keisi teks
+                  yang bukan angka, misalnya salah taruh satuan seperti &ldquo;1 kali&rdquo; ke kolom
+                  Harga Beli, dulu seluruh proses upload berhenti dengan halaman error tanpa
+                  penjelasan. Sekarang baris seperti itu dilewati sendiri, dan pesan yang muncul
+                  menyebutkan persis kode produk, nama kolom, dan isi yang salah, supaya bisa
+                  dibetulkan tanpa menebak. Baris lain yang datanya benar tetap tersimpan seperti
+                  biasa.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-user-pen mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Ganti nama customer/vendor kini konsisten di semua transaksi</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Saat nama customer atau vendor diubah di menu Database, sebagian riwayat
+                  transaksi belum ikut berganti nama, khususnya pelunasan piutang/hutang,
+                  write-off, koreksi hapus, dan invoice yang diposting manual ke jurnal.
+                  Layar Piutang, Hutang, dan Invoice sudah benar, tapi Daftar Transaksi untuk
+                  jenis-jenis itu masih menampilkan nama lama, seolah satu pelanggan atau
+                  pemasok terpecah jadi dua identitas. Sekarang semua jenis transaksi tersebut
+                  ikut diperbarui otomatis begitu nama disimpan.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-calculator mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Nominal berdesimal tertentu tidak lagi meleset saat disimpan</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Harga per unit dengan pola tertentu, misalnya Rp 52,417 (angka depan koma 1-3
+                  digit, dan tepat 3 digit di belakang koma), bisa tersimpan salah menjadi
+                  Rp 52.417 saat transaksi disimpan atau diedit, karena cara pengiriman nominal ke
+                  server sempat bentrok dengan aturan baca pemisah ribuan. Sekarang nominal
+                  berdesimal selalu dikirim dengan tanda yang tidak pernah ambigu, sehingga
+                  tersimpan persis seperti yang diketik, seberapa pun jumlah digit desimalnya.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-receipt mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Ukuran kertas struk kasir bisa dipilih</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Struk kasir dulu selalu tercetak selebar kertas 80 mm, jadi pemilik printer
+                  thermal 58 mm mendapati struknya terpotong di sisi kanan. Sekarang di
+                  <strong>Pengaturan</strong> ada pilihan <strong>Ukuran Kertas Struk</strong>,
+                  yaitu 80 mm atau 58 mm, dan struk langsung menyesuaikan. Bagi yang selama ini
+                  sudah pas, tidak ada yang berubah karena pilihannya tetap 80 mm.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-0">
+              <i class="fas fa-print mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Struk kasir lebih tegas terbaca di printer thermal</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Beberapa baris di struk dulu dicetak berwarna abu, seperti alamat toko, rincian
+                  jumlah dan harga per barang, serta baris Tunai dan Kembalian. Printer thermal
+                  tidak mengenal warna abu, jadi baris itu dipecah jadi titik-titik renggang dan
+                  hasilnya pudar sampai sulit dibaca. Sekarang semua teks struk hitam pekat,
+                  di layar maupun di kertas, jadi yang Anda lihat sebelum mencetak sama persis
+                  dengan yang keluar dari printer. Harga sebelum diskon tetap dikenali karena
+                  tetap dicoret, dan harga akhir tetap ditebalkan, bukan dibedakan lewat warna.
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="cl-slide">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge bg-primary" style="font-size:.72rem">Versi 6.5</span>
+            <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>17 Agustus 2026</span>
+          </div>
+          <ul class="list-unstyled mb-0">
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-layer-group mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Sembunyikan satu kategori penuh dari layar kasir</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di <strong>POS Master</strong> ada panel baru <strong>Kategori di Kasir</strong>. Hilangkan centang
+                  pada sebuah kategori, misalnya <strong>Bahan Baku</strong>, maka seluruh isinya langsung tidak tampil
+                  di layar kasir. Sebelumnya harus dimatikan satu per satu per produk.
+                  Produk baru yang masuk ke kategori tersembunyi ikut tidak tampil, jadi tidak perlu diatur ulang
+                  setiap menambah barang. Ini hanya mengatur tampilan kasir: stok, harga, dan laporan tetap berjalan
+                  seperti biasa, dan menampilkannya kembali cukup satu klik.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-clone mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Checkout kasir tidak lagi bisa tergandakan</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Dulu kalau tombol <strong>&ldquo;Selesaikan&rdquo;</strong> di layar bayar tertekan dua kali
+                  (tap ganda di layar sentuh, atau koneksi lambat lalu dicoba lagi), transaksi yang sama bisa
+                  tersimpan dua kali: stok terpotong dua kali, pendapatan tercatat dua kali.
+                  Sekarang setiap sesi bayar punya kunci unik. Percobaan kedua dengan kunci yang sama otomatis
+                  dikenali sebagai pengulangan dan diarahkan ke struk yang sudah tersimpan, bukan diproses ulang.
+                  Tombol Selesaikan juga langsung terkunci begitu ditekan.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-ticket mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Voucher pada pesanan yang ditahan kini divalidasi ulang</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Pesanan yang memakai voucher lalu ditahan (<strong>&ldquo;Tahan Pesanan&rdquo;</strong>) dan dibuka
+                  lagi nanti sekarang mengecek ulang voucher itu ke server sebelum diskonnya dipasang kembali,
+                  bukan sekadar memakai angka potongan lama. Kalau voucher itu sudah kedaluwarsa atau kuotanya
+                  habis, diskonnya dihapus dan kasir diberi tahu, bukan diam-diam tetap terpasang.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-scale-balanced mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Kuota voucher lebih tahan pemakaian bersamaan</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kalau ada dua transaksi checkout dengan voucher berkuota terbatas yang nyaris bersamaan
+                  (dua kasir/terminal), sistem sekarang memastikan kuota benar-benar dicek ulang tepat saat
+                  disimpan. Kalau kuota ternyata baru saja habis, checkout itu dibatalkan dengan pesan yang
+                  jelas, bukan lolos melebihi kuota yang sudah ditetapkan.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-table-list mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Halaman Stok kini berpaginasi</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Katalog besar (ribuan produk ke atas) dulu membuat halaman <strong>Stok</strong> berat dimuat karena
+                  seluruh katalog dirender sekaligus. Sekarang daftar produk tampil bertahap, bisa dipilih
+                  <strong>50 / 100 / 500 / 1.000</strong> item per halaman lengkap dengan navigasi nomor halaman.
+                  Pencarian, filter kategori, dan pengurutan tetap berjalan seperti biasa di atas data lengkap,
+                  begitu juga peringatan stok di bawah minimum yang tetap dihitung dari seluruh katalog, bukan
+                  cuma yang sedang tampil di layar.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-tablet-screen-button mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Tombol Bayar di kasir tidak lagi terpotong di layar pendek</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di tablet posisi mendatar dan layar yang tingginya terbatas, panel Pesanan bisa lebih
+                  panjang daripada layar sehingga tombol <strong>Bayar Sekarang</strong> di paling bawah
+                  ikut terpotong dan tidak bisa ditekan sama sekali, bahkan saat tampilan diperkecil.
+                  Sekarang panel Pesanan menyesuaikan diri di layar pendek: tombol bayar dijamin selalu
+                  muat, dan daftar item justru mendapat ruang lebih lega dari sebelumnya karena bagian
+                  lain dirapatkan. Kalau item terlalu banyak, daftarnya yang bisa digulir, bukan tombol
+                  bayarnya yang hilang.
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="cl-slide">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge bg-primary" style="font-size:.72rem">Versi 6.4</span>
+            <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>23 Juli 2026</span>
+          </div>
+          <ul class="list-unstyled mb-0">
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-shield-halved mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Akun bawaan sistem kini terlindungi</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Dulu akun bawaan seperti <strong>1130 Persediaan Barang</strong> masih bisa terhapus dari
+                  Daftar Akun selama belum dipakai di jurnal. Padahal akun itu dipakai otomatis oleh sistem
+                  saat mencatat pembelian, penjualan, terima barang PO, dan produksi. Kalau sampai terhapus,
+                  penyimpanan transaksi gagal dengan pesan error.
+                  Sekarang akun bawaan diberi tanda <strong>BAWAAN</strong>, tombol hapusnya dikunci, dan
+                  kode serta tipenya tidak bisa diubah. Nama akun tetap bebas Anda sesuaikan.
+                  Kalau ada akun bawaan yang terlanjur hilang, aplikasi memulihkannya sendiri saat dijalankan.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-tags mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Resep yang dijual di POS sekarang punya harga jual sendiri</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Dulu harga resep di kasir hanya ikut produk jadi yang tertaut. Resep yang dimasak saat
+                  ada pesanan biasanya tidak punya produk jadi, jadi harganya selalu tampil Rp 0.
+                  Sekarang begitu saklar <strong>&ldquo;Jual resep ini langsung di POS Kasir&rdquo;</strong> dinyalakan,
+                  muncul kolom <strong>Harga Jual di POS</strong> yang bisa diisi langsung.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-cash-register mt-1" style="color:#2563eb;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Harga di kasir mengikuti urutan yang jelas</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kasir memakai harga resep lebih dulu. Kalau dikosongkan, sistem memakai harga jual produk
+                  jadi seperti sebelumnya, jadi resep lama tetap jalan tanpa perlu diubah.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-triangle-exclamation mt-1" style="color:#d97706;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Peringatan kalau harga masih kosong</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kalau resep aktif di POS tapi harganya masih 0, aplikasi mengingatkan saat mengisi dan
+                  saat menyimpan template. Peringatan saja, tidak menghalangi, supaya barang setengah jadi
+                  yang memang belum dijual tetap bisa disimpan.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-table-cells-large mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Atur item yang tampil di kasir</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di POS Master ada pilihan baru: tampilkan <strong>barang jadi + racikan</strong>, <strong>barang jadi saja</strong>,
+                  atau <strong>racikan / produksi saja</strong>. Cocok untuk usaha yang memasak saat ada pesanan
+                  dan tidak perlu menampilkan barang jadi di layar kasir.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-tags mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Racikan bisa punya kategori sendiri di kasir</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Saat menyimpan template racikan, ada kolom <strong>Kategori di POS</strong>. Kategori ini muncul
+                  sebagai tombol yang bisa diklik di kasir untuk menyaring racikan, sama seperti kategori produk.
+                  Kalau dikosongkan, racikan ikut kategori produk jadinya atau masuk grup &ldquo;Racikan&rdquo;.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-layer-group mt-1" style="color:#2563eb;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Satu produk bisa punya beberapa harga di kasir</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Fitur baru di <strong>POS Master &rsaquo; Produk POS (Lanjutan)</strong>. Nyalakan
+                  <strong>Multi-Harga</strong>, beri nama level (misal Grosir, Member), lalu isi harga tiap level per produk.
+                  Di kasir, tiap baris keranjang muncul pilihan level harga. Harga <strong>Utama</strong> tetap ikut
+                  harga patokan di menu Stok. Kalau fitur ini dimatikan, semuanya sama persis seperti sebelumnya,
+                  satu produk satu harga.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-eye mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Pilih produk mana saja yang tampil di kasir</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Masih di <strong>Produk POS (Lanjutan)</strong>, tiap produk punya centang <strong>Tampil</strong>.
+                  Hilangkan centang untuk menyembunyikan produk dari layar kasir tanpa mengubah data stoknya.
+                  Berguna kalau ada barang yang dijual lewat jalur lain dan tidak perlu muncul di POS.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-box-archive mt-1" style="color:#64748b;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Tombol hapus produk sekarang lebih jujur</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Produk yang sudah pernah ada transaksinya memang tidak bisa dihapus permanen supaya
+                  riwayat dan laporan tidak rusak. Di halaman Stok, tombolnya kini jelas jadi
+                  <strong>Arsipkan</strong> untuk produk seperti itu, dengan keterangan bahwa produk hanya
+                  disembunyikan dari daftar dan datanya tetap tersimpan. Tombol <strong>Hapus</strong> permanen
+                  hanya muncul untuk produk yang belum pernah dipakai sama sekali.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-arrow-down-1-9 mt-1" style="color:#2563eb;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Urut Kode Barang sekarang benar-benar urut</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di halaman Stok, saat memilih urut <strong>Kode Barang</strong>, angka di dalam kode kini
+                  diurutkan sebagai angka, bukan sebagai teks. Jadi KODE-2 muncul sebelum KODE-10 (dulu
+                  KODE-10 keliru naik ke atas karena diurutkan huruf per huruf).
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-money-bill-wave mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Harga jual resep kini dipakai juga di menu Penjualan</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kolom <strong>Harga Jual</strong> di modul Produksi sekarang selalu bisa diisi, tidak lagi
+                  harus menyalakan tombol jual di POS dulu. Harga itu terisi otomatis sebagai harga default
+                  ketika resep dipilih, baik di kasir POS maupun di menu <strong>Penjualan</strong> (Penjualan
+                  Umum), dan tetap bisa diubah per transaksi.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-mobile-screen mt-1" style="color:#2563eb;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Perbaikan tombol di perangkat lama</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di sebagian HP atau tablet dengan browser lawas, tombol seperti <strong>Tambah Baris</strong>
+                  di menu Penjualan bisa tidak berfungsi karena satu bagian skrip gagal jalan. Sekarang aplikasi
+                  memuat penyesuaian kompatibilitas lebih dulu, jadi tombol tetap berfungsi di perangkat lama.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-cash-register mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Perbaikan hitung kembalian di kasir (mode desimal)</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Saat mode angka desimal (pakai sen) aktif, kolom Uang Diterima di kasir bisa terisi seperti
+                  <strong>58000.00</strong>, dan sistem keliru membaca titik desimal sebagai pemisah ribuan
+                  sehingga kembalian melonjak jauh (mis. tampil jutaan). Ini hanya salah tampilan; transaksi
+                  yang tercatat tetap benar. Sekarang perhitungan kembalian sudah membaca angka dengan benar.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-pen-to-square mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Bisa mengubah template produksi yang sudah ada</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di modul Produksi, dulu mengubah template (mis. harga jual atau bahan) harus menyimpan
+                  template baru sehingga bisa menumpuk duplikat. Sekarang pilih dulu templatenya, ubah isinya,
+                  lalu klik tombol baru <strong>Perbarui template ini</strong>. Tombol <strong>Simpan sebagai baru</strong>
+                  tetap ada untuk membuat template baru.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-calculator mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Perbaikan penting: angka desimal panjang saat mengedit transaksi</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Harga per unit yang lahir dari pembagian (mis. total Rp 1.395.850 dibagi 3) dulu
+                  tersimpan dengan ekor desimal sangat panjang, lalu muncul saat transaksi dibuka lagi
+                  sebagai angka aneh seperti <strong>17.800,54545454</strong>. Pada kondisi tertentu titik
+                  desimalnya bahkan ikut terbaca sebagai pemisah ribuan, sehingga Total Belanja melonjak
+                  jadi angka raksasa. Sekarang angka dibulatkan rapi ke 2 desimal saat disimpan dan
+                  ditampilkan, dan cara aplikasi membaca angka sudah diperkuat agar tidak salah tafsir.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-sliders mt-1" style="color:#2563eb;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Produk POS (Lanjutan) kini mencari + mendukung racikan</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Halaman <strong>POS Master &rsaquo; Produk POS (Lanjutan)</strong> tidak lagi menampilkan
+                  seluruh produk sekaligus (tetap ringan walau ribuan produk). Sekarang <strong>cari</strong>
+                  produk atau racikan, klik untuk mengatur tampil di kasir dan harganya. <strong>Racikan</strong>
+                  juga bisa diatur di sini, termasuk harga jual dan multi-harga (Grosir / Member) seperti produk.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-percent mt-1" style="color:#dc2626;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Perbaikan: tarif pajak berkoma (mis. 1,5%) kini terbaca utuh</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Saat mengisi persen pajak dengan angka berkoma seperti <strong>1,5%</strong> di menu Penjualan,
+                  Pembelian, Pengeluaran, maupun Invoice, ringkasan di layar dulu keliru membacanya jadi 1% karena
+                  angka di belakang koma terpotong. Nilai yang benar-benar tersimpan sebenarnya sudah tepat, jadi ini
+                  hanya salah tampil di pratinjau. Sekarang pratinjaunya sudah membaca koma dengan benar. Selain itu,
+                  nilai bawaan PPh Pasal 22 di Invoice yang seharusnya 1,5% diperbaiki agar tidak lagi keliru
+                  tersimpan menjadi 15%.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-wallet mt-1" style="color:#16a34a;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Rekening kas/bank kini bisa diaktifkan dari tempat Anda berada</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Dulu hanya rekening yang dibuat lewat Pengaturan yang bisa dipilih saat terima atau
+                  bayar uang. Akun bank yang dibuat sendiri di <strong>Bagan Akun</strong> bisa diisi saldo awal,
+                  tapi tidak pernah muncul di pilihan pembayaran, dan saldonya tidak ikut dihitung sebagai
+                  Kas &amp; Bank maupun Arus Kas. Sekarang ada centang
+                  <strong>&ldquo;Jadikan rekening kas/bank&rdquo;</strong> di form Tambah dan Edit Akun, serta centang
+                  <strong>&ldquo;Ini rekening kas/bank saya&rdquo;</strong> langsung di baris akun pada halaman
+                  <strong>Setup Saldo Awal</strong>. Begitu dicentang, akun langsung bisa dipilih dan saldo yang
+                  sudah tercatat ikut terhitung, tanpa perlu memperbaiki data lama. Akun bertanda
+                  <strong>REKENING</strong> juga terlihat jelas di Bagan Akun.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-wand-magic-sparkles mt-1" style="color:#d97706;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Tombol Perbaiki HPP saat nilai persediaan selisih</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kadang harga beli rata-rata sebagian produk jadi usang gara-gara transaksi lama diinput
+                  belakangan (mis. saat memindahkan data dari catatan lama), sehingga muncul peringatan
+                  <strong>&ldquo;Ada selisih nilai persediaan&rdquo;</strong> di halaman Inventory. Sekarang tinggal klik
+                  tombol <strong>Perbaiki HPP</strong> yang muncul di peringatan itu. Aplikasi menghitung ulang
+                  harga beli rata-rata dari riwayat pembelian dan penjualan yang sebenarnya, lalu menyamakannya
+                  dengan pembukuan. Jurnal <strong>tidak diubah sama sekali</strong>, jadi Neraca dan Laba Rugi tetap
+                  sama seperti sebelumnya. Produk yang jumlah stoknya sendiri tidak cocok (bukan cuma harganya)
+                  tidak disentuh; itu tetap lewat Upload Excel mode Koreksi Stok Opname supaya ada jejak jurnalnya.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-keyboard mt-1" style="color:#2563eb;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Jumlah di kasir bisa langsung diketik</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Dulu menambah jumlah barang di keranjang kasir harus menekan tombol tambah berkali-kali.
+                  Sekarang angkanya bisa diketik langsung, jadi pesanan 12 gelas cukup ketik <strong>12</strong>.
+                  Tombol tambah dan kurang tetap ada untuk penyesuaian cepat. Isi angkanya dengan 0 atau
+                  kosongkan untuk menghapus barang dari keranjang. Jumlah pecahan juga bisa, misalnya
+                  <strong>2,5</strong> kg.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-0">
+              <i class="fas fa-calendar-day mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Jadwal shift kasir pindah ke halaman sendiri</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di POS Master, daftar shift dulu ditumpuk memanjang sehingga menutupi panel setelan
+                  di bawahnya. Sekarang yang tampil cukup ringkasannya (sedang open, shift hari ini,
+                  total tercatat) dengan tombol <strong>Lihat Jadwal Shift</strong>. Halaman jadwalnya
+                  sudah berhalaman, plus saringan status, kasir, dan rentang tanggal.
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="cl-slide">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge bg-primary" style="font-size:.72rem">Versi 6.3.2</span>
+            <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>18 Juli 2026</span>
+          </div>
+          <ul class="list-unstyled mb-0">
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-circle-check mt-1" style="color:#16a34a;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Perbaikan: hutang tidak lagi muncul Rp 1 karena pembulatan</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Pada pembelian dengan jumlah pecahan (mis. 0,5 kg), sisa pembulatan sub-rupiah
+                  dulu bisa nyangkut jadi Hutang Usaha kecil (tampil &ldquo;Rp 1&rdquo;). Sekarang di mode
+                  rupiah bulat semua nominal dibulatkan konsisten, jadi bayar penuh = tidak ada hutang.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-receipt mt-1" style="color:#2563eb;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Pembelian: catat No. Invoice &amp; No. Faktur Pajak</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Saat mencatat pembelian ada dua kolom baru: <strong>No. Invoice Supplier</strong> dan
+                  <strong>No. Faktur Pajak</strong>. Sekadar catatan referensi, tampil lagi di Detail Transaksi
+                  supaya mudah dicocokkan dengan dokumen supplier. Tidak mengubah jurnal.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-truck mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Catat Pembelian PKP: pilih supplier dari daftar</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kolom nama supplier bisa dipilih langsung dari <strong>Database Vendor</strong>.
+                  Tetap bisa diketik bebas kalau suppliernya baru.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-file-excel mt-1" style="color:#16a34a;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">SPT Masa PPN &amp; Buku Besar bisa diunduh ke Excel</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Laporan <strong>SPT Masa PPN</strong> bisa dipilih per bulan lalu diunduh ke Excel lengkap
+                  dengan rincian PPN Keluaran dan Masukan. <strong>Buku Besar</strong> tiap akun juga bisa
+                  diunduh beserta saldo berjalannya.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-magnifying-glass mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Produksi: cari template resep</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Kalau template produksi sudah banyak, ada kotak pencarian untuk menemukan resep dengan cepat.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-0">
+              <i class="fas fa-boxes-stacked mt-1" style="color:#d97706;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">POS: pilihan blokir penjualan saat stok habis</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di POS Master ada saklar baru. Bawaannya kasir tetap boleh menjual walau stok habis
+                  (barang menyusul, sistem hanya memberi pengingat). Kalau diaktifkan, kasir tidak bisa
+                  checkout saat stok produk atau bahan resep tidak mencukupi.
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="cl-slide">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge bg-primary" style="font-size:.72rem">Versi 6.2</span>
+            <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>10 Juli 2026</span>
+          </div>
+          <ul class="list-unstyled mb-0">
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-cart-plus mt-1" style="color:#0d9488;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Penjualan Umum kini satu pintu untuk semua</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Cukup satu kotak <strong>Item</strong>: ketik bebas untuk jasa/item tanpa stok, atau cari lalu
+                  pilih <strong>produk stok</strong> (stok &amp; HPP otomatis), <strong>Master HPP</strong>, atau <strong>resep</strong>.
+                  Barang, jasa, dan produk bisa digabung dalam satu nota, lengkap dengan <strong>diskon per item</strong>.
+                  Tab &ldquo;Per Produk&rdquo; digabung ke sini, jadi tak perlu pindah-pindah tab lagi.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-utensils mt-1" style="color:#d97706;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Jual sekaligus potong stok bahan (resep produksi)</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di Penjualan Umum, tiap baris bisa memilih <strong>Resep Produksi</strong>. Saat menjual,
+                  stok bahan otomatis berkurang sesuai resep dan HPP dihitung dari harga beli bahan.
+                  Cocok untuk usaha makanan yang memasak saat ada pesanan.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-layer-group mt-1" style="color:#0891b2;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Penjualan Umum bisa banyak baris</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Satu transaksi Penjualan Umum kini bisa berisi banyak item sekaligus, tidak lagi satu
+                  nominal gabungan. Tiap baris bisa diketik bebas atau diambil dari Master HPP.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-0">
+              <i class="fas fa-tags mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Varian produk muncul di struk &amp; data transaksi</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Barang yang punya varian (mis. ukuran S/M/L) kini tampil lengkap dengan variannya,
+                  misalnya <strong>&ldquo;Celana Panjang (S)&rdquo;</strong>, di keranjang kasir, struk, dan Detail Transaksi.
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="cl-slide">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge bg-primary" style="font-size:.72rem">Versi 6.2</span>
+            <span class="text-muted" style="font-size:.78rem">lanjutan</span>
+          </div>
+          <ul class="list-unstyled mb-0">
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-hand-holding-dollar mt-1" style="color:#16a34a;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Invoice bisa terima DP / pembayaran sebagian</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Di halaman invoice (yang sudah tercatat ke jurnal) ada kotak <strong>Terima DP / Pembayaran</strong>.
+                  Nominal yang diterima langsung mengurangi Sisa Tagihan dan tercatat sebagai penerimaan kas.
+                  Bisa dicicil beberapa kali sampai lunas.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-cash-register mt-1" style="color:#0ea5e9;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Nama barang di POS Kasir lebih terbaca</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Nama produk yang panjang tidak lagi terpotong di kartu POS.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-0">
+              <i class="fas fa-table-columns mt-1" style="color:#b45309;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Kolom nama produk di Pembelian diperlebar</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Saat input pembelian di laptop, kolom nama produk kini lebih lebar sehingga nama produk terbaca jelas.
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="cl-slide">
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="badge bg-secondary" style="font-size:.72rem">Versi 6.1</span>
+            <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>7 Juli 2026</span>
+          </div>
+          <ul class="list-unstyled mb-0">
+            <li class="d-flex gap-2 mb-3">
+              <i class="fas fa-rotate-left mt-1" style="color:#c2410c;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Retur kini muncul di Daftar Transaksi</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Transaksi retur penjualan &amp; pembelian yang sebelumnya tidak tampil sekarang punya tab
+                  <strong>&ldquo;Retur&rdquo;</strong> sendiri, dan juga muncul di tab <strong>&ldquo;Semua&rdquo;</strong>,
+                  lengkap dengan kolom Kas &amp; Laba Rugi serta bisa diunduh ke Excel.
+                </div>
+              </div>
+            </li>
+            <li class="d-flex gap-2 mb-0">
+              <i class="fas fa-chart-pie mt-1" style="color:#2563eb;font-size:.9rem"></i>
+              <div>
+                <div class="fw-semibold" style="font-size:.88rem">Perbaikan grafik Cashflow di Dashboard</div>
+                <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+                  Donut <em>&ldquo;uang keluar per kategori&rdquo;</em> tidak lagi menghitung ganda transaksi retur.
+                  Nilai retur kini tampil benar dengan label <strong>&ldquo;Retur Penjualan&rdquo;</strong>,
+                  tidak lagi tercampur ke kategori &ldquo;Lainnya&rdquo;.
+                </div>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="modal-footer py-2 d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2" id="clNav">
+          <button type="button" class="btn btn-outline-secondary btn-sm px-2" id="clPrev" title="Sebelumnya"><i class="fas fa-chevron-left"></i></button>
+          <span class="text-muted" style="font-size:.78rem;min-width:46px;text-align:center" id="clCounter">1 / 1</span>
+          <button type="button" class="btn btn-outline-secondary btn-sm px-2" id="clNext" title="Berikutnya"><i class="fas fa-chevron-right"></i></button>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// Paginasi slide changelog: tampil 1 slide, navigasi Prev/Next. Nol dependensi baru.
+(function(){
+  var modal = document.getElementById('modalChangelog');
+  if (!modal) return;
+  var slides = [].slice.call(modal.querySelectorAll('.cl-slide'));
+  var counter = document.getElementById('clCounter');
+  var prev = document.getElementById('clPrev');
+  var next = document.getElementById('clNext');
+  var nav = document.getElementById('clNav');
+  if (slides.length <= 1) { if (nav) nav.style.display = 'none'; return; }
+  var idx = 0;
+  function render(){
+    for (var i = 0; i < slides.length; i++) slides[i].style.display = (i === idx) ? '' : 'none';
+    if (counter) counter.textContent = (idx + 1) + ' / ' + slides.length;
+    if (prev) prev.disabled = (idx === 0);
+    if (next) next.disabled = (idx === slides.length - 1);
+    var body = modal.querySelector('.modal-body'); if (body) body.scrollTop = 0;
+  }
+  if (prev) prev.addEventListener('click', function(){ if (idx > 0) { idx--; render(); } });
+  if (next) next.addEventListener('click', function(){ if (idx < slides.length - 1) { idx++; render(); } });
+  modal.addEventListener('show.bs.modal', function(){ idx = 0; render(); });
+  render();
+})();
+</script>
+</body>
+</html>

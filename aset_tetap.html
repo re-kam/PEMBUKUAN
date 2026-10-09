@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Aset Tetap - FinansialApp{% endblock %}
+{% block page_title %}Aset Tetap{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalAsetTetapHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_asettetap_help_modal.html' %}
+
+<style>
+.prog-bar{height:7px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden}
+[data-theme=dark] .prog-bar{background:rgba(255,255,255,.1)}
+.prog-fill{height:100%;border-radius:4px;transition:width .4s}
+</style>
+
+{% if orphan_count %}
+<div class="alert alert-warning d-flex align-items-center justify-content-between gap-2 flex-wrap py-2 px-3" style="font-size:.82rem">
+  <div>
+    <i class="fas fa-triangle-exclamation me-1"></i>
+    Ada <strong>{{ orphan_count }}</strong> aset tanpa transaksi sumber. Ini biasanya sisa data lama setelah jurnal pembelian/saldo awal sudah dihapus.
+  </div>
+  <form method="POST" action="{{ url_for('aset_tetap_bersihkan_yatim') }}"
+        onsubmit="return confirm('Bersihkan aset yang sudah tidak punya transaksi sumber? Jurnal penyusutan terkait aset tersebut juga akan dihapus.')">
+    <button class="btn btn-sm btn-warning" type="submit">
+      <i class="fas fa-broom me-1"></i>Bersihkan Aset Tanpa Transaksi
+    </button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <span class="section-title"><i class="fas fa-building me-2 text-success"></i>Daftar Aset Tetap</span>
+    <span class="text-muted" style="font-size:.75rem">{{ aset_list|length }} aset terdaftar</span>
+  </div>
+  {% if aset_list %}
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Nama Aset</th>
+            <th>Kategori</th>
+            <th>Tanggal Beli</th>
+            <th class="text-end">Harga Beli</th>
+            <th class="text-end">Penyusutan/Bulan</th>
+            <th style="width:160px">Penyusutan Terealisasi</th>
+            <th style="width:100px">Progress</th>
+            <th class="text-center">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in aset_list %}
+          {% set pct = ((a.bulan_real / a.masa_pakai) * 100) | round | int if a.masa_pakai else 0 %}
+          {% set sisa_bulan = a.masa_pakai - a.bulan_real %}
+          <tr>
+            <td class="ps-3 fw-semibold">
+              {{ a.nama }}
+              {% if a.source_missing %}
+              <div class="text-danger" style="font-size:.68rem;font-weight:600">
+                <i class="fas fa-link-slash me-1"></i>Sumber transaksi tidak ditemukan
+              </div>
+              {% endif %}
+            </td>
+            <td style="font-size:.82rem">{{ a.kategori or '-' }}</td>
+            <td class="text-muted" style="font-size:.82rem">{{ a.tanggal_beli|tgl }}</td>
+            <td class="text-end text-rp" style="font-size:.85rem">{{ a.harga_beli|rp }}</td>
+            <td class="text-end text-rp" style="font-size:.85rem;color:var(--tx2)">
+              {% if a.penyusutan_bulan %}{{ a.penyusutan_bulan|rp }}{% else %}<span class="text-muted">-</span>{% endif %}
+            </td>
+            <td>
+              <div class="text-rp fw-semibold" style="font-size:.85rem;color:{% if pct >= 100 %}#dc2626{% elif pct >= 75 %}#b45309{% else %}#15803d{% endif %}">
+                {{ a.peny_real|rp }}
+              </div>
+              <div style="font-size:.68rem;color:var(--tx3)">{{ a.bulan_real }} / {{ a.masa_pakai }} bulan</div>
+            </td>
+            <td>
+              <div class="prog-bar">
+                <div class="prog-fill" style="width:{{ [pct, 100]|min }}%;background:{% if pct >= 100 %}#dc2626{% elif pct >= 75 %}#f59e0b{% elif pct >= 50 %}#3b82f6{% else %}#16a34a{% endif %}"></div>
+              </div>
+              <div style="font-size:.65rem;color:var(--tx3);margin-top:.2rem;text-align:center">{{ pct }}%</div>
+            </td>
+            <td class="text-center">
+              {% if not a.aktif %}
+                <span class="badge bg-secondary" style="font-size:.65rem">Nonaktif</span>
+              {% elif pct >= 100 %}
+                <span class="badge bg-danger" style="font-size:.65rem">Habis</span>
+              {% elif pct >= 75 %}
+                <span class="badge" style="background:#f59e0b;font-size:.65rem">Hampir Habis</span>
+              {% else %}
+                <span class="badge bg-success" style="font-size:.65rem">Aktif · sisa {{ sisa_bulan }} bln</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="background:var(--card-h)">
+            <td class="ps-3 fw-bold" colspan="3">Total</td>
+            <td class="text-end text-rp fw-bold">{{ aset_list|sum(attribute='harga_beli')|rp }}</td>
+            <td></td>
+            <td class="text-rp fw-bold" style="font-size:.85rem">{{ aset_list|sum(attribute='peny_real')|rp }}</td>
+            <td colspan="2"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="card-body text-center py-5">
+    <i class="fas fa-building fa-2x text-muted mb-3 d-block opacity-25"></i>
+    <div class="text-muted" style="font-size:.85rem">Belum ada aset tetap terdaftar.</div>
+    <div class="text-muted" style="font-size:.78rem;margin-top:.4rem">
+      Tambah aset via <a href="/pembelian?prefill=1&kategori=INVESTASI_ASET">Input Pembelian</a> → jenis Aset Tetap.
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="alert alert-info mt-3 py-2" style="font-size:.8rem">
+  <i class="fas fa-circle-info me-1"></i>
+  <strong>Penyusutan Terealisasi</strong> dihitung dari tanggal beli sampai bulan ini secara proporsional
+  (misal: 2 bulan dari 36 bulan = Rp X × 2/36). Pencatatan jurnal otomatis berjalan setiap kali Dashboard dibuka.
+</div>
+
+{{ pagination(pg) }}
+{% endblock %}

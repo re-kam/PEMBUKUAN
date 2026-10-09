@@ -1,0 +1,555 @@
+{% extends "base.html" %}
+{% block title %}{% if edit %}Edit Invoice{% else %}Buat Invoice{% endif %} - FinansialApp{% endblock %}
+{% block page_title %}{% if edit %}Edit Invoice {{ edit.nomor }}{% else %}Buat Invoice Baru{% endif %}{% endblock %}
+{% block content %}
+{% set linked = edit and edit.jurnal_id %}
+
+{% if linked %}
+<div class="alert alert-info py-2" style="font-size:.82rem">
+  <i class="fas fa-link me-1"></i>
+  Invoice ini tertaut ke <a href="/transaksi/{{ edit.jurnal_id }}">transaksi sumber</a>.
+  Item, qty, satuan, harga, dan total diedit dari transaksi agar stok dan invoice tetap sinkron.
+</div>
+{% else %}
+<div class="alert alert-warning py-2" style="font-size:.82rem">
+  <i class="fas fa-circle-info me-1"></i>
+  <strong>Invoice ini dokumen tagihan, belum masuk pembukuan.</strong>
+  Kalau penjualan ini mau langsung tercatat ke jurnal, kas, neraca, dan laba rugi, catat lewat menu
+  <a href="/pemasukan">Pemasukan</a> saja. Tetap mau pakai invoice? Setelah disimpan, klik
+  <strong>Catat ke Jurnal</strong> di halaman invoice supaya ikut tercatat. Cukup catat sekali,
+  jangan lewat Pemasukan dan invoice sekaligus untuk penjualan yang sama.
+</div>
+{% endif %}
+
+<form method="POST" id="invForm">
+<div class="row g-3">
+
+  <!-- Kolom kiri: Header invoice -->
+  <div class="col-lg-8">
+
+    <!-- Info dasar -->
+    <div class="card mb-3">
+      <div class="card-header py-2"><span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-file-invoice me-2 text-primary"></i>Detail Invoice</span></div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label small">No. Invoice</label>
+            <input type="text" name="nomor" class="form-control form-control-sm"
+                   value="{{ edit.nomor if edit else next_num }}" placeholder="{{ next_num }}">
+            <div class="form-text">Otomatis jika dikosongkan</div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Tanggal <span class="text-danger">*</span></label>
+            <input type="date" name="tanggal" id="invTanggal" class="form-control form-control-sm"
+                   value="{{ edit.tanggal if edit else today }}" max="{{ today }}" required {% if linked %}disabled{% endif %}>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">ToP (hari)</label>
+            <input type="number" name="top_hari" id="topHari" class="form-control form-control-sm"
+                   value="{{ edit.top_hari if edit else inv_s.inv_top }}" min="0" max="365" placeholder="30">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Ket. ToP</label>
+            <input type="text" name="top_note" id="topNote" class="form-control form-control-sm"
+                   value="{{ edit.top_note if edit else inv_s.inv_top_note }}" placeholder="Net 30 / COD">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small">Jatuh Tempo</label>
+            <input type="date" name="jatuh_tempo" id="jtInput" class="form-control form-control-sm"
+                   value="{{ edit.jatuh_tempo or '' }}">
+            <div class="form-text">Auto / manual</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">Nama Pelanggan <span class="text-danger">*</span></label>
+            <input type="text" name="pelanggan" id="invPelanggan" class="form-control form-control-sm"
+                   value="{{ edit.pelanggan if edit else '' }}" required placeholder="Nama perusahaan / individu"
+                   list="customerDatalist" autocomplete="off" {% if linked %}disabled{% endif %}>
+            <datalist id="customerDatalist">
+              {% for c in customer_list %}<option value="{{ c.nama }}">{% endfor %}
+            </datalist>
+            <div class="form-text">Ketik bebas, atau pilih dari Database Customer (telepon/alamat ikut terisi)</div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Telepon</label>
+            <input type="text" name="telepon_pelanggan" id="invTelepon" class="form-control form-control-sm"
+                   value="{{ edit.telepon_pelanggan if edit else '' }}" placeholder="08xx...">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label small">Alamat</label>
+            <input type="text" name="alamat_pelanggan" id="invAlamat" class="form-control form-control-sm"
+                   value="{{ edit.alamat_pelanggan if edit else '' }}" placeholder="Alamat singkat">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line items -->
+    <div class="card mb-3">
+      <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-list me-2 text-primary"></i>Item / Produk</span>
+        {% if not linked %}<div class="d-flex gap-2">
+          {% if produk_list %}
+          <select id="produkPicker" class="form-select form-select-sm" style="width:180px">
+            <option value="">+ Dari katalog produk</option>
+            {% for p in produk_list %}
+            <option value="{{ p.id }}" data-nama="{{ p.nama }}" data-harga="{{ p.harga_jual }}" data-satuan="{{ p.satuan or 'pcs' }}">
+              {{ p.nama }}
+            </option>
+            {% endfor %}
+          </select>
+          {% endif %}
+          <button type="button" class="btn btn-sm btn-outline-primary" onclick="addRow()">
+            <i class="fas fa-plus me-1"></i>Baris
+          </button>
+        </div>{% endif %}
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-sticky-actions mb-0" id="itemsTable">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3" style="width:35%">Deskripsi</th>
+                <th style="width:10%">Qty</th>
+                <th style="width:10%">Satuan</th>
+                <th style="width:18%">Harga Satuan</th>
+                <th style="width:14%">Diskon Item</th>
+                <th class="text-end" style="width:15%">Subtotal</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody id="itemsBody">
+              {% if edit and items %}
+                {% for it in items %}
+                <tr class="item-row">
+                  <td class="ps-2"><input type="text" name="deskripsi[]" class="form-control form-control-sm" value="{{ it.deskripsi }}" required {% if linked %}disabled{% endif %}></td>
+                  <td><input type="number" name="qty[]" class="form-control form-control-sm item-qty" value="{{ it.qty }}" min="0.01" step="any" oninput="calcRow(this)" {% if linked %}disabled{% endif %}></td>
+                  <td><input type="text" name="satuan[]" class="form-control form-control-sm" value="{{ it.satuan }}" placeholder="pcs" {% if linked %}disabled{% endif %}></td>
+                  <td><input type="number" name="harga_satuan[]" class="form-control form-control-sm item-harga" value="{{ it.harga_satuan|int }}" min="0" step="1" oninput="calcRow(this)" {% if linked %}disabled{% endif %}></td>
+                  <td><input type="number" name="diskon_item[]" class="form-control form-control-sm item-dis" value="{{ it.diskon_item|int }}" min="0" step="1" oninput="calcRow(this)" {% if linked %}disabled{% endif %}></td>
+                  <td class="text-end pe-2 fw-semibold item-sub text-rp" style="font-size:.85rem">{{ it.subtotal|rp }}</td>
+                  <td>{% if not linked %}<button type="button" class="btn btn-xs btn-outline-danger" onclick="removeRow(this)"><i class="fas fa-times"></i></button>{% endif %}</td>
+                </tr>
+                {% endfor %}
+              {% else %}
+                <!-- default 1 empty row -->
+                <tr class="item-row">
+                  <td class="ps-2"><input type="text" name="deskripsi[]" class="form-control form-control-sm" placeholder="Nama produk / jasa" required></td>
+                  <td><input type="number" name="qty[]" class="form-control form-control-sm item-qty" value="1" min="0.01" step="any" oninput="calcRow(this)"></td>
+                  <td><input type="text" name="satuan[]" class="form-control form-control-sm" value="pcs" placeholder="pcs"></td>
+                  <td><input type="number" name="harga_satuan[]" class="form-control form-control-sm item-harga" value="0" min="0" step="1" oninput="calcRow(this)"></td>
+                  <td><input type="number" name="diskon_item[]" class="form-control form-control-sm item-dis" value="0" min="0" step="1" oninput="calcRow(this)"></td>
+                  <td class="text-end pe-2 fw-semibold item-sub text-rp" style="font-size:.85rem">Rp 0</td>
+                  <td><button type="button" class="btn btn-xs btn-outline-danger" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Catatan -->
+    <div class="card mb-3">
+      <div class="card-body py-2">
+        <label class="form-label small">Catatan / Pesan (opsional)</label>
+        <textarea name="catatan" class="form-control form-control-sm" rows="2"
+                  placeholder="Terima kasih atas kepercayaan Anda...">{{ edit.catatan if edit else '' }}</textarea>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Kolom kanan: Ringkasan & Aksi -->
+  <div class="col-lg-4">
+
+    <!-- Penyesuaian harga -->
+    <div class="card mb-3">
+      <div class="card-header py-2"><span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-calculator me-2 text-warning"></i>Penyesuaian</span></div>
+      <div class="card-body">
+        <div class="mb-2">
+          <label class="form-label small">Diskon Global (Rp)</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text">Rp</span>
+            <input type="number" name="diskon" id="inv_diskon" class="form-control" min="0" step="1"
+                   value="{{ edit.diskon|int if edit else 0 }}" oninput="calcTotal()" {% if linked %}disabled{% endif %}>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Ongkir (Rp)</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text">Rp</span>
+            <input type="number" name="ongkir" id="inv_ongkir" class="form-control" min="0" step="1"
+                   value="{{ edit.ongkir|int if edit else 0 }}" oninput="calcTotal()" {% if linked %}disabled{% endif %}>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Biaya Lain (Rp)</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text">Rp</span>
+            <input type="number" name="biaya_lain" id="inv_biaya" class="form-control" min="0" step="1"
+                   value="{{ edit.biaya_lain|int if edit else 0 }}" oninput="calcTotal()" {% if linked %}disabled{% endif %}>
+          </div>
+        </div>
+        <hr class="my-2">
+        {% set pjk_init = (edit.pajak_persen if edit and edit.pajak_persen is not none else 0)|float %}
+        <div class="mb-1">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="togglePajak"
+                   {% if pjk_init > 0 %}checked{% endif %} onchange="togglePajakBox()" {% if linked %}disabled{% endif %}>
+            <label class="form-check-label small fw-semibold" for="togglePajak">
+              Tambahkan Pajak (PPN) <span class="badge bg-light text-muted ms-1" style="font-size:.65rem">Opsional</span>
+            </label>
+          </div>
+          <div class="form-text" style="font-size:.72rem">Aktifkan jika perusahaan Anda PKP atau pelanggan minta pisah PPN. Biarkan off jika tidak perlu.</div>
+        </div>
+        <div id="pajakBox" class="mb-0" style="{% if pjk_init <= 0 %}display:none{% endif %}">
+          <label class="form-label small">Tarif Pajak (%)</label>
+          <div class="input-group input-group-sm">
+            <input type="number" name="pajak_persen" id="inv_pajak" class="form-control" min="0" max="100" step="0.01"
+                   value="{{ pjk_init if pjk_init > 0 else 0 }}" oninput="calcTotal()" {% if linked %}disabled{% endif %}>
+            <span class="input-group-text">%</span>
+          </div>
+          <div class="form-text" style="font-size:.72rem">Default PPN Indonesia = 11%. Pajak dihitung dari (Subtotal &minus; Diskon + Ongkir + Biaya Lain).</div>
+        </div>
+
+        {% if modul_aktif and modul_aktif.PAJAK_OTOMATIS %}
+        <hr class="my-2">
+        {% set pph_init = (edit.pph23_persen if edit and edit.pph23_persen is not none else 0)|float %}
+        <div class="mb-1">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="togglePph"
+                   {% if pph_init > 0 %}checked{% endif %} onchange="togglePphBox()" {% if linked %}disabled{% endif %}>
+            <label class="form-check-label small fw-semibold" for="togglePph">
+              Dipotong PPh 23 oleh Customer
+              <span class="badge bg-warning text-dark ms-1" style="font-size:.62rem"><i class="fas fa-puzzle-piece"></i> Lanjutan</span>
+            </label>
+          </div>
+          <div class="form-text" style="font-size:.72rem">Aktifkan jika customer memotong PPh 23 dari pembayaran (biasanya untuk jasa). Mengurangi jumlah yang diterima.</div>
+        </div>
+        <div id="pphBox" class="mb-0" style="{% if pph_init <= 0 %}display:none{% endif %}">
+          <label class="form-label small">Tarif PPh 23 (%)</label>
+          <div class="input-group input-group-sm">
+            <input type="number" name="pph23_persen" id="inv_pph" class="form-control" min="0" max="100" step="0.01"
+                   value="{{ pph_init if pph_init > 0 else 0 }}" oninput="calcTotal()" {% if linked %}disabled{% endif %}>
+            <span class="input-group-text">%</span>
+          </div>
+          <div class="form-text" style="font-size:.72rem">Default PPh 23 jasa = 2%. Dihitung dari DPP (Subtotal &minus; Diskon + Ongkir + Biaya).</div>
+        </div>
+
+        <hr class="my-2">
+        {% set pph22_init = (edit.pph22_persen if edit and edit.pph22_persen is not none else 0)|float %}
+        <div class="mb-1">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="togglePph22"
+                   {% if pph22_init > 0 %}checked{% endif %} onchange="togglePph22Box()" {% if linked %}disabled{% endif %}>
+            <label class="form-check-label small fw-semibold" for="togglePph22">
+              Dipotong PPh 22 oleh Instansi
+              <span class="badge bg-warning text-dark ms-1" style="font-size:.62rem"><i class="fas fa-puzzle-piece"></i> Lanjutan</span>
+            </label>
+          </div>
+          <div class="form-text" style="font-size:.72rem">Aktifkan jika customer = instansi pemerintah/bendaharawan/BUMN tertentu yang memungut PPh 22 saat pembayaran.</div>
+        </div>
+        <div id="pph22Box" class="mb-0" style="{% if pph22_init <= 0 %}display:none{% endif %}">
+          <label class="form-label small">Tarif PPh 22 (%)</label>
+          <div class="input-group input-group-sm">
+            <input type="number" name="pph22_persen" id="inv_pph22" class="form-control" min="0" max="100" step="0.01"
+                   value="{{ pph22_init if pph22_init > 0 else 0 }}" oninput="calcTotal()" {% if linked %}disabled{% endif %}>
+            <span class="input-group-text">%</span>
+          </div>
+          <div class="form-text" style="font-size:.72rem">Default PPh 22 pembelian instansi = 1,5%. Dihitung dari DPP.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Ringkasan total -->
+    <div class="card mb-3" style="border:2px solid var(--acc)">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between mb-1" style="font-size:.82rem">
+          <span class="text-muted">Subtotal</span>
+          <span class="fw-semibold text-rp" id="disp_subtotal">Rp 0</span>
+        </div>
+        <div class="d-flex justify-content-between mb-1" style="font-size:.82rem">
+          <span class="text-muted">Diskon</span>
+          <span class="text-danger text-rp" id="disp_diskon">- Rp 0</span>
+        </div>
+        <div class="d-flex justify-content-between mb-1" style="font-size:.82rem">
+          <span class="text-muted">Ongkir + Biaya</span>
+          <span class="text-rp" id="disp_extra">+ Rp 0</span>
+        </div>
+        <div class="justify-content-between mb-1" id="row_disp_pajak" style="font-size:.82rem;display:none">
+          <span class="text-muted">Pajak (<span id="disp_pajak_pct">0</span>%)</span>
+          <span class="text-rp" id="disp_pajak">+ Rp 0</span>
+        </div>
+        <hr class="my-1">
+        <div class="d-flex justify-content-between">
+          <span class="fw-bold">TOTAL</span>
+          <span class="fw-bold fs-5 text-rp" id="disp_total">Rp 0</span>
+        </div>
+        {% if modul_aktif and modul_aktif.PAJAK_OTOMATIS %}
+        <div class="justify-content-between mt-2" id="row_disp_pph22" style="font-size:.78rem;display:none;border-top:1px dashed var(--pgb);padding-top:.4rem">
+          <span class="text-warning"><i class="fas fa-minus me-1"></i>Dipotong PPh 22 (<span id="disp_pph22_pct">0</span>%)</span>
+          <span class="text-warning text-rp" id="disp_pph22">- Rp 0</span>
+        </div>
+        <div class="justify-content-between mt-1" id="row_disp_pph" style="font-size:.78rem;display:none">
+          <span class="text-warning"><i class="fas fa-minus me-1"></i>Dipotong PPh 23 (<span id="disp_pph_pct">0</span>%)</span>
+          <span class="text-warning text-rp" id="disp_pph">- Rp 0</span>
+        </div>
+        <div class="justify-content-between mt-1" id="row_disp_diterima" style="font-size:.82rem;display:none">
+          <span class="fw-semibold text-success">Diterima Bersih</span>
+          <span class="fw-bold text-success text-rp" id="disp_diterima">Rp 0</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Info template -->
+    <div class="card mb-3">
+      <div class="card-body py-2 px-3" style="font-size:.78rem">
+        <div class="fw-semibold mb-1" style="color:#2563eb"><i class="fas fa-building me-1"></i>{{ inv_s.inv_nama }}</div>
+        {% if inv_s.inv_rek_list %}
+        <div class="text-muted mb-1">Rekening:</div>
+        {% for r in inv_s.inv_rek_list %}
+        <div class="text-muted">{{ r.bank }} {{ r.norek }}{% if r.an %} a.n. {{ r.an }}{% endif %}</div>
+        {% endfor %}
+        {% endif %}
+        <a href="/invoice/pengaturan" class="d-block mt-1" style="font-size:.72rem"><i class="fas fa-gear me-1"></i>Ubah template</a>
+      </div>
+    </div>
+
+    <div class="d-grid gap-2">
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>{% if edit %}Simpan Perubahan{% else %}Buat Invoice{% endif %}</button>
+      <a href="/invoice{% if edit %}/{{ edit.id }}{% endif %}" class="btn btn-outline-secondary">Batal</a>
+    </div>
+  </div>
+
+</div>
+</form>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function fmt(n) {
+  return window.rpFmt ? window.rpFmt(n) : 'Rp ' + Math.round(n).toLocaleString('id-ID');
+}
+function moneyCalc(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+// Strip Indonesian thousand-separator dots before parsing (fix: "1.500.000" → 1500000)
+function nv(el) {
+  if (window.numVal) return window.numVal(el);
+  return parseFloat(((el && el.value) || '0').replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+function calcRow(inp) {
+  const row = inp.closest('tr');
+  const qty  = nv(row.querySelector('.item-qty'));
+  const harg = nv(row.querySelector('.item-harga'));
+  const dis  = nv(row.querySelector('.item-dis'));
+  const sub  = qty * harg - dis;
+  row.querySelector('.item-sub').textContent = fmt(Math.max(0, sub));
+  calcTotal();
+}
+
+function calcTotal() {
+  let subtotal = 0;
+  document.querySelectorAll('#itemsBody .item-row').forEach(row => {
+    const qty  = nv(row.querySelector('.item-qty'));
+    const harg = nv(row.querySelector('.item-harga'));
+    const dis  = nv(row.querySelector('.item-dis'));
+    subtotal += Math.max(0, qty * harg - dis);
+  });
+  const diskon = nv(document.getElementById('inv_diskon'));
+  const ongkir = nv(document.getElementById('inv_ongkir'));
+  const biaya  = nv(document.getElementById('inv_biaya'));
+  const dpp    = Math.max(0, subtotal - diskon + ongkir + biaya);
+  const togPjk = document.getElementById('togglePajak');
+  const pjkPct = (togPjk && togPjk.checked) ? window.numVal(document.getElementById('inv_pajak')) : 0;
+  const pjkNom = moneyCalc(dpp * pjkPct / 100);
+  const total  = dpp + pjkNom;
+  document.getElementById('disp_subtotal').textContent = fmt(subtotal);
+  document.getElementById('disp_diskon').textContent   = '- ' + fmt(diskon);
+  document.getElementById('disp_extra').textContent    = '+ ' + fmt(ongkir + biaya);
+  const rowPjk = document.getElementById('row_disp_pajak');
+  if (pjkPct > 0) {
+    rowPjk.style.display = 'flex';
+    rowPjk.classList.add('d-flex');
+    document.getElementById('disp_pajak_pct').textContent = pjkPct;
+    document.getElementById('disp_pajak').textContent     = '+ ' + fmt(pjkNom);
+  } else {
+    rowPjk.style.display = 'none';
+    rowPjk.classList.remove('d-flex');
+  }
+  document.getElementById('disp_total').textContent    = fmt(total);
+
+  // PPh 22 + PPh 23 (optional, modul PRO)
+  const togPph = document.getElementById('togglePph');
+  const togPph22 = document.getElementById('togglePph22');
+  const rowPph = document.getElementById('row_disp_pph');
+  const rowPph22 = document.getElementById('row_disp_pph22');
+  const rowDit = document.getElementById('row_disp_diterima');
+  if (rowDit) {
+    const pphPct = (togPph && togPph.checked) ? window.numVal(document.getElementById('inv_pph')) : 0;
+    const pphNom = moneyCalc(dpp * pphPct / 100);
+    const pph22Pct = (togPph22 && togPph22.checked) ? window.numVal(document.getElementById('inv_pph22')) : 0;
+    const pph22Nom = moneyCalc(dpp * pph22Pct / 100);
+    if (rowPph22) {
+      if (pph22Pct > 0) {
+        rowPph22.style.display = 'flex'; rowPph22.classList.add('d-flex');
+        document.getElementById('disp_pph22_pct').textContent = pph22Pct;
+        document.getElementById('disp_pph22').textContent     = '- ' + fmt(pph22Nom);
+      } else { rowPph22.style.display = 'none'; rowPph22.classList.remove('d-flex'); }
+    }
+    if (rowPph) {
+      if (pphPct > 0) {
+        rowPph.style.display = 'flex'; rowPph.classList.add('d-flex');
+        document.getElementById('disp_pph_pct').textContent = pphPct;
+        document.getElementById('disp_pph').textContent     = '- ' + fmt(pphNom);
+      } else { rowPph.style.display = 'none'; rowPph.classList.remove('d-flex'); }
+    }
+    if (pphPct > 0 || pph22Pct > 0) {
+      rowDit.style.display = 'flex'; rowDit.classList.add('d-flex');
+      document.getElementById('disp_diterima').textContent = fmt(total - pphNom - pph22Nom);
+    } else {
+      rowDit.style.display = 'none'; rowDit.classList.remove('d-flex');
+    }
+  }
+}
+
+function togglePajakBox() {
+  const tog = document.getElementById('togglePajak');
+  const box = document.getElementById('pajakBox');
+  box.style.display = tog.checked ? '' : 'none';
+  if (!tog.checked) {
+    document.getElementById('inv_pajak').value = 0;
+  } else {
+    const v = window.numVal(document.getElementById('inv_pajak'));
+    if (v <= 0) window.numFmtSet(document.getElementById('inv_pajak'), 11);
+  }
+  calcTotal();
+}
+
+function togglePph22Box() {
+  const tog = document.getElementById('togglePph22');
+  const box = document.getElementById('pph22Box');
+  if (!tog || !box) return;
+  box.style.display = tog.checked ? '' : 'none';
+  if (!tog.checked) {
+    document.getElementById('inv_pph22').value = 0;
+  } else {
+    const v = window.numVal(document.getElementById('inv_pph22'));
+    // numFmtSet -> "1,5" (koma). Dulu ".value = 1.5" (titik) tersimpan 15% karena
+    // submit-normalizer memperlakukan titik sbg pemisah ribuan (bug data 10x lipat).
+    if (v <= 0) window.numFmtSet(document.getElementById('inv_pph22'), 1.5);
+  }
+  calcTotal();
+}
+
+function togglePphBox() {
+  const tog = document.getElementById('togglePph');
+  const box = document.getElementById('pphBox');
+  if (!tog || !box) return;
+  box.style.display = tog.checked ? '' : 'none';
+  if (!tog.checked) {
+    document.getElementById('inv_pph').value = 0;
+  } else {
+    const v = window.numVal(document.getElementById('inv_pph'));
+    if (v <= 0) window.numFmtSet(document.getElementById('inv_pph'), 2);
+  }
+  calcTotal();
+}
+
+function addRow(nama, harga, satuan) {
+  const tbody = document.getElementById('itemsBody');
+  const tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.innerHTML = `
+    <td class="ps-2"><input type="text" name="deskripsi[]" class="form-control form-control-sm" value="${nama||''}" placeholder="Nama produk / jasa" required></td>
+    <td><input type="number" name="qty[]" class="form-control form-control-sm item-qty" value="1" min="0.01" step="any" oninput="calcRow(this)"></td>
+    <td><input type="text" name="satuan[]" class="form-control form-control-sm" value="${satuan||'pcs'}" placeholder="pcs"></td>
+    <td><input type="number" name="harga_satuan[]" class="form-control form-control-sm item-harga" value="${harga||0}" min="0" step="1" oninput="calcRow(this)"></td>
+    <td><input type="number" name="diskon_item[]" class="form-control form-control-sm item-dis" value="0" min="0" step="1" oninput="calcRow(this)"></td>
+    <td class="text-end pe-2 fw-semibold item-sub text-rp" style="font-size:.85rem">Rp 0</td>
+    <td><button type="button" class="btn btn-xs btn-outline-danger" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>`;
+  tbody.appendChild(tr);
+  if(window.numFmtInitAll) window.numFmtInitAll();
+  calcRow(tr.querySelector('.item-qty'));
+}
+
+function removeRow(btn) {
+  btn.closest('tr').remove();
+  // Baris terakhir → ganti baris kosong baru, supaya tombol X selalu berfungsi.
+  if (!document.querySelector('#itemsBody .item-row')) addRow();
+  calcTotal();
+}
+
+// Import dari katalog produk
+const picker = document.getElementById('produkPicker');
+if (picker) {
+  picker.addEventListener('change', function() {
+    const opt = this.options[this.selectedIndex];
+    if (!opt.value) return;
+    addRow(opt.dataset.nama, opt.dataset.harga, opt.dataset.satuan);
+    this.selectedIndex = 0;
+  });
+}
+
+// ── ToP ↔ Jatuh Tempo sync ──────────────────────────────────────────────────
+function calcJT() {
+  const tgl = document.getElementById('invTanggal').value;
+  const top = parseInt(document.getElementById('topHari').value) || 0;
+  if (!tgl) return;
+  const d = new Date(tgl + 'T00:00:00');
+  d.setDate(d.getDate() + top);
+  document.getElementById('jtInput').value = d.toISOString().slice(0,10);
+}
+function calcTopFromJT() {
+  const tgl = document.getElementById('invTanggal').value;
+  const jt  = document.getElementById('jtInput').value;
+  if (!tgl || !jt) return;
+  const days = Math.round((new Date(jt) - new Date(tgl)) / 86400000);
+  if (days >= 0) document.getElementById('topHari').value = days;
+}
+document.getElementById('invTanggal').addEventListener('change', calcJT);
+document.getElementById('topHari').addEventListener('input', calcJT);
+document.getElementById('jtInput').addEventListener('change', calcTopFromJT);
+// Init: set JT if not already set
+(function() {
+  if (!document.getElementById('jtInput').value) calcJT();
+})();
+
+// Initial calc, WAJIB tunggu numFmtInit selesai format input (Indonesian dot/comma),
+// kalau tidak nv("1.0") akan dibaca jadi "10" (strip-dot bug → subtotal 10x lipat).
+function _initialInvoiceCalc(){
+  if (window.numFmtInitAll) window.numFmtInitAll();
+  document.querySelectorAll('#itemsBody .item-row').forEach(function(row){
+    var qEl = row.querySelector('.item-qty');
+    if(qEl) calcRow(qEl);
+  });
+  calcTotal();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _initialInvoiceCalc);
+} else {
+  _initialInvoiceCalc();
+}
+
+// ── Auto-isi Telepon/Alamat dari Database Customer saat nama cocok persis.
+// Ketik bebas tetap jalan (nama tak perlu ada di daftar); tak menimpa field yang sudah terisi. ──
+(function(){
+  var CUST = {{ customer_list|tojson }};
+  var byName = {};
+  CUST.forEach(function(c){ byName[c.nama] = c; });
+  var pel = document.getElementById('invPelanggan');
+  var tel = document.getElementById('invTelepon');
+  var ala = document.getElementById('invAlamat');
+  if(!pel) return;
+  function tryFill(){
+    var c = byName[pel.value];
+    if(!c) return;
+    if(tel && !tel.value) tel.value = c.telepon || '';
+    if(ala && !ala.value) ala.value = c.alamat || '';
+  }
+  pel.addEventListener('input', tryFill);
+  pel.addEventListener('change', tryFill);
+})();
+</script>
+{% endblock %}

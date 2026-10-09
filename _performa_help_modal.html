@@ -1,0 +1,52 @@
+{# Modal petunjuk Performa Penjualan. Di-include di performa_penjualan.html; dipicu tombol [data-bs-target="#modalPerformaHelp"]. #}
+<div class="modal fade" id="modalPerformaHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Performa Penjualan</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Halaman ini menganalisis penjualan Anda: produk apa yang paling laku, jam ramai, dan
+          tren dari waktu ke waktu.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>Ini laporan operasional, bukan laporan keuangan resmi.</strong>
+            Fokusnya menjawab "apa yang laku dan kapan", bukan menghitung laba bersih. Angkanya
+            diambil dari transaksi penjualan yang sama dengan yang masuk ke pembukuan.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-book me-1" style="color:var(--ink)"></i>Kaitan dengan pembukuan</div>
+        <p class="mb-3" style="font-size:.82rem">
+          Penjualan yang dianalisis di sini adalah transaksi yang juga membentuk Pendapatan dan HPP
+          di Laba Rugi. Bedanya, di sini dipotong per produk dan per waktu, supaya Anda tahu mana
+          yang memberi margin paling besar, bukan sekadar yang paling banyak terjual.
+        </p>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Produk A terjual 100 unit dengan margin tipis, Produk B terjual 20 unit dengan margin tebal.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Dari sisi jumlah, A terlihat sebagai juara karena paling laku.</li>
+            <li>Tapi Performa Penjualan bisa menunjukkan B menyumbang laba lebih besar walau lebih sedikit terjual.</li>
+            <li>Laba Rugi lalu mengonfirmasi total laba dari kedua produk itu.</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Gunakan laporan ini untuk keputusan stok dan promosi.
+          Untuk angka laba final, tetap lihat Laba Rugi.
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Kustomisasi Purchase Order - FinansialApp{% endblock %}
+{% block page_title %}Kustomisasi Purchase Order{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3">
+  <a href="/po" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Kembali ke PO</a>
+</div>
+
+<form method="POST" enctype="multipart/form-data">
+<div class="row g-3">
+
+  <!-- ── LOGO ── -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-image me-2 text-primary"></i>Logo Perusahaan</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 align-items-center">
+          <div class="col-md-3 text-center">
+            {% if po_s.po_logo %}
+            <div style="border:1px dashed var(--pgb);border-radius:8px;padding:12px;background:var(--card-h)">
+              <img src="/static/uploads/{{ po_s.po_logo }}" style="max-height:90px;max-width:100%;object-fit:contain" id="logoPreview">
+            </div>
+            {% else %}
+            <div style="border:2px dashed var(--pgb);border-radius:8px;padding:24px;background:var(--card-h);color:var(--tx3)" id="logoPlaceholder">
+              <i class="fas fa-image fa-2x mb-2 d-block"></i>
+              <div style="font-size:.75rem">Belum ada logo</div>
+            </div>
+            <img src="" style="max-height:90px;max-width:100%;object-fit:contain;display:none" id="logoPreview">
+            {% endif %}
+          </div>
+          <div class="col-md-9">
+            <div class="mb-2">
+              <label class="form-label small fw-semibold">Upload Logo Baru</label>
+              <input type="file" name="po_logo_file" id="logoInput" class="form-control form-control-sm"
+                     accept=".png,.jpg,.jpeg,.gif,.webp,.svg">
+              <div class="form-text">Format: PNG, JPG, SVG, WebP. Logo transparan (PNG) lebih baik.</div>
+            </div>
+            {% if po_s.po_logo %}
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="po_logo_delete" value="1" id="delLogo">
+              <label class="form-check-label small text-danger" for="delLogo">Hapus logo saat ini</label>
+            </div>
+            {% endif %}
+            <div class="form-text mt-1">
+              <i class="fas fa-lightbulb me-1 text-warning"></i>
+              Bisa pakai logo yang sama dengan Invoice — upload ulang di sini untuk template PO terpisah.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── IDENTITAS ── -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-building me-2 text-primary"></i>Identitas Perusahaan</span>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label small">Nama Perusahaan / Usaha <span class="text-danger">*</span></label>
+          <input type="text" name="po_nama" class="form-control form-control-sm"
+                 value="{{ po_s.po_nama }}" required placeholder="PT ABC / Toko XYZ">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Tagline / Slogan</label>
+          <input type="text" name="po_tagline" class="form-control form-control-sm"
+                 value="{{ po_s.po_tagline }}" placeholder="Authorized Reseller / Terpercaya Sejak 2010">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Alamat</label>
+          <textarea name="po_alamat" class="form-control form-control-sm" rows="2"
+                    placeholder="Jl. Contoh No. 1, Kota">{{ po_s.po_alamat }}</textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small">Nomor Telepon</label>
+          <input type="text" name="po_telepon" class="form-control form-control-sm"
+                 value="{{ po_s.po_telepon }}" placeholder="021-xxx / 08xx">
+        </div>
+        <div class="mb-0">
+          <label class="form-label small">Email</label>
+          <input type="email" name="po_email" class="form-control form-control-sm"
+                 value="{{ po_s.po_email }}" placeholder="purchasing@perusahaan.com">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PENOMORAN & CATATAN ── -->
+  <div class="col-lg-6">
+    <div class="card mb-3">
+      <div class="card-header py-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-hashtag me-2 text-warning"></i>Penomoran PO</span>
+      </div>
+      <div class="card-body">
+        <label class="form-label small">Prefix Nomor</label>
+        <input type="text" name="po_prefix" class="form-control form-control-sm"
+               value="{{ po_s.po_prefix }}" placeholder="PO" maxlength="10">
+        <div class="form-text">Contoh: PO → PO-202506-001</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header py-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-comment-dots me-2 text-info"></i>Catatan Default</span>
+      </div>
+      <div class="card-body">
+        <label class="form-label small">Catatan yang muncul di setiap PO</label>
+        <textarea name="po_catatan" class="form-control form-control-sm" rows="3"
+                  placeholder="Mohon konfirmasi penerimaan PO ini. Pengiriman harap sesuai spesifikasi.">{{ po_s.po_catatan }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SYARAT & KETENTUAN ── -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-scale-balanced me-2 text-warning"></i>Syarat &amp; Ketentuan PO</span>
+      </div>
+      <div class="card-body">
+        <div class="form-text mb-2">Ditampilkan di bagian bawah setiap dokumen PO yang dicetak.</div>
+        <textarea name="po_terms" class="form-control form-control-sm" rows="5"
+                  placeholder="1. Harga dan spesifikasi sesuai PO ini tidak dapat diubah tanpa persetujuan tertulis.&#10;2. Pengiriman dilakukan ke alamat yang tertera, biaya ditanggung vendor kecuali disepakati lain.&#10;3. Barang yang tidak sesuai spesifikasi akan dikembalikan atas biaya vendor.&#10;4. Pembayaran dilakukan setelah barang diterima dan diperiksa.">{{ po_s.po_terms }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 d-flex gap-2 align-items-center flex-wrap">
+    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Simpan Semua</button>
+    <a href="/po/preview" target="_blank" class="btn btn-outline-info">
+      <i class="fas fa-eye me-1"></i>Preview PO</a>
+    <span class="text-muted" style="font-size:.75rem">
+      <i class="fas fa-info-circle me-1"></i>Simpan dulu sebelum preview.
+    </span>
+    <a href="/po" class="btn btn-outline-secondary ms-auto">Batal</a>
+  </div>
+
+</div>
+</form>
+
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('logoInput').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('logoPreview');
+    const ph  = document.getElementById('logoPlaceholder');
+    img.src = e.target.result;
+    img.style.display = 'block';
+    if (ph) ph.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+});
+</script>
+{% endblock %}

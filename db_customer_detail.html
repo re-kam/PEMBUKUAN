@@ -1,0 +1,549 @@
+{% extends "base.html" %}
+{% block title %}{{ c.nama }} - Customer{% endblock %}
+{% block page_title %}Detail Customer{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  <a href="/database/customer" class="btn btn-sm btn-outline-secondary">
+    <i class="fas fa-arrow-left me-1"></i>Kembali ke Database Customer</a>
+  {% if session.role in ('ADMIN','FINANCE') %}
+  <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditCustomer">
+    <i class="fas fa-pen me-1"></i>Edit Info Customer</button>
+  {% endif %}
+</div>
+
+<!-- Header info + KPI -->
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;color:var(--tx)">
+          <i class="fas fa-user-group me-2 text-primary"></i>{{ c.nama }}</div>
+        <div class="text-muted mt-1" style="font-size:.82rem">
+          {% if c.telepon %}<i class="fas fa-phone me-1"></i>{{ c.telepon }}&nbsp;&nbsp;{% endif %}
+          {% if c.alamat %}<i class="fas fa-location-dot me-1"></i>{{ c.alamat }}{% endif %}
+        </div>
+        {% if c.catatan %}<div class="text-muted mt-1" style="font-size:.78rem"><i class="fas fa-note-sticky me-1"></i>{{ c.catatan }}</div>{% endif %}
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <div class="text-center px-3 py-2" style="background:var(--pg);border-radius:10px;min-width:120px">
+          <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--pgp);font-weight:700">Total Omzet</div>
+          <div class="text-rp" style="font-size:1.05rem;font-weight:800;color:var(--pgt)" id="kpiOmzet">{{ met.omzet|rp }}</div>
+        </div>
+        <div class="text-center px-3 py-2" style="background:var(--pb);border-radius:10px;min-width:120px">
+          <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--pbp);font-weight:700">Keuntungan</div>
+          <div class="text-rp" style="font-size:1.05rem;font-weight:800;color:var(--pbt)" id="kpiProfit">{{ met.profit|rp }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if session.role in ('ADMIN','FINANCE') %}
+<div class="modal fade" id="modalEditCustomer" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px">
+    <form class="modal-content" method="POST" action="/database/customer/{{ c.id }}/edit">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-user-pen me-2 text-primary"></i>Edit Info Customer</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-3">
+        <div class="mb-2">
+          <label class="form-label small fw-semibold mb-1">Nama <span class="text-danger">*</span></label>
+          <input type="text" name="nama" class="form-control form-control-sm" required value="{{ c.nama }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold mb-1">Alamat</label>
+          <textarea name="alamat" class="form-control form-control-sm" rows="2" placeholder="Alamat customer">{{ c.alamat or '' }}</textarea>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold mb-1">Kontak</label>
+          <input type="text" name="telepon" class="form-control form-control-sm" value="{{ c.telepon or '' }}" placeholder="No HP / WA / email / PIC">
+        </div>
+        <div class="mb-1">
+          <label class="form-label small fw-semibold mb-1">Keterangan</label>
+          <textarea name="catatan" class="form-control form-control-sm" rows="3" placeholder="Catatan internal customer">{{ c.catatan or '' }}</textarea>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-save me-1"></i>Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- Tabs -->
+<div class="card">
+  <div class="card-header p-0">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 pt-2 pb-1" style="border-bottom:1px solid var(--bdr)">
+      <div class="d-flex align-items-center gap-2 flex-wrap" style="font-size:.8rem">
+        <i class="fas fa-calendar-days text-muted"></i>
+        <span class="text-muted fw-semibold">Filter Tanggal:</span>
+        <input type="date" id="fltFrom" class="form-control form-control-sm" style="width:155px">
+        <span class="text-muted">s/d</span>
+        <input type="date" id="fltTo" class="form-control form-control-sm" style="width:155px">
+        <div class="btn-group btn-group-sm" role="group">
+          <button type="button" class="btn btn-outline-secondary" data-range="month"><i class="fas fa-calendar me-1"></i>Bulan ini</button>
+          <button type="button" class="btn btn-outline-secondary" data-range="ytd">YTD</button>
+          <button type="button" class="btn btn-outline-secondary" data-range="year">12 bln</button>
+          <button type="button" class="btn btn-outline-secondary" data-range="clear"><i class="fas fa-rotate-left me-1"></i>Reset</button>
+        </div>
+      </div>
+      <span class="text-muted" id="fltInfo" style="font-size:.75rem"></span>
+    </div>
+    <ul class="nav nav-tabs" style="border:none" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-trx" type="button">
+        <i class="fas fa-receipt me-1"></i>Transaksi <span class="badge bg-secondary" id="badgeTrx">{{ transaksi|length }}</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-belum" type="button">
+        <i class="fas fa-hourglass-half me-1 text-danger"></i>Belum Lunas <span class="badge bg-danger" id="badgeBelum">{{ belum|length }}</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-lunas" type="button">
+        <i class="fas fa-circle-check me-1 text-success"></i>Sudah Lunas <span class="badge bg-success" id="badgeLunas">{{ lunas|length }}</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-omzet" type="button">
+        <i class="fas fa-sack-dollar me-1"></i>Rincian Omzet</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-profit" type="button">
+        <i class="fas fa-coins me-1"></i>Keuntungan</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-tren" type="button">
+        <i class="fas fa-chart-line me-1"></i>Tren & Loyalitas</button></li>
+    </ul>
+  </div>
+  <div class="card-body">
+    <div class="tab-content">
+
+      <!-- Transaksi -->
+      <div class="tab-pane fade show active" id="tab-trx">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr>
+              <th class="ps-3" style="width:110px">Tanggal</th><th>Keterangan</th><th class="text-end pe-3">Nilai</th></tr></thead>
+            <tbody>
+              {% for t in transaksi %}
+              <tr class="row-trx" data-tgl="{{ t.tanggal }}" data-val="{{ t.total }}" data-hpp="{{ t.hpp or 0 }}" style="cursor:pointer" onclick="location.href='/transaksi/{{ t.id }}'">
+                <td class="ps-3 text-muted">{{ t.tanggal|tgl }}</td>
+                <td>{{ t.keterangan }}</td>
+                <td class="text-end pe-3 text-rp fw-semibold">{{ t.total|rp }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="3" class="text-center text-muted py-3">Belum ada transaksi penjualan.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Belum lunas -->
+      <div class="tab-pane fade" id="tab-belum">
+        {% set tot_belum = belum|sum(attribute='jumlah') - belum|sum(attribute='terbayar') %}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light"><tr>
+              <th class="ps-3" style="width:110px">Tanggal</th><th>Keterangan</th>
+              <th style="width:110px">Jatuh Tempo</th><th class="text-end pe-3">Sisa</th></tr></thead>
+            <tbody>
+              {% for p in belum %}
+              <tr class="row-belum" data-tgl="{{ p.tanggal }}" data-val="{{ p.jumlah - p.terbayar }}" {% if p.jatuh_tempo and p.jatuh_tempo < today %}data-overdue="1"{% endif %}>
+                <td class="ps-3 text-muted">{{ p.tanggal|tgl }}</td>
+                <td>{{ p.keterangan or 'Piutang' }}</td>
+                <td class="text-muted">{{ p.jatuh_tempo|tgl if p.jatuh_tempo else '-' }}</td>
+                <td class="text-end pe-3 text-rp fw-semibold text-danger">{{ (p.jumlah - p.terbayar)|rp }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada piutang yang belum lunas. 🎉</td></tr>
+              {% endfor %}
+            </tbody>
+            <tfoot id="footBelum" {% if not belum %}style="display:none"{% endif %}><tr><td colspan="3" class="text-end fw-bold ps-3">Total Belum Lunas</td>
+              <td class="text-end pe-3 text-rp fw-bold text-danger" id="totBelum">{{ tot_belum|rp }}</td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- Sudah lunas -->
+      <div class="tab-pane fade" id="tab-lunas">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light"><tr>
+              <th class="ps-3" style="width:110px">Tanggal</th><th>Keterangan</th><th class="text-end pe-3">Jumlah</th></tr></thead>
+            <tbody>
+              {% for p in lunas %}
+              <tr class="row-lunas" data-tgl="{{ p.tanggal }}" data-val="{{ p.jumlah }}"><td class="ps-3 text-muted">{{ p.tanggal|tgl }}</td><td>{{ p.keterangan or 'Piutang' }}</td>
+                <td class="text-end pe-3 text-rp text-success">{{ p.jumlah|rp }}</td></tr>
+              {% else %}
+              <tr><td colspan="3" class="text-center text-muted py-3">Belum ada piutang yang lunas.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Rincian omzet -->
+      <div class="tab-pane fade" id="tab-omzet">
+        <div class="rounded-3 p-3 mb-2" style="background:var(--pg);border:1px solid var(--pgb)">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--pgp);font-weight:700" id="lblOmzet">Total Omzet (semua penjualan)</div>
+          <div class="text-rp" style="font-size:1.6rem;font-weight:900;color:var(--pgt)" id="totOmzet">{{ met.omzet|rp }}</div>
+          <div class="text-muted" style="font-size:.78rem" id="cntOmzet">Dari {{ transaksi|length }} transaksi penjualan (tunai + kredit).</div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th class="ps-3" style="width:110px">Tanggal</th><th>Keterangan</th><th class="text-end pe-3">Nilai</th></tr></thead>
+            <tbody>
+              {% for t in transaksi %}
+              <tr class="row-omzet" data-tgl="{{ t.tanggal }}" data-val="{{ t.total }}" data-hpp="{{ t.hpp or 0 }}"><td class="ps-3 text-muted">{{ t.tanggal|tgl }}</td><td>{{ t.keterangan }}</td>
+                <td class="text-end pe-3 text-rp">{{ t.total|rp }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Keuntungan -->
+      <div class="tab-pane fade" id="tab-profit">
+        <div class="row g-2">
+          <div class="col-md-4">
+            <div class="rounded-3 p-3" style="background:var(--pg);border:1px solid var(--pgb)">
+              <div style="font-size:.68rem;text-transform:uppercase;color:var(--pgp);font-weight:700">Omzet</div>
+              <div class="text-rp" style="font-size:1.2rem;font-weight:800;color:var(--pgt)" id="kOmzet">{{ met.omzet|rp }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="rounded-3 p-3" style="background:var(--ctnbg);border:1px solid var(--ctnbd)">
+              <div style="font-size:.68rem;text-transform:uppercase;color:var(--ctnl);font-weight:700">HPP (Modal)</div>
+              <div class="text-rp" style="font-size:1.2rem;font-weight:800;color:var(--ctnv)" id="kHpp">{{ met.hpp|rp }}</div>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="rounded-3 p-3" style="background:var(--pb);border:1px solid var(--pbb)">
+              <div style="font-size:.68rem;text-transform:uppercase;color:var(--pbp);font-weight:700">Keuntungan Kotor</div>
+              <div class="text-rp" style="font-size:1.2rem;font-weight:800;color:var(--pbt)" id="kProfit">{{ met.profit|rp }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="text-muted mt-2" style="font-size:.78rem">
+          <i class="fas fa-circle-info me-1"></i>Keuntungan = Omzet − HPP (modal barang terjual). Belum dikurangi biaya operasional umum.
+        </div>
+      </div>
+
+      <!-- Tren & Loyalitas -->
+      <div class="tab-pane fade" id="tab-tren">
+
+        <!-- Loyalty card -->
+        {% set tier_color = {'Pelanggan Setia':'#16a34a','Pelanggan Reguler':'#2563eb','Jarang Beli':'#d97706','Tidak Aktif':'#6b7280','Baru':'#7c3aed'} %}
+        {% set tier_icon  = {'Pelanggan Setia':'fa-heart','Pelanggan Reguler':'fa-star','Jarang Beli':'fa-clock-rotate-left','Tidak Aktif':'fa-moon','Baru':'fa-seedling'} %}
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <div class="rounded-3 px-3 py-2 flex-grow-1" style="background:var(--cdbg,var(--bg2));border:1px solid var(--bdr);min-width:140px">
+            <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);font-weight:700">Status Loyalitas</div>
+            <div class="fw-bold mt-1" style="font-size:1rem;color:{{ tier_color.get(loyalty.tier,'#6b7280') }}">
+              <i class="fas {{ tier_icon.get(loyalty.tier,'fa-user') }} me-1"></i>{{ loyalty.tier }}
+            </div>
+          </div>
+          <div class="rounded-3 px-3 py-2 flex-grow-1" style="background:var(--cdbg,var(--bg2));border:1px solid var(--bdr);min-width:110px">
+            <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);font-weight:700">Konsistensi</div>
+            <div class="fw-bold mt-1" style="font-size:1rem;color:var(--tx)">{{ loyalty.consistency }}%</div>
+            <div style="font-size:.7rem;color:var(--tx3)">{{ loyalty.active_months }} dari {{ loyalty.total_months }} bln aktif</div>
+          </div>
+          <div class="rounded-3 px-3 py-2 flex-grow-1" style="background:var(--cdbg,var(--bg2));border:1px solid var(--bdr);min-width:110px">
+            <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);font-weight:700">Terakhir Beli</div>
+            <div class="fw-bold mt-1" style="font-size:1rem;color:var(--tx)">
+              {% if loyalty.recency_days < 9999 %}
+                {% if loyalty.recency_days == 0 %}Hari ini
+                {% elif loyalty.recency_days <= 30 %}{{ loyalty.recency_days }} hari lalu
+                {% else %}{{ (loyalty.recency_days / 30)|int }} bln lalu{% endif %}
+              {% else %}-{% endif %}
+            </div>
+          </div>
+          <div class="rounded-3 px-3 py-2 flex-grow-1" style="background:var(--cdbg,var(--bg2));border:1px solid var(--bdr);min-width:110px">
+            <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);font-weight:700">Total Transaksi</div>
+            <div class="fw-bold mt-1" style="font-size:1rem;color:var(--tx)">{{ loyalty.freq }}×</div>
+          </div>
+        </div>
+
+        <!-- Consistency bar -->
+        <div class="mb-3">
+          <div class="d-flex justify-content-between mb-1" style="font-size:.75rem;color:var(--tx3)">
+            <span>Tingkat Kesetiaan</span><span>{{ loyalty.consistency }}%</span>
+          </div>
+          <div style="background:var(--bdr);border-radius:8px;height:8px;overflow:hidden">
+            <div style="width:{{ loyalty.consistency }}%;height:100%;border-radius:8px;background:{{ tier_color.get(loyalty.tier,'#6b7280') }};transition:width .5s"></div>
+          </div>
+        </div>
+
+        <!-- Chart controls -->
+        {% if trend_years %}
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+          <span style="font-size:.78rem;color:var(--tx2);font-weight:600">Tampilkan:</span>
+          <div class="btn-group btn-group-sm" role="group">
+            <button class="btn btn-primary btn-sm" id="trendMetricOmzet" onclick="setTrendMetric('omzet')">Omzet</button>
+            <button class="btn btn-outline-secondary btn-sm" id="trendMetricCnt" onclick="setTrendMetric('cnt')">Frekuensi</button>
+          </div>
+          <span style="font-size:.78rem;color:var(--tx2);font-weight:600">Tahun:</span>
+          <select id="trendYear" class="form-select form-select-sm" style="width:auto">
+            <option value="all">Semua Tahun</option>
+            {% for y in trend_years %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+          </select>
+        </div>
+        <div style="position:relative;height:220px">
+          <canvas id="chartTrend"></canvas>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4"><i class="fas fa-chart-line fa-2x mb-2 d-block opacity-40"></i>Belum ada data transaksi.</div>
+        {% endif %}
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var fromEl = document.getElementById('fltFrom');
+  var toEl   = document.getElementById('fltTo');
+  var info   = document.getElementById('fltInfo');
+  var today  = '{{ today }}';
+
+  function fmtRp(n){
+    return window.rpFmt ? window.rpFmt(n) : 'Rp ' + Math.round(n||0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  function inRange(d, f, t){
+    if(!d) return true;
+    if(f && d < f) return false;
+    if(t && d > t) return false;
+    return true;
+  }
+
+  function ensureEmpty(tbody, colspan, msg){
+    var er = tbody.querySelector('tr.row-empty-filter');
+    if(!er){
+      er = document.createElement('tr');
+      er.className = 'row-empty-filter';
+      er.innerHTML = '<td colspan="'+colspan+'" class="text-center text-muted py-3"></td>';
+      tbody.appendChild(er);
+    }
+    er.querySelector('td').textContent = msg;
+    return er;
+  }
+
+  function filterRows(selector, f, t){
+    var rows = document.querySelectorAll(selector);
+    var visible = 0, sumVal = 0, sumHpp = 0;
+    rows.forEach(function(r){
+      var d = r.getAttribute('data-tgl');
+      if(inRange(d, f, t)){
+        r.style.display = '';
+        visible++;
+        sumVal += parseFloat(r.getAttribute('data-val')||'0');
+        sumHpp += parseFloat(r.getAttribute('data-hpp')||'0');
+      } else {
+        r.style.display = 'none';
+      }
+    });
+    return {count: visible, total: sumVal, hpp: sumHpp};
+  }
+
+  function apply(){
+    var f = fromEl.value || '';
+    var t = toEl.value || '';
+
+    var trx   = filterRows('.row-trx',   f, t);
+    var belum = filterRows('.row-belum', f, t);
+    var lunas = filterRows('.row-lunas', f, t);
+    var omzet = filterRows('.row-omzet', f, t);
+
+    // Empty-state rows per tab
+    var tbTrx   = document.querySelector('#tab-trx tbody');
+    var tbBelum = document.querySelector('#tab-belum tbody');
+    var tbLunas = document.querySelector('#tab-lunas tbody');
+    var tbOmzet = document.querySelector('#tab-omzet tbody');
+    var hasFilter = !!(f || t);
+
+    [tbTrx, tbBelum, tbLunas, tbOmzet].forEach(function(tb){
+      if(!tb) return;
+    });
+
+    function toggleEmpty(tb, count, total, colspan){
+      if(!tb) return;
+      var existing = tb.querySelector('tr.row-empty-filter');
+      // Detect if there are any source rows at all
+      var sourceRows = tb.querySelectorAll('tr[class*="row-"]:not(.row-empty-filter)').length;
+      if(sourceRows === 0){ return; }
+      if(count === 0){
+        ensureEmpty(tb, colspan, hasFilter ? 'Tidak ada data pada rentang tanggal ini.' : '-');
+      } else if(existing){
+        existing.remove();
+      }
+    }
+    toggleEmpty(tbTrx,   trx.count,   trx.total,   3);
+    toggleEmpty(tbBelum, belum.count, belum.total, 4);
+    toggleEmpty(tbLunas, lunas.count, lunas.total, 3);
+    toggleEmpty(tbOmzet, omzet.count, omzet.total, 3);
+
+    // Update badges
+    var b;
+    if(b=document.getElementById('badgeTrx'))   b.textContent = trx.count;
+    if(b=document.getElementById('badgeBelum')) b.textContent = belum.count;
+    if(b=document.getElementById('badgeLunas')) b.textContent = lunas.count;
+
+    // Update totals
+    var foot = document.getElementById('footBelum');
+    if(foot){
+      foot.style.display = belum.count > 0 ? '' : 'none';
+      var tb = document.getElementById('totBelum');
+      if(tb) tb.textContent = fmtRp(belum.total);
+    }
+    var el;
+    if(el=document.getElementById('totOmzet')) el.textContent = fmtRp(omzet.total);
+    if(el=document.getElementById('cntOmzet')) el.textContent = 'Dari ' + omzet.count + ' transaksi penjualan (tunai + kredit).';
+    if(el=document.getElementById('lblOmzet')) el.textContent = hasFilter ? 'Total Omzet (rentang tanggal terpilih)' : 'Total Omzet (semua penjualan)';
+
+    if(el=document.getElementById('kpiOmzet'))  el.textContent = fmtRp(trx.total);
+    if(el=document.getElementById('kpiProfit')) el.textContent = fmtRp(trx.total - trx.hpp);
+    if(el=document.getElementById('kOmzet'))    el.textContent = fmtRp(trx.total);
+    if(el=document.getElementById('kHpp'))      el.textContent = fmtRp(trx.hpp);
+    if(el=document.getElementById('kProfit'))   el.textContent = fmtRp(trx.total - trx.hpp);
+
+    // Overdue highlight on Belum Lunas rows
+    document.querySelectorAll('.row-belum').forEach(function(r){
+      if(r.getAttribute('data-overdue') === '1'){
+        r.classList.add('table-danger');
+      }
+    });
+
+    // Info text
+    if(hasFilter){
+      info.textContent = 'Filter aktif: ' + (f||'…') + ' s/d ' + (t||'…');
+    } else {
+      info.textContent = '';
+    }
+  }
+
+  function setRange(kind){
+    var d = new Date();
+    var y = d.getFullYear(), m = d.getMonth();
+    function iso(dt){ return dt.toISOString().slice(0,10); }
+    if(kind === 'month'){
+      fromEl.value = iso(new Date(y, m, 1));
+      toEl.value   = iso(new Date(y, m+1, 0));
+    } else if(kind === 'ytd'){
+      fromEl.value = iso(new Date(y, 0, 1));
+      toEl.value   = today;
+    } else if(kind === 'year'){
+      var s = new Date(y, m-11, 1);
+      fromEl.value = iso(s);
+      toEl.value   = today;
+    } else if(kind === 'clear'){
+      fromEl.value = ''; toEl.value = '';
+    }
+    apply();
+  }
+
+  fromEl.addEventListener('change', apply);
+  toEl.addEventListener('change', apply);
+  document.querySelectorAll('[data-range]').forEach(function(b){
+    b.addEventListener('click', function(){ setRange(b.getAttribute('data-range')); });
+  });
+
+  apply();
+})();
+
+// ── Trend Chart ───────────────────────────────────────────────
+(function(){
+  var trendData = {{ trend_data|safe }};
+  var trendYears = {{ trend_years|tojson }};
+  if(!trendYears || trendYears.length === 0) return;
+
+  var MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agt','Sep','Okt','Nov','Des'];
+  var currentMetric = 'omzet';
+  var currentYear = 'all';
+  var chart = null;
+
+  var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  var gridColor  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
+  var labelColor = isDark ? '#9ca3af' : '#6b7280';
+
+  function buildDatasets(yr, metric){
+    var COLORS = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+    var years = yr === 'all' ? trendYears : [yr];
+    return years.map(function(y, i){
+      return {
+        label: y,
+        data: trendData[y] ? trendData[y][metric] : Array(12).fill(0),
+        backgroundColor: COLORS[i % COLORS.length] + (yr === 'all' && years.length > 1 ? 'cc' : 'dd'),
+        borderColor: COLORS[i % COLORS.length],
+        borderWidth: 2,
+        borderRadius: 5,
+        tension: 0.35,
+        fill: false,
+      };
+    });
+  }
+
+  function renderChart(){
+    var canvas = document.getElementById('chartTrend');
+    if(!canvas) return;
+    var ctx = canvas.getContext('2d');
+    if(chart) chart.destroy();
+
+    var isOmzet = currentMetric === 'omzet';
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: MONTHS, datasets: buildDatasets(currentYear, currentMetric) },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color: labelColor, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx){
+                var v = ctx.raw || 0;
+                if(isOmzet){
+                  return ' ' + ctx.dataset.label + ': ' + fmtRp(v);
+                }
+                return ' ' + ctx.dataset.label + ': ' + v + '×';
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color: gridColor }, ticks: { color: labelColor, font:{size:10} } },
+          y: {
+            grid: { color: gridColor },
+            ticks: {
+              color: labelColor, font:{size:10},
+              callback: function(v){
+                if(!isOmzet) return v+'×';
+                if(v >= 1000000) return 'Rp '+(v/1000000).toFixed(0)+'jt';
+                if(v >= 1000) return 'Rp '+(v/1000).toFixed(0)+'rb';
+                return 'Rp '+v;
+              }
+            },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  window.setTrendMetric = function(m){
+    currentMetric = m;
+    document.getElementById('trendMetricOmzet').className = m==='omzet' ? 'btn btn-primary btn-sm' : 'btn btn-outline-secondary btn-sm';
+    document.getElementById('trendMetricCnt').className   = m==='cnt'   ? 'btn btn-primary btn-sm' : 'btn btn-outline-secondary btn-sm';
+    renderChart();
+  };
+
+  document.getElementById('trendYear').addEventListener('change', function(){
+    currentYear = this.value;
+    renderChart();
+  });
+
+  // render when tab shown (chart needs visible canvas)
+  document.querySelectorAll('[data-bs-target="#tab-tren"]').forEach(function(btn){
+    btn.addEventListener('shown.bs.tab', renderChart);
+  });
+
+  // also render immediately in case tab is already active
+  renderChart();
+})();
+</script>
+{% endblock %}

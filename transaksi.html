@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% from '_pagination.html' import pagination with context %}
+{% block title %}Transaksi - FinansialApp{% endblock %}
+{% block page_title %}Jurnal Transaksi{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  <a href="/transaksi/baru" class="btn btn-primary">
+    <i class="fas fa-plus me-1"></i>Transaksi Baru
+  </a>
+  {% if session.role in ('ADMIN','FINANCE') %}
+  <a href="/transaksi/arsip" class="btn btn-outline-secondary">
+    <i class="fas fa-box-archive me-1"></i>Arsip
+  </a>
+  {% endif %}
+  <form class="d-flex gap-2 flex-grow-1" method="get">
+    <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Cari ID / keterangan / referensi...">
+    <select name="kat" class="form-select form-select-sm" style="min-width:150px">
+      <option value="">Semua Kategori</option>
+      <option value="OPERASIONAL" {% if kat=='OPERASIONAL' %}selected{% endif %}>Operasional</option>
+      <option value="INVESTASI" {% if kat=='INVESTASI' %}selected{% endif %}>Investasi</option>
+      <option value="PENDANAAN" {% if kat=='PENDANAAN' %}selected{% endif %}>Pendanaan</option>
+    </select>
+    <button class="btn btn-outline-secondary btn-sm"><i class="fas fa-search"></i></button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" style="width:145px">ID Transaksi</th>
+            <th style="width:110px">Tanggal</th>
+            <th>Keterangan</th>
+            <th>Referensi</th>
+            <th>Kategori</th>
+            <th class="text-end">Jumlah (Debit)</th>
+            <th style="width:80px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="ps-3 text-muted text-nowrap">{{ r.nomor_tx }}</td>
+            <td class="text-muted">{{ r.tanggal|tgl }}</td>
+            <td>
+              <a href="/transaksi/{{ r.id }}" class="text-decoration-none text-dark fw-semibold">{{ r.keterangan }}</a>
+              {% if r.pos_nomor %}
+                <span class="badge bg-dark text-white ms-1" style="font-size:.62rem;font-weight:600" title="Transaksi dari POS Kasir">
+                  <i class="fas fa-cash-register me-1"></i>POS
+                </span>
+                {% if r.pos_kasir %}
+                <span class="text-muted ms-1" style="font-size:.72rem" title="Kasir yang menginput">
+                  <i class="fas fa-user me-1"></i>{{ r.pos_kasir }}
+                </span>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td><small class="text-muted">{{ r.referensi or '-' }}</small></td>
+            <td>
+              {% if r.kategori == 'OPERASIONAL' %}<span class="badge badge-op">Operasional</span>
+              {% elif r.kategori == 'INVESTASI' %}<span class="badge badge-inv">Investasi</span>
+              {% elif r.kategori == 'PENDANAAN' %}<span class="badge badge-fin">Pendanaan</span>
+              {% elif r.kategori == 'KOREKSI' %}<span class="badge bg-warning text-dark">Koreksi</span>
+              {% else %}<span class="badge bg-secondary">{{ r.kategori or '-' }}</span>{% endif %}
+            </td>
+            <td class="text-end text-rp fw-semibold">{{ r.total|rp }}</td>
+            <td class="text-end pe-3">
+              <div class="d-flex gap-1 justify-content-end">
+                <a href="/transaksi/{{ r.id }}" class="btn btn-outline-secondary btn-xs" title="Detail">
+                  <i class="fas fa-eye"></i>
+                </a>
+                {% if session.role in ('ADMIN','FINANCE') %}
+                <a href="/transaksi/{{ r.id }}/edit" class="btn btn-outline-warning btn-xs" title="Edit">
+                  <i class="fas fa-pen-to-square"></i>
+                </a>
+                {% endif %}
+                {% if session.role in ('ADMIN','FINANCE') %}
+                <a href="/transaksi/{{ r.id }}/hapus" class="btn btn-outline-danger btn-xs" title="Hapus (konfirmasi dulu)">
+                  <i class="fas fa-trash"></i>
+                </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-5">
+            <i class="fas fa-inbox fa-2x mb-2 d-block"></i>Belum ada transaksi
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{ pagination(pg) }}
+{% endblock %}

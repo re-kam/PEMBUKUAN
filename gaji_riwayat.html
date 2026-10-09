@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Riwayat Gaji - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-clock-rotate-left me-2" style="color:#7c3aed"></i>Riwayat Gaji{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="text-muted" style="font-size:.85rem">
+    <i class="fas fa-circle-info me-1"></i>Riwayat payroll dikelompokkan per periode.
+    Klik <i class="fas fa-file-alt"></i> untuk cetak slip per karyawan.
+  </div>
+  <a href="/gaji/proses" class="btn btn-sm" style="background:#7c3aed;color:#fff">
+    <i class="fas fa-plus me-1"></i>Proses Gaji Baru</a>
+</div>
+
+{% if not periodes %}
+<div class="card">
+  <div class="card-body text-center py-5">
+    <i class="fas fa-clock-rotate-left fa-3x mb-3 opacity-25"></i>
+    <div class="fw-semibold mb-1">Belum ada gaji yang diproses</div>
+    <div class="text-muted mb-3" style="font-size:.85rem">Proses gaji pertama lewat menu Proses Gaji.</div>
+    <a href="/gaji/proses" class="btn btn-sm" style="background:#7c3aed;color:#fff">
+      <i class="fas fa-calculator me-1"></i>Proses Gaji</a>
+  </div>
+</div>
+{% endif %}
+
+{% for periode in periodes %}
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+    <i class="fas fa-calendar" style="color:#7c3aed"></i>
+    <span class="fw-bold">{{ periode.nm_bln }} {{ periode.tahun }}</span>
+    <span class="badge ms-1" style="background:#7c3aed;font-size:.68rem">
+      {{ periode.rows|length }} karyawan</span>
+    <div class="ms-auto d-flex gap-3 align-items-center">
+      <div class="text-end">
+        <div style="font-size:.62rem;color:var(--tx3);text-transform:uppercase">Total Bruto</div>
+        <div class="text-rp fw-semibold" style="font-size:.88rem">{{ periode.total_bruto|rp }}</div>
+      </div>
+      <div class="text-end">
+        <div style="font-size:.62rem;color:var(--tx3);text-transform:uppercase">PPh 21</div>
+        <div class="text-rp fw-semibold text-danger" style="font-size:.88rem">{{ periode.total_pph21|rp }}</div>
+      </div>
+      <div class="text-end">
+        <div style="font-size:.62rem;color:var(--tx3);text-transform:uppercase">Take-Home</div>
+        <div class="text-rp fw-bold text-success" style="font-size:.95rem">{{ periode.total_bersih|rp }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0" style="font-size:.83rem">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Karyawan</th>
+            <th class="text-end">Bruto</th>
+            <th class="text-end">BPJS Pot.</th>
+            <th class="text-end">PPh 21</th>
+            <th class="text-end">Take-Home</th>
+            <th class="text-end">BPJS Prs.</th>
+            <th class="text-end pe-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in periode.rows %}
+          <tr>
+            <td class="ps-3">
+              <div class="fw-semibold">{{ row.nama_karyawan }}</div>
+              {% if row.jabatan %}<div class="text-muted" style="font-size:.72rem">{{ row.jabatan }}</div>{% endif %}
+            </td>
+            <td class="text-end text-rp">{{ row.penghasilan_bruto|rp }}</td>
+            <td class="text-end text-rp text-danger">
+              {{ (row.bpjs_kes_kar + row.bpjs_tk_kar)|rp }}
+            </td>
+            <td class="text-end text-rp text-danger">{{ row.pph21|rp }}</td>
+            <td class="text-end text-rp fw-semibold text-success">{{ row.gaji_bersih|rp }}</td>
+            <td class="text-end text-rp text-muted">
+              {{ (row.bpjs_kes_prs + row.bpjs_tk_prs)|rp }}
+            </td>
+            <td class="text-end pe-3">
+              <div class="d-flex gap-1 justify-content-end">
+                <a href="/gaji/{{ row.id }}/slip" target="_blank"
+                   class="btn btn-xs btn-outline-primary" title="Cetak Slip">
+                  <i class="fas fa-file-alt"></i></a>
+                <form method="POST" action="/gaji/{{ row.id }}/hapus" class="m-0"
+                      onsubmit="return confirm('Hapus gaji {{ row.nama_karyawan }} periode {{ periode.nm_bln }} {{ periode.tahun }}? Jurnal terkait juga dihapus.')">
+                  <button class="btn btn-xs btn-outline-danger" title="Hapus">
+                    <i class="fas fa-trash"></i></button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid var(--bdr);font-weight:700">
+            <td class="ps-3">TOTAL</td>
+            <td class="text-end text-rp">{{ periode.total_bruto|rp }}</td>
+            <td class="text-end text-rp text-danger">
+              {{ (periode.rows|sum(attribute='bpjs_kes_kar') + periode.rows|sum(attribute='bpjs_tk_kar'))|rp }}
+            </td>
+            <td class="text-end text-rp text-danger">{{ periode.total_pph21|rp }}</td>
+            <td class="text-end text-rp text-success">{{ periode.total_bersih|rp }}</td>
+            <td class="text-end text-rp text-muted">
+              {{ (periode.rows|sum(attribute='bpjs_kes_prs') + periode.rows|sum(attribute='bpjs_tk_prs'))|rp }}
+            </td>
+            <td class="pe-3"></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+{{ pagination(pg) }}
+{% endblock %}

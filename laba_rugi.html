@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% block title %}Laba Rugi - FinansialApp{% endblock %}
+{% block page_title %}Laporan Laba Rugi{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalLabaRugiHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_labarugi_help_modal.html' %}
+
+<div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
+  <form class="d-flex gap-2 align-items-center" method="get">
+    <label class="mb-0 fw-semibold text-nowrap">Periode:</label>
+    <input type="date" name="sd" value="{{ sd }}" class="form-control form-control-sm" style="width:150px">
+    <span>s/d</span>
+    <input type="date" name="ed" value="{{ ed }}" class="form-control form-control-sm" style="width:150px">
+    <button class="btn btn-primary btn-sm"><i class="fas fa-sync me-1"></i>Tampilkan</button>
+  </form>
+  <a href="/export/laporan-keuangan?sd={{ sd }}&ed={{ ed }}"
+     class="btn btn-outline-success btn-sm ms-auto">
+    <i class="fas fa-file-excel me-1"></i>Export Excel
+  </a>
+  <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+    <i class="fas fa-print me-1"></i>Cetak
+  </button>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card kpi grn p-3">
+      <div class="kpi-lbl">Total Pendapatan</div>
+      <div class="kpi-val text-success text-rp">{{ pnl.rev|rp }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi red p-3">
+      <div class="kpi-lbl">Total Beban</div>
+      <div class="kpi-val text-danger text-rp">{{ (pnl.hpp + pnl.op_exp + pnl.depr + pnl.interest + pnl.tax)|rp }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi {% if pnl.laba_bersih >= 0 %}grn{% else %}red{% endif %} p-3">
+      <div class="kpi-lbl">Laba / Rugi Bersih</div>
+      <div class="kpi-val {% if pnl.laba_bersih >= 0 %}text-success{% else %}text-danger{% endif %} text-rp">
+        {{ pnl.laba_bersih|rp }}
+      </div>
+      <div style="font-size:.72rem" class="{% if pnl.laba_bersih >= 0 %}text-success{% else %}text-danger{% endif %}">
+        Margin: {{ pnl.pct_laba_bersih }}%
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Pendapatan -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header bg-success text-white">
+        <i class="fas fa-arrow-trend-up me-2"></i><span style="font-size:.95rem;font-weight:700">PENDAPATAN</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for subtipe, items in pendapatan.items() %}
+          <tr class="table-light">
+            <td colspan="2" class="fw-semibold ps-3 py-1" style="font-size:.78rem;color:#475569">
+              {{ subtipe|upper }}
+            </td>
+          </tr>
+          {% for item in items %}
+          <tr>
+            <td class="ps-4">
+              <span class="text-muted me-2" style="font-size:.72rem">{{ item.kode }}</span>{{ item.nama }}
+            </td>
+            <td class="text-end pe-3 text-rp">{{ item.saldo|rp }}</td>
+          </tr>
+          {% endfor %}
+          {% set st = namespace(v=0) %}{% for i in items %}{% set st.v = st.v + i.saldo %}{% endfor %}
+          <tr class="border-top">
+            <td class="ps-4 text-muted fw-semibold" style="font-size:.78rem">Subtotal {{ subtipe }}</td>
+            <td class="text-end pe-3 fw-bold text-rp text-success">{{ st.v|rp }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="table-success">
+            <td class="ps-3 fw-bold">TOTAL PENDAPATAN</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ pnl.rev|rp }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Beban -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header bg-danger text-white">
+        <i class="fas fa-arrow-trend-down me-2"></i><span style="font-size:.95rem;font-weight:700">BEBAN</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for subtipe, items in beban.items() %}
+          <tr class="table-light">
+            <td colspan="2" class="fw-semibold ps-3 py-1" style="font-size:.78rem;color:#475569">
+              {{ subtipe|upper }}
+            </td>
+          </tr>
+          {% for item in items %}
+          <tr>
+            <td class="ps-4">
+              <span class="text-muted me-2" style="font-size:.72rem">{{ item.kode }}</span>{{ item.nama }}
+            </td>
+            <td class="text-end pe-3 text-rp">{{ item.saldo|rp }}</td>
+          </tr>
+          {% endfor %}
+          {% set st = namespace(v=0) %}{% for i in items %}{% set st.v = st.v + i.saldo %}{% endfor %}
+          <tr class="border-top">
+            <td class="ps-4 text-muted fw-semibold" style="font-size:.78rem">Subtotal {{ subtipe }}</td>
+            <td class="text-end pe-3 fw-bold text-rp text-danger">{{ st.v|rp }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="table-danger">
+            <td class="ps-3 fw-bold">TOTAL BEBAN</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ (pnl.hpp + pnl.op_exp + pnl.depr + pnl.interest + pnl.tax)|rp }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Ringkasan Cascade P&L -->
+<div class="card mt-3">
+  <div class="card-header py-2" style="background:#1e293b">
+    <span class="fw-bold text-white" style="font-size:.88rem">
+      <i class="fas fa-calculator me-2"></i>RINGKASAN PERHITUNGAN
+    </span>
+    <small class="text-secondary ms-2">{{ sd|tgl }} s/d {{ ed|tgl }}</small>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0" style="font-size:.88rem">
+      <tbody>
+        <tr>
+          <td class="ps-3 text-muted" style="width:55%">Pendapatan</td>
+          <td class="text-end pe-3 text-rp">{{ pnl.rev|rp }}</td>
+        </tr>
+        {% if pnl.hpp %}
+        <tr>
+          <td class="ps-3 text-muted">Harga Pokok Penjualan (HPP)</td>
+          <td class="text-end pe-3 text-rp text-danger">- {{ pnl.hpp|rp }}</td>
+        </tr>
+        {% endif %}
+        <tr class="table-light fw-semibold">
+          <td class="ps-3">Laba Kotor</td>
+          <td class="text-end pe-3 text-rp {{ 'text-success' if pnl.laba_kotor >= 0 else 'text-danger' }}">{{ pnl.laba_kotor|rp }}</td>
+        </tr>
+        {% if pnl.op_exp %}
+        <tr>
+          <td class="ps-3 text-muted">Biaya Operasional</td>
+          <td class="text-end pe-3 text-rp text-danger">- {{ pnl.op_exp|rp }}</td>
+        </tr>
+        {% endif %}
+        <tr class="table-light fw-semibold">
+          <td class="ps-3">Laba Operasional</td>
+          <td class="text-end pe-3 text-rp {{ 'text-success' if pnl.laba_op >= 0 else 'text-danger' }}">{{ pnl.laba_op|rp }}</td>
+        </tr>
+        {% if pnl.depr %}
+        <tr>
+          <td class="ps-3 text-muted">Penyusutan</td>
+          <td class="text-end pe-3 text-rp text-danger">- {{ pnl.depr|rp }}</td>
+        </tr>
+        {% endif %}
+        {% if pnl.interest %}
+        <tr>
+          <td class="ps-3 text-muted">Beban Bunga</td>
+          <td class="text-end pe-3 text-rp text-danger">- {{ pnl.interest|rp }}</td>
+        </tr>
+        {% endif %}
+        <tr class="table-light fw-semibold">
+          <td class="ps-3">EBIT <small class="text-muted fw-normal">(Laba sebelum Pajak)</small></td>
+          <td class="text-end pe-3 text-rp {{ 'text-success' if pnl.ebit >= 0 else 'text-danger' }}">{{ pnl.ebit|rp }}</td>
+        </tr>
+        {% if pnl.tax %}
+        <tr class="table-warning">
+          <td class="ps-3 fw-semibold"><i class="fas fa-receipt me-1 text-warning"></i>Beban Pajak</td>
+          <td class="text-end pe-3 text-rp text-danger fw-semibold">- {{ pnl.tax|rp }}</td>
+        </tr>
+        {% endif %}
+        <tr class="border-top border-2 {{ 'table-success' if pnl.laba_bersih >= 0 else 'table-danger' }}">
+          <td class="ps-3 fw-bold fs-6">
+            {% if pnl.laba_bersih >= 0 %}
+            <i class="fas fa-trophy me-1 text-success"></i>LABA BERSIH
+            {% else %}
+            <i class="fas fa-triangle-exclamation me-1 text-danger"></i>RUGI BERSIH
+            {% endif %}
+          </td>
+          <td class="text-end pe-3 fw-bold fs-6 text-rp {{ 'text-success' if pnl.laba_bersih >= 0 else 'text-danger' }}">
+            {{ pnl.laba_bersih|rp }}
+          </td>
+        </tr>
+        {% if pnl.prive %}
+        <tr>
+          <td class="ps-3 text-muted">Penarikan Owner (Prive)</td>
+          <td class="text-end pe-3 text-rp text-danger">- {{ pnl.prive|rp }}</td>
+        </tr>
+        <tr class="table-light fw-semibold">
+          <td class="ps-3">Laba Ditahan</td>
+          <td class="text-end pe-3 text-rp {{ 'text-success' if pnl.laba_tahan >= 0 else 'text-danger' }}">{{ pnl.laba_tahan|rp }}</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+{% block title %}PO {{ po.nomor }} - FinansialApp{% endblock %}
+{% block page_title %}Purchase Order {{ po.nomor }}{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+  <a href="/po" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Kembali</a>
+  <a href="/po/{{ po.id }}/cetak" target="_blank" class="btn btn-outline-primary btn-sm">
+    <i class="fas fa-print me-1"></i>Cetak / PDF</a>
+  {% if session.role in ('ADMIN','FINANCE','OPERATOR') and po.status not in ('DITERIMA','DIBATALKAN') %}
+  <a href="/po/{{ po.id }}/edit" class="btn btn-outline-warning btn-sm">
+    <i class="fas fa-edit me-1"></i>Edit</a>
+  {% endif %}
+  {% if session.role in ('ADMIN','FINANCE') %}
+  <form method="POST" action="/po/{{ po.id }}/hapus" class="d-inline"
+        onsubmit="return confirm('Hapus PO {{ po.nomor }}? Tindakan ini tidak bisa dibatalkan.')">
+    <button class="btn btn-outline-danger btn-sm"><i class="fas fa-trash me-1"></i>Hapus</button>
+  </form>
+  {% endif %}
+
+  <!-- Status update -->
+  <div class="ms-auto d-flex gap-2 align-items-center flex-wrap justify-content-end">
+    {% if session.role in ('ADMIN','FINANCE','OPERATOR') %}
+    <span class="badge
+      {% if po.status=='DITERIMA' %}bg-success
+      {% elif po.status=='DIKIRIM' %}bg-info
+      {% elif po.status=='DIBATALKAN' %}bg-danger
+      {% else %}bg-secondary{% endif %}">
+      {{ po.status }}</span>
+    {% if po.status != 'DRAFT' %}
+    <form method="POST" action="/po/{{ po.id }}/status" class="d-inline"
+          {% if po.status == 'DITERIMA' %}onsubmit="return confirm('Kembalikan PO {{ po.nomor }} ke Draft? Jurnal, stok, dan hutang akan dibalik bila belum ada pembayaran hutang.')"{% endif %}>
+      <input type="hidden" name="status" value="DRAFT">
+      <button class="btn btn-outline-secondary btn-sm">Draft</button>
+    </form>
+    {% endif %}
+    {% if po.status != 'DIKIRIM' and po.status != 'DITERIMA' %}
+    <form method="POST" action="/po/{{ po.id }}/status" class="d-inline">
+      <input type="hidden" name="status" value="DIKIRIM">
+      <button class="btn btn-outline-info btn-sm">Kirim ke Vendor</button>
+    </form>
+    {% endif %}
+    {% if po.status not in ('DITERIMA','DIBATALKAN') %}
+    <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalTerimaPO">
+      <i class="fas fa-check me-1"></i>Terima Barang
+    </button>
+    {% endif %}
+    {% if po.status != 'DIBATALKAN' %}
+    <form method="POST" action="/po/{{ po.id }}/status" class="d-inline"
+          onsubmit="return confirm('Ubah status PO {{ po.nomor }} ke DIBATALKAN? Jika sudah diterima, jurnal dan stok akan dibalik bila belum ada pembayaran hutang.')">
+      <input type="hidden" name="status" value="DIBATALKAN">
+      <button class="btn btn-outline-danger btn-sm">{{ 'Batalkan Penerimaan' if po.status == 'DITERIMA' else 'Batalkan' }}</button>
+    </form>
+    {% endif %}
+    {% else %}
+    <span class="badge fs-6
+      {% if po.status=='DITERIMA' %}bg-success
+      {% elif po.status=='DIKIRIM' %}bg-info
+      {% elif po.status=='DIBATALKAN' %}bg-danger
+      {% else %}bg-secondary{% endif %}">
+      {{ po.status }}</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if po.status == 'DITERIMA' %}
+<div class="alert alert-success py-2 small mb-3">
+  <i class="fas fa-check-circle me-1"></i>
+  Barang sudah diterima dan persediaan/stok sudah tercatat.
+  {% if hutang %}
+  Sisa hutang ke <strong>{{ po.vendor }}</strong> sebesar <strong>{{ ((hutang.jumlah or 0) - (hutang.terbayar or 0))|rp }}</strong>.
+  <a href="/hutang" class="alert-link">Lihat Tracker Hutang</a>
+  {% else %}
+  Tidak ada hutang tersisa untuk PO ini.
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- PO Preview Card -->
+<div class="card shadow-sm" style="max-width:860px;margin:auto">
+  <div class="card-body p-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+      <div class="d-flex gap-3 align-items-start">
+        {% if po_s.po_logo %}
+        <img src="/static/uploads/{{ po_s.po_logo }}"
+             style="height:52px;max-width:130px;object-fit:contain;flex-shrink:0">
+        {% endif %}
+        <div>
+          <div style="font-size:1.4rem;font-weight:900;color:var(--acc)">{{ po_s.po_nama }}</div>
+          {% if po_s.po_tagline %}<div style="font-size:.75rem;font-weight:600;color:var(--acc);margin-bottom:2px">{{ po_s.po_tagline }}</div>{% endif %}
+          {% if po_s.po_alamat %}<div class="text-muted" style="font-size:.82rem">{{ po_s.po_alamat }}</div>{% endif %}
+          {% if po_s.po_telepon %}<div class="text-muted" style="font-size:.82rem"><i class="fas fa-phone me-1"></i>{{ po_s.po_telepon }}</div>{% endif %}
+          {% if po_s.po_email %}<div class="text-muted" style="font-size:.82rem"><i class="fas fa-envelope me-1"></i>{{ po_s.po_email }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="text-end">
+        <div style="font-size:1.6rem;font-weight:900;letter-spacing:-.03em;color:#1e293b">PURCHASE ORDER</div>
+        <div style="font-family:monospace;font-size:1rem;font-weight:700;color:var(--acc)">{{ po.nomor }}</div>
+      </div>
+    </div>
+
+    <!-- Meta grid -->
+    <div class="row g-2 mb-4">
+      <div class="col-md-6">
+        <div style="background:var(--card-h);border-radius:8px;padding:.75rem 1rem">
+          <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);margin-bottom:.3rem">Kepada Vendor</div>
+          <div class="fw-bold">{{ po.vendor }}</div>
+          {% if po.alamat_vendor %}<div class="text-muted small">{{ po.alamat_vendor }}</div>{% endif %}
+          {% if po.telepon_vendor %}<div class="text-muted small"><i class="fas fa-phone me-1"></i>{{ po.telepon_vendor }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div style="background:var(--card-h);border-radius:8px;padding:.75rem 1rem">
+          <table style="font-size:.85rem;width:100%">
+            <tr><td class="text-muted pe-3">Tanggal PO</td><td class="fw-semibold">{{ po.tanggal|tgl }}</td></tr>
+            <tr><td class="text-muted pe-3">Estimasi Terima</td>
+                <td class="fw-semibold {% if po.expected_date and po.status not in ('DITERIMA','DIBATALKAN') and po.expected_date < today.strftime('%Y-%m-%d') %}text-danger{% endif %}">
+                  {{ po.expected_date|tgl if po.expected_date else '-' }}
+                </td></tr>
+            <tr><td class="text-muted pe-3">Status</td>
+                <td>
+                  <span class="badge
+                    {% if po.status=='DITERIMA' %}bg-success
+                    {% elif po.status=='DIKIRIM' %}bg-info
+                    {% elif po.status=='DIBATALKAN' %}bg-danger
+                    {% else %}bg-secondary{% endif %}">
+                    {{ po.status }}
+                  </span>
+                </td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Items -->
+    <table class="table table-sm mb-3" style="font-size:.88rem">
+      <thead>
+        <tr style="background:#1e293b;color:#fff">
+          <th class="ps-3" style="border-radius:6px 0 0 0">#</th>
+          <th>Deskripsi</th>
+          <th class="text-end">Qty</th>
+          <th>Satuan</th>
+          <th class="text-end">Harga Satuan</th>
+          <th class="text-end">Diskon</th>
+          <th class="text-end pe-3" style="border-radius:0 6px 0 0">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in items %}
+        <tr style="border-bottom:1px solid var(--pgb)">
+          <td class="ps-3 text-muted">{{ loop.index }}</td>
+          <td>
+            <div class="fw-semibold">{{ it.deskripsi }}</div>
+            {% if it.produk_id %}
+            <span class="badge bg-light text-dark border">SKU inventory #{{ it.produk_id }}</span>
+            {% else %}
+            <span class="badge bg-light text-muted border">Non-SKU</span>
+            {% endif %}
+          </td>
+          <td class="text-end">{{ it.qty|qty }}</td>
+          <td class="text-muted">{{ it.satuan }}</td>
+          <td class="text-end text-rp">{{ it.harga_satuan|rp }}</td>
+          <td class="text-end text-rp text-muted">{% if it.diskon_item %}{{ it.diskon_item|rp }}{% else %}-{% endif %}</td>
+          <td class="text-end pe-3 fw-bold text-rp">{{ it.subtotal|rp }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Total -->
+    <div class="d-flex justify-content-end mb-4">
+      <table style="font-size:.9rem;min-width:280px">
+        <tr><td class="text-muted pe-4">Subtotal</td>
+            <td class="text-end fw-semibold text-rp">{{ subtotal|rp }}</td></tr>
+        {% if po.diskon %}
+        <tr><td class="text-muted pe-4">Diskon</td>
+            <td class="text-end text-danger text-rp">- {{ po.diskon|rp }}</td></tr>
+        {% endif %}
+        {% if po.ongkir %}
+        <tr><td class="text-muted pe-4">Ongkir</td>
+            <td class="text-end text-rp">{{ po.ongkir|rp }}</td></tr>
+        {% endif %}
+        {% if po.biaya_lain %}
+        <tr><td class="text-muted pe-4">Biaya Lain</td>
+            <td class="text-end text-rp">{{ po.biaya_lain|rp }}</td></tr>
+        {% endif %}
+        <tr><td colspan="2"><hr style="margin:.35rem 0"></td></tr>
+        <tr>
+          <td class="fw-bold pe-4" style="font-size:1rem">TOTAL</td>
+          <td class="text-end fw-black text-rp"
+              style="font-size:1.25rem;font-weight:900;color:var(--acc)">{{ total|rp }}</td>
+        </tr>
+      </table>
+    </div>
+
+    {% if (po.ongkir or po.biaya_lain) and session.role in ('ADMIN','FINANCE','OPERATOR') %}
+    <div class="d-flex align-items-center justify-content-end gap-2 mb-4" style="margin-top:-.75rem">
+      <span class="text-muted" style="font-size:.74rem">
+        <i class="fas fa-circle-info me-1"></i>Ongkir/biaya lain akan dialokasikan ke nilai persediaan/HPP saat PO ditandai diterima.
+      </span>
+    </div>
+    {% endif %}
+
+    <!-- Catatan -->
+    {% if po.catatan %}
+    <div class="text-muted" style="font-size:.85rem;border-top:1px solid var(--pgb);padding-top:.75rem">
+      <i class="fas fa-comment-dots me-1"></i>{{ po.catatan }}
+    </div>
+    {% endif %}
+
+    <!-- Terms -->
+    {% if po_s.po_terms %}
+    <div style="margin-top:.75rem;border-top:1px solid var(--pgb);padding-top:.75rem">
+      <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);margin-bottom:.35rem">
+        <i class="fas fa-scale-balanced me-1"></i>Syarat &amp; Ketentuan
+      </div>
+      <div class="text-muted" style="font-size:.78rem;white-space:pre-line;line-height:1.6">{{ po_s.po_terms }}</div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+{% if session.role in ('ADMIN','FINANCE','OPERATOR') and po.status not in ('DITERIMA','DIBATALKAN') %}
+<div class="modal fade" id="modalTerimaPO" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="POST" action="/po/{{ po.id }}/status" class="modal-content">
+      <input type="hidden" name="status" value="DITERIMA">
+      <div class="modal-header">
+        <h5 class="modal-title">Terima Barang PO {{ po.nomor }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-light border small mb-3">
+          Saat disimpan, sistem akan mencatat persediaan/stok. Isi pembayaran jika ada uang keluar saat barang diterima; sisanya otomatis menjadi hutang vendor.
+        </div>
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Tanggal Terima</label>
+            <input type="date" name="tanggal_terima" class="form-control form-control-sm"
+                   value="{{ today.strftime('%Y-%m-%d') }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Total PO</label>
+            <div class="form-control form-control-sm bg-light text-end fw-bold text-rp">{{ total|rp }}</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Dibayar Saat Terima</label>
+            <input type="text" name="uang_keluar" id="poUangKeluar"
+                   class="form-control form-control-sm text-end num-input" value="0" placeholder="0">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Akun Kas/Bank</label>
+            <select name="akun_kas" class="form-select form-select-sm">
+              {% for a in akun_kas %}
+              <option value="{{ a.kode }}" {% if a.kode == '1100' %}selected{% endif %}>{{ a.kode }} - {{ a.nama }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Jatuh Tempo Hutang</label>
+            <input type="date" name="jatuh_tempo" class="form-control form-control-sm"
+                   value="{{ po.expected_date or '' }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Sisa Hutang</label>
+            <div class="form-control form-control-sm bg-light text-end fw-bold text-rp" id="poSisaHutang">{{ total|rp }}</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-success btn-sm"><i class="fas fa-check me-1"></i>Terima dan Posting</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const PO_TOTAL = {{ (total or 0)|float }};
+function poParseRp(v) {
+  if (!v) return 0;
+  if (window.numVal && typeof v === 'object') return window.numVal(v);
+  const text = String(v).replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+  return parseFloat(text) || 0;
+}
+function poFmtRp(n) {
+  return window.rpFmt ? window.rpFmt(n) : 'Rp ' + Math.round(n).toLocaleString('id-ID');
+}
+function updatePoReceiveSummary() {
+  const paidEl = document.getElementById('poUangKeluar');
+  const sisaEl = document.getElementById('poSisaHutang');
+  if (!paidEl || !sisaEl) return;
+  const paid = Math.max(0, poParseRp(paidEl.value));
+  sisaEl.textContent = poFmtRp(Math.max(0, PO_TOTAL - paid));
+}
+document.addEventListener('input', function(e) {
+  if (e.target && e.target.id === 'poUangKeluar') updatePoReceiveSummary();
+}, true);
+document.addEventListener('blur', function(e) {
+  if (e.target && e.target.id === 'poUangKeluar') {
+    const paid = poParseRp(e.target.value);
+    e.target.value = window.rpPlainFmt ? window.rpPlainFmt(paid) : Math.round(paid).toLocaleString('id-ID');
+    updatePoReceiveSummary();
+  }
+}, true);
+updatePoReceiveSummary();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit PO' if edit else 'Buat PO Baru' }} - FinansialApp{% endblock %}
+{% block page_title %}{{ 'Edit Purchase Order' if edit else 'Buat Purchase Order Baru' }}{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3">
+  <a href="{{ '/po/' ~ edit.id if edit else '/po' }}" class="btn btn-outline-secondary btn-sm">
+    <i class="fas fa-arrow-left me-1"></i>Kembali</a>
+</div>
+
+<form method="POST" id="formPO">
+<div class="row g-3">
+
+  <!-- ── Header Info ── -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-file-lines me-2 text-primary"></i>Info Purchase Order</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-2">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Nomor PO</label>
+            <input type="text" name="nomor" class="form-control form-control-sm"
+                   value="{{ edit.nomor if edit else next_num }}" placeholder="{{ next_num }}">
+            <div class="form-text">Kosongkan untuk auto-generate.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Tanggal PO <span class="text-danger">*</span></label>
+            <input type="date" name="tanggal" class="form-control form-control-sm" required
+                   value="{{ edit.tanggal if edit else today }}" max="{{ today }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-semibold">Estimasi Tanggal Terima</label>
+            <input type="date" name="expected_date" class="form-control form-control-sm"
+                   value="{{ edit.expected_date or '' }}">
+            <div class="form-text">Tanggal diharapkan barang tiba dari vendor.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Info Vendor ── -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header py-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-truck me-2 text-warning"></i>Info Vendor / Supplier</span>
+      </div>
+      <div class="card-body">
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Nama Vendor <span class="text-danger">*</span></label>
+          <input type="text" name="vendor" id="poVendorInput" class="form-control form-control-sm" required
+                 value="{{ edit.vendor if edit else '' }}" list="vendorList"
+                 placeholder="Nama vendor / supplier">
+          <datalist id="vendorList">
+            {% for v in vendor_list %}
+            <option value="{{ v.nama }}">{{ v.telepon or v.alamat or v.catatan }}</option>
+            {% endfor %}
+          </datalist>
+          <div class="form-text">Pilih dari database vendor untuk mengisi alamat dan kontak otomatis.</div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold">Alamat Vendor</label>
+          <input type="text" name="alamat_vendor" id="poVendorAlamat" class="form-control form-control-sm"
+                 value="{{ edit.alamat_vendor if edit else '' }}" placeholder="Jl. Vendor No. 1, Kota">
+        </div>
+        <div class="mb-0">
+          <label class="form-label small fw-semibold">Kontak Vendor</label>
+          <input type="text" name="telepon_vendor" id="poVendorKontak" class="form-control form-control-sm"
+                 value="{{ edit.telepon_vendor if edit else '' }}" placeholder="No HP / WA / email / PIC">
+        </div>
+        <div class="mt-2 small text-muted" id="poVendorInfo" style="display:none;background:var(--card-h);border:1px solid var(--bdr);border-radius:6px;padding:.45rem .55rem"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tabel Item ── -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header py-2 d-flex align-items-center gap-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-list me-2 text-success"></i>Item yang Dipesan</span>
+        <button type="button" class="btn btn-sm btn-outline-success ms-auto" onclick="tambahBaris()">
+          <i class="fas fa-plus me-1"></i>Tambah Baris</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-sticky-actions mb-0" id="tblItems">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3" style="width:36px">#</th>
+                <th>Produk Inventory / Deskripsi</th>
+                <th style="width:80px">Qty</th>
+                <th style="width:80px">Satuan</th>
+                <th style="width:130px">Harga Satuan</th>
+                <th style="width:110px">Diskon/baris</th>
+                <th style="width:130px" class="text-end">Subtotal</th>
+                <th style="width:36px"></th>
+              </tr>
+            </thead>
+            <tbody id="itemBody">
+              {% set init_items = items if items else [{}] %}
+              {% for it in init_items %}
+              <tr class="item-row">
+                <td class="ps-3 text-muted row-no">{{ loop.index }}</td>
+                <td>
+                  <select name="produk_id[]" class="form-select form-select-sm po-produk mb-1">
+                    <option value="">Non-SKU / Manual</option>
+                    {% for p in produk_list %}
+                    <option value="{{ p.id }}"
+                            data-nama="{{ p.nama }}{% if p.varian %} - {{ p.varian }}{% endif %}"
+                            data-satuan="{{ p.satuan or 'pcs' }}"
+                            data-harga="{{ p.harga_beli or 0 }}"
+                            {% if it and it.produk_id and (it.produk_id|int) == p.id %}selected{% endif %}>
+                      {{ p.nama }}{% if p.varian %} - {{ p.varian }}{% endif %}{% if not p.aktif %} (arsip){% endif %}
+                    </option>
+                    {% endfor %}
+                  </select>
+                  <input type="text" name="deskripsi[]" class="form-control form-control-sm item-desc"
+                         value="{{ it.deskripsi if it else '' }}" placeholder="Nama barang / jasa"
+                         list="produkList" required>
+                </td>
+                <td><input type="number" name="qty[]" class="form-control form-control-sm item-qty"
+                           value="{{ it.qty if it else 1 }}" min="0.001" step="any" required></td>
+                <td><input type="text" name="satuan[]" class="form-control form-control-sm item-satuan"
+                           value="{{ it.satuan if it else 'pcs' }}" placeholder="pcs"></td>
+                <td><input type="text" name="harga_satuan[]" class="form-control form-control-sm text-end item-harga num-input"
+                           value="{{ it.harga_satuan|int if it and it.harga_satuan else '' }}" placeholder="0"></td>
+                <td><input type="text" name="diskon_item[]" class="form-control form-control-sm text-end item-dis num-input"
+                           value="{{ it.diskon_item|int if it and it.diskon_item else '' }}" placeholder="0"></td>
+                <td class="text-end fw-semibold pe-2 item-sub text-rp">
+                  {% if it and it.subtotal %}{{ it.subtotal|rp }}{% else %}–{% endif %}</td>
+                <td>
+                  <button type="button" class="btn btn-xs btn-outline-danger" onclick="hapusBaris(this)">
+                    <i class="fas fa-times"></i></button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <datalist id="produkList">
+      {% for p in produk_list %}<option value="{{ p.nama }}">{% endfor %}
+    </datalist>
+    <template id="produkOptionsTemplate">
+      <option value="">Non-SKU / Manual</option>
+      {% for p in produk_list %}
+      <option value="{{ p.id }}"
+              data-nama="{{ p.nama }}{% if p.varian %} - {{ p.varian }}{% endif %}"
+              data-satuan="{{ p.satuan or 'pcs' }}"
+              data-harga="{{ p.harga_beli or 0 }}">
+        {{ p.nama }}{% if p.varian %} - {{ p.varian }}{% endif %}{% if not p.aktif %} (arsip){% endif %}
+      </option>
+      {% endfor %}
+    </template>
+  </div>
+
+  <!-- ── Ringkasan Total ── -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header py-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-comment-dots me-2 text-info"></i>Catatan</span>
+      </div>
+      <div class="card-body">
+        <textarea name="catatan" class="form-control form-control-sm" rows="4"
+                  placeholder="Catatan pengiriman, spesifikasi, syarat, dll.">{{ edit.catatan if edit else '' }}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header py-2">
+        <span class="fw-semibold" style="font-size:.88rem"><i class="fas fa-calculator me-2 text-primary"></i>Ringkasan Total</span>
+      </div>
+      <div class="card-body">
+        <table style="width:100%;font-size:.88rem">
+          <tr>
+            <td class="text-muted py-1">Subtotal</td>
+            <td class="text-end fw-semibold text-rp" id="dispSubtotal">–</td>
+          </tr>
+          <tr>
+            <td class="py-1">
+              <label class="text-muted small">Diskon</label>
+              <input type="text" name="diskon" class="form-control form-control-sm num-input"
+                     id="inpDiskon" value="{{ edit.diskon|int if edit and edit.diskon else '' }}"
+                     placeholder="0" style="width:120px;display:inline-block">
+            </td>
+            <td class="text-end text-danger text-rp" id="dispDiskon">–</td>
+          </tr>
+          <tr>
+            <td class="py-1">
+              <label class="text-muted small">Ongkir</label>
+              <input type="text" name="ongkir" class="form-control form-control-sm num-input"
+                     id="inpOngkir" value="{{ edit.ongkir|int if edit and edit.ongkir else '' }}"
+                     placeholder="0" style="width:120px;display:inline-block">
+            </td>
+            <td class="text-end text-rp" id="dispOngkir">–</td>
+          </tr>
+          <tr>
+            <td class="py-1">
+              <label class="text-muted small">Biaya Lain</label>
+              <input type="text" name="biaya_lain" class="form-control form-control-sm num-input"
+                     id="inpBiaya" value="{{ edit.biaya_lain|int if edit and edit.biaya_lain else '' }}"
+                     placeholder="0" style="width:120px;display:inline-block">
+            </td>
+            <td class="text-end text-rp" id="dispBiaya">–</td>
+          </tr>
+          <tr><td colspan="2"><hr class="my-2"></td></tr>
+          <tr>
+            <td class="fw-bold" style="font-size:1rem">TOTAL</td>
+            <td class="text-end fw-black text-rp" id="dispTotal"
+                style="font-size:1.2rem;font-weight:900;color:var(--acc)">–</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 d-flex gap-2">
+    <button type="submit" class="btn btn-primary">
+      <i class="fas fa-save me-1"></i>{{ 'Simpan Perubahan' if edit else 'Buat Purchase Order' }}</button>
+    <a href="{{ '/po/' ~ edit.id if edit else '/po' }}" class="btn btn-outline-secondary">Batal</a>
+  </div>
+
+</div>
+</form>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const VENDOR_DB = {{ (vendor_list or [])|tojson }};
+
+function parseRp(v) {
+  if (!v) return 0;
+  if (typeof v === 'object' && window.numVal) return window.numVal(v);
+  return parseFloat(String(v).replace(/\./g,'').replace(',', '.').replace(/[^\d.-]/g,'')) || 0;
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, function(ch) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  });
+}
+
+function applyVendorInfo(force) {
+  const nameEl = document.getElementById('poVendorInput');
+  const alamatEl = document.getElementById('poVendorAlamat');
+  const kontakEl = document.getElementById('poVendorKontak');
+  const infoEl = document.getElementById('poVendorInfo');
+  const key = (nameEl.value || '').trim().toLowerCase();
+  const v = VENDOR_DB.find(function(row){ return String(row.nama || '').trim().toLowerCase() === key; });
+  if(!v) {
+    infoEl.style.display = 'none';
+    infoEl.innerHTML = '';
+    return;
+  }
+  if(force || !alamatEl.value.trim()) alamatEl.value = v.alamat || '';
+  if(force || !kontakEl.value.trim()) kontakEl.value = v.telepon || '';
+  const lines = [];
+  if(v.alamat) lines.push('<div><i class="fas fa-location-dot me-1"></i>' + escapeHtml(v.alamat) + '</div>');
+  if(v.telepon) lines.push('<div><i class="fas fa-address-book me-1"></i>' + escapeHtml(v.telepon) + '</div>');
+  if(v.catatan) lines.push('<div><i class="fas fa-note-sticky me-1"></i>' + escapeHtml(v.catatan) + '</div>');
+  infoEl.innerHTML = lines.length ? '<strong>Info dari database vendor:</strong>' + lines.join('') : '';
+  infoEl.style.display = lines.length ? 'block' : 'none';
+}
+function fmtRp(n) {
+  return window.rpFmt ? window.rpFmt(n) : 'Rp ' + Math.round(n).toLocaleString('id-ID');
+}
+
+function applyProdukInfo(sel) {
+  const opt = sel.selectedOptions && sel.selectedOptions[0];
+  if (!opt || !opt.value) return;
+  const row = sel.closest('.item-row');
+  row.querySelector('.item-desc').value = opt.dataset.nama || '';
+  row.querySelector('.item-satuan').value = opt.dataset.satuan || 'pcs';
+  const harga = parseFloat(opt.dataset.harga || '0') || 0;
+  const hargaEl = row.querySelector('.item-harga');
+  hargaEl.value = harga ? (window.rpPlainFmt ? window.rpPlainFmt(harga) : Math.round(harga).toLocaleString('id-ID')) : '';
+  hitungTotal();
+}
+
+function hitungTotal() {
+  let sub = 0;
+  document.querySelectorAll('.item-row').forEach(function(row) {
+    const qty  = window.numVal(row.querySelector('.item-qty'));
+    const harg = parseRp(row.querySelector('.item-harga').value);
+    const dis  = parseRp(row.querySelector('.item-dis').value);
+    const st   = Math.max(0, qty * harg - dis);
+    row.querySelector('.item-sub').textContent = st > 0 ? fmtRp(st) : '–';
+    sub += st;
+  });
+  const diskon = parseRp(document.getElementById('inpDiskon').value);
+  const ongkir = parseRp(document.getElementById('inpOngkir').value);
+  const biaya  = parseRp(document.getElementById('inpBiaya').value);
+  const total  = sub - diskon + ongkir + biaya;
+
+  document.getElementById('dispSubtotal').textContent = fmtRp(sub);
+  document.getElementById('dispDiskon').textContent   = diskon > 0 ? '- ' + fmtRp(diskon) : '–';
+  document.getElementById('dispOngkir').textContent   = ongkir > 0 ? fmtRp(ongkir) : '–';
+  document.getElementById('dispBiaya').textContent    = biaya  > 0 ? fmtRp(biaya)  : '–';
+  document.getElementById('dispTotal').textContent    = fmtRp(total);
+}
+
+// Format thousands saat blur
+document.addEventListener('blur', function(e) {
+  if (!e.target.classList.contains('num-input')) return;
+  const v = parseRp(e.target.value);
+  if (v) e.target.value = window.rpPlainFmt ? window.rpPlainFmt(v) : v.toLocaleString('id-ID');
+  hitungTotal();
+}, true);
+
+document.addEventListener('input', function(e) {
+  if (e.target.classList.contains('item-qty') ||
+      e.target.classList.contains('item-harga') ||
+      e.target.classList.contains('item-dis')) {
+    hitungTotal();
+  }
+  if (e.target.id === 'poVendorInput') {
+    applyVendorInfo(false);
+  }
+}, true);
+
+document.addEventListener('change', function(e) {
+  if (e.target.classList.contains('po-produk')) {
+    applyProdukInfo(e.target);
+  }
+}, true);
+
+document.getElementById('poVendorInput').addEventListener('change', function() {
+  applyVendorInfo(true);
+});
+
+// Tambah baris
+let rowIdx = {{ items|length or 1 }};
+function tambahBaris() {
+  rowIdx++;
+  const tbody = document.getElementById('itemBody');
+  const tr = document.createElement('tr');
+  tr.className = 'item-row';
+  tr.innerHTML = `
+    <td class="ps-3 text-muted row-no">${tbody.querySelectorAll('.item-row').length + 1}</td>
+    <td>
+      <select name="produk_id[]" class="form-select form-select-sm po-produk mb-1">
+        ${document.getElementById('produkOptionsTemplate').innerHTML}
+      </select>
+      <input type="text" name="deskripsi[]" class="form-control form-control-sm item-desc"
+             placeholder="Nama barang / jasa" list="produkList" required>
+    </td>
+    <td><input type="number" name="qty[]" class="form-control form-control-sm item-qty"
+               value="1" min="0.001" step="any" required></td>
+    <td><input type="text" name="satuan[]" class="form-control form-control-sm item-satuan" value="pcs"></td>
+    <td><input type="text" name="harga_satuan[]" class="form-control form-control-sm text-end item-harga num-input" placeholder="0"></td>
+    <td><input type="text" name="diskon_item[]" class="form-control form-control-sm text-end item-dis num-input" placeholder="0"></td>
+    <td class="text-end fw-semibold pe-2 item-sub text-rp">–</td>
+    <td><button type="button" class="btn btn-xs btn-outline-danger" onclick="hapusBaris(this)">
+      <i class="fas fa-times"></i></button></td>`;
+  tbody.appendChild(tr);
+  tr.querySelector('[name="deskripsi[]"]').focus();
+  nomoriUlang();
+}
+
+function hapusBaris(btn) {
+  btn.closest('.item-row').remove();
+  // Baris terakhir → ganti baris kosong baru, supaya tombol X selalu berfungsi.
+  if (!document.querySelector('.item-row')) tambahBaris();
+  nomoriUlang();
+  hitungTotal();
+}
+
+function nomoriUlang() {
+  document.querySelectorAll('.item-row').forEach(function(r, i) {
+    r.querySelector('.row-no').textContent = i + 1;
+  });
+}
+
+// Init
+hitungTotal();
+applyVendorInfo(false);
+</script>
+{% endblock %}

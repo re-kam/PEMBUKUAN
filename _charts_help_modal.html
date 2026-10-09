@@ -1,0 +1,52 @@
+{# Modal petunjuk Grafik. Di-include di charts.html; dipicu tombol [data-bs-target="#modalChartsHelp"]. #}
+<div class="modal fade" id="modalChartsHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Grafik & Analisis</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Halaman ini menggambar tren usaha Anda dalam bentuk grafik, misalnya pendapatan, beban,
+          dan laba dari bulan ke bulan.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>Grafik tidak menghitung angka baru.</strong>
+            Dia hanya menggambar ulang data yang sudah ada di Laba Rugi dan transaksi Anda supaya
+            tren naik turunnya gampang dilihat. Sumbernya tetap pembukuan yang sama.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-book me-1" style="color:var(--ink)"></i>Kaitan dengan pembukuan</div>
+        <p class="mb-3" style="font-size:.82rem">
+          Garis pendapatan dan beban di grafik diambil dari akun yang sama dengan yang membentuk
+          Laba Rugi. Kalau grafik bergerak, itu cerminan transaksi yang Anda input. Tidak ada angka
+          di grafik yang tidak bisa Anda telusuri balik ke Daftar Transaksi.
+        </p>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Grafik pendapatan menunjukkan garis turun di bulan ini dibanding bulan lalu.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Itu artinya total penjualan yang Anda catat bulan ini memang lebih kecil.</li>
+            <li>Buka Laba Rugi atau Daftar Transaksi periode itu untuk lihat detail penyebabnya.</li>
+            <li>Grafik membantu Anda cepat sadar ada yang berubah, lalu laporan lain memberi rinciannya.</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Pakai grafik untuk melihat pola dan tren. Untuk angka pasti
+          yang dipakai pelaporan, tetap rujuk ke Laba Rugi dan Neraca.
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

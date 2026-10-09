@@ -1,0 +1,1189 @@
+{% extends "base.html" %}
+{% block title %}Master POS - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-cash-register me-2" style="color:var(--ink)"></i>Master POS{% endblock %}
+{% block content %}
+
+<style>
+.mp-kpi-card{
+  background:var(--card);border:1px solid var(--bdr-md);border-radius:var(--r-md);
+  padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.35rem;height:100%;
+}
+.mp-kpi-card .lbl{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--gray-500);font-weight:700}
+.mp-kpi-card .val{font-family:var(--font-display);font-size:1.55rem;line-height:1;color:var(--ink);letter-spacing:-.01em}
+[data-theme="dark"] .mp-kpi-card .val{color:var(--tx)}
+.mp-kpi-card .sub{font-size:.72rem;color:var(--tx2)}
+.mp-kpi-card.accent-ink{background:var(--ink);color:var(--paper)}
+.mp-kpi-card.accent-ink .lbl{color:rgba(255,255,255,.55)}
+.mp-kpi-card.accent-ink .val{color:var(--paper)}
+.mp-kpi-card.accent-ink .sub{color:rgba(255,255,255,.7)}
+
+.mp-section-title{font-family:var(--font-display);font-size:.95rem;letter-spacing:.04em;text-transform:uppercase;color:var(--ink);margin:0}
+[data-theme="dark"] .mp-section-title{color:var(--tx)!important}
+
+
+.mp-tab-pill{display:inline-flex;gap:4px;background:var(--paper-soft);border:1px solid var(--bdr-md);border-radius:var(--r-pill);padding:4px}
+[data-theme="dark"] .mp-tab-pill{background:var(--card-h)}
+.mp-tab-pill a{padding:6px 14px;border-radius:var(--r-pill);font-size:.78rem;font-weight:700;color:var(--tx2);text-decoration:none;letter-spacing:.03em}
+.mp-tab-pill a.on{background:var(--ink);color:var(--paper)}
+[data-theme="dark"] .mp-tab-pill a.on{background:var(--paper);color:var(--ink)}
+
+.mp-table{width:100%;font-size:.85rem}
+.mp-table th{font-size:.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--gray-500);font-weight:700;padding:.5rem .65rem;border-bottom:1px solid var(--bdr-md)}
+.mp-table td{padding:.55rem .65rem;border-bottom:1px solid var(--bdr)}
+.mp-table tr:last-child td{border-bottom:none}
+.mp-kasir-name{color:var(--tx)!important;font-weight:700}
+[data-theme="dark"] .mp-kasir-name{color:#f8fafc!important}
+[data-theme="dark"] .mp-kasir-name i{color:#cbd5e1!important}
+
+.mp-shift-pill{display:inline-block;font-size:.65rem;font-weight:700;letter-spacing:.06em;padding:2px 9px;border-radius:var(--r-pill);text-transform:uppercase}
+.mp-shift-open{background:#dcfce7;color:#15803d}
+.mp-shift-closed{background:var(--gray-200);color:var(--gray-600)}
+[data-theme="dark"] .mp-shift-open{background:rgba(34,197,94,.18);color:#86efac}
+[data-theme="dark"] .mp-shift-closed{background:rgba(255,255,255,.08);color:var(--tx2)}
+
+canvas{max-width:100%}
+
+.mp-add-kasir-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 13px;border-radius:var(--r-pill);
+  font-size:.72rem;font-weight:700;letter-spacing:.04em;
+  border:1.5px solid var(--ink);
+  background:transparent;color:var(--ink);
+  cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;
+}
+.mp-add-kasir-btn:hover{background:var(--ink);color:var(--paper)}
+[data-theme="dark"] .mp-add-kasir-btn{border-color:var(--tx);color:var(--tx)}
+[data-theme="dark"] .mp-add-kasir-btn:hover{background:var(--tx);color:var(--ink)}
+
+/* ── Date Range Picker (sama dengan dashboard) ── */
+.drp2-panel{position:fixed;z-index:9999;background:var(--card);border:1px solid var(--bdr-md);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);display:flex;overflow:hidden;width:700px;max-width:calc(100vw - 16px)}
+.drp2-sidebar{width:175px;flex-shrink:0;border-right:1px solid var(--bdr-md);overflow-y:auto;padding:.6rem 0;background:var(--card)}
+.drp2-stitle{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);padding:.25rem .85rem .5rem}
+.drp2-preset{padding:.38rem .85rem;font-size:.82rem;cursor:pointer;color:var(--tx2);border-left:2.5px solid transparent;transition:background .1s,color .1s;white-space:nowrap}
+.drp2-preset:hover{background:var(--bdr);color:var(--tx)}
+.drp2-preset.drp2-active{background:#f0fdf4;color:#15803d;border-left-color:#16a34a;font-weight:600}
+[data-theme=dark] .drp2-preset.drp2-active{background:rgba(20,83,45,.4);color:#4ade80}
+.drp2-right{flex:1;display:flex;flex-direction:column;min-width:0}
+.drp2-cals{display:flex;gap:1.25rem;padding:1rem 1rem .75rem}
+.drp2-month{flex:1}
+.drp2-mhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+.drp2-mnav{background:none;border:none;cursor:pointer;color:var(--tx2);font-size:1.15rem;line-height:1;padding:2px 8px;border-radius:5px;transition:background .1s}
+.drp2-mnav:hover{background:var(--bdr)}
+.drp2-mtitle{font-size:.85rem;font-weight:700;color:var(--tx)}
+.drp2-daynames{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:.25rem}
+.drp2-daynames div{text-align:center;font-size:.6rem;font-weight:600;color:var(--tx3);padding:.18rem 0}
+.drp2-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.drp2-day,.drp2-empty{text-align:center;font-size:.78rem;padding:.3rem .1rem;cursor:pointer;border-radius:5px;color:var(--tx);border:1.5px solid transparent;transition:background .1s;line-height:1.4;user-select:none}
+.drp2-empty{cursor:default}
+.drp2-day:hover{background:var(--bdr)}
+.drp2-today{font-weight:700;border-color:#16a34a!important;color:#15803d}
+.drp2-sel-s,.drp2-sel-e{background:#16a34a!important;color:#fff!important;border-color:#16a34a!important;border-radius:5px!important;font-weight:700}
+.drp2-in-range{background:#dcfce7;color:#15803d;border-radius:0}
+.drp2-hover-range{background:#f0fdf4;color:#166534;border-radius:0}
+[data-theme=dark] .drp2-in-range{background:rgba(20,83,45,.5);color:#86efac}
+[data-theme=dark] .drp2-hover-range{background:rgba(20,83,45,.25);color:#86efac}
+.drp2-foot{padding:.65rem 1rem;border-top:1px solid var(--bdr-md);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.drp2-inp{background:var(--inp);color:var(--tx);border:1px solid var(--bdr-md);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;width:112px;font-family:inherit;outline:none;cursor:default}
+.drp2-inp:focus{border-color:#16a34a}
+.drp2-sep{color:var(--tx3);font-size:.9rem}
+</style>
+
+<!-- Header: filter periode + add kasir button -->
+<div class="card mb-3">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <span style="font-size:.8rem;font-weight:600;color:var(--tx2)">Periode:</span>
+      <button type="button" id="posDrpBtn" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+              style="font-size:.82rem;min-width:240px;justify-content:flex-start">
+        <i class="fas fa-calendar-days" style="color:#15803d;font-size:.85rem;flex-shrink:0"></i>
+        <span id="posDrpLbl" style="flex:1;text-align:left">
+          {% if period=='today' %}Hari Ini ({{ today_s }})
+          {% elif period=='week' %}7 Hari Terakhir
+          {% elif period=='month' %}Bulan Ini
+          {% elif period=='day' %}{{ selected_date_s }}
+          {% elif period=='range' %}{{ range_sd_s }} – {{ range_ed_s }}
+          {% else %}Pilih Rentang Tanggal{% endif %}
+        </span>
+        <i class="fas fa-chevron-down" style="font-size:.65rem;opacity:.45;flex-shrink:0"></i>
+      </button>
+      {% if period == 'day' %}
+      <div class="d-flex align-items-center gap-1 ms-2">
+        <a href="?period=day&tanggal={{ prev_date_s }}" class="btn btn-sm btn-outline-secondary px-2" title="Hari sebelumnya"><i class="fas fa-chevron-left"></i></a>
+        <a href="?period=day&tanggal={{ next_date_s }}" class="btn btn-sm btn-outline-secondary px-2 {% if selected_date_s == today_s %}disabled{% endif %}" title="Hari berikutnya"><i class="fas fa-chevron-right"></i></a>
+      </div>
+      {% endif %}
+      <div class="ms-auto d-flex gap-2">
+        <a href="{{ url_for('pos_home') }}" target="_blank" class="btn btn-sm btn-dark">
+          <i class="fas fa-cash-register me-1"></i>Buka Portal POS
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ KPI ROW ═════════ -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="mp-kpi-card accent-ink">
+      <div class="lbl"><i class="fas fa-coins me-1"></i>Omzet (periode)</div>
+      <div class="val text-rp">{{ kpi_period.v|rp }}</div>
+      <div class="sub">{{ kpi_period.c }} transaksi</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mp-kpi-card">
+      <div class="lbl"><i class="fas fa-receipt me-1"></i>{% if period == 'day' and selected_date_s != today_s %}{{ selected_date_s }}{% else %}Hari Ini{% endif %}</div>
+      <div class="val text-rp">{{ kpi_today.v|rp }}</div>
+      <div class="sub">{{ kpi_today.c }} transaksi</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mp-kpi-card">
+      <div class="lbl"><i class="fas fa-chart-line me-1"></i>Rata-rata / Trx</div>
+      <div class="val text-rp">{{ avg_trx|rp }}</div>
+      <div class="sub">average ticket size</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="mp-kpi-card">
+      <div class="lbl"><i class="fas fa-user-clock me-1"></i>Shift Aktif</div>
+      <div class="val">{{ open_shifts_cnt }}</div>
+      <div class="sub">kasir sedang buka</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ CHART ROW 1 ═════════ -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-clock" style="color:var(--ink)"></i>
+        <h6 class="mp-section-title">Orderan per Jam</h6>
+        <div class="btn-group btn-group-sm ms-auto" role="group" id="hourlyMetricGroup" aria-label="Metrik">
+          <button type="button" class="btn btn-outline-dark active" data-metric="count" style="font-size:.7rem;padding:.2rem .55rem"><i class="fas fa-hashtag me-1"></i>Trx</button>
+          <button type="button" class="btn btn-outline-dark" data-metric="value" style="font-size:.7rem;padding:.2rem .55rem"><i class="fas fa-coins me-1"></i>Omzet</button>
+        </div>
+      </div>
+      <div class="card-body">
+        {% set hourly_date_s = hourly_date|default(today_s, true) %}
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          <span class="text-muted" style="font-size:.72rem;font-weight:600;white-space:nowrap"><i class="fas fa-code-compare me-1"></i>Bandingkan tanggal:</span>
+          <div id="hourlyDateList" class="d-flex flex-wrap align-items-center gap-2"></div>
+          <button type="button" id="hourlyAddDate" class="btn btn-sm btn-outline-secondary px-2" title="Tambah tanggal (maks 7)">
+            <i class="fas fa-plus"></i>
+          </button>
+          <button type="button" id="hourlyCompareBtn" class="btn btn-sm btn-dark px-3">
+            <i class="fas fa-magnifying-glass-chart me-1"></i>Tampilkan
+          </button>
+          <button type="button" id="hourlyResetBtn" class="btn btn-sm btn-link text-muted px-1 text-decoration-none" title="Reset ke hari terpilih">Reset</button>
+        </div>
+        <canvas id="chartHourly" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-credit-card" style="color:var(--ink)"></i>
+        <h6 class="mp-section-title">Metode Bayar (Periode)</h6>
+      </div>
+      <div class="card-body d-flex align-items-center gap-3">
+        <div style="height:170px;width:170px;flex-shrink:0">
+          <canvas id="chartPay"></canvas>
+        </div>
+        <div style="flex:1;min-width:0;font-size:.78rem">
+          {% for m, v in pay_split.items() %}
+          <div class="py-1" style="border-bottom:1px dashed var(--bdr-md)">
+            <div class="d-flex justify-content-between">
+              <strong style="color:var(--tx)">{{ m }}</strong>
+              <span class="text-rp fw-semibold">{{ v.v|rp }}</span>
+            </div>
+            <div class="text-muted" style="font-size:.7rem">{{ v.c }} transaksi</div>
+          </div>
+          {% else %}
+          <div class="text-muted py-3">Belum ada transaksi di periode ini.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ CHART ROW 2 ═════════ -->
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+        <i class="fas fa-chart-area" style="color:var(--ink)"></i>
+        <h6 class="mp-section-title">Trend Omzet (Periode)</h6>
+        <span class="ms-auto text-muted" style="font-size:.72rem">
+          <i class="fas fa-calendar-day me-1"></i>{{ date_from }} s/d {{ date_to }}
+          {% if trend_is_weekly %}<span class="badge ms-1" style="font-size:.6rem;background:#0ea5e9;color:#fff">agregat mingguan</span>{% endif %}
+        </span>
+      </div>
+      <div class="card-body">
+        <canvas id="chartTrend" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-12 col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-trophy" style="color:var(--ink)"></i>
+        <h6 class="mp-section-title">Top Kasir (Periode)</h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="mp-table">
+          <thead>
+            <tr><th>#</th><th>Kasir</th><th class="text-end">Trx</th><th class="text-end">Omzet</th></tr>
+          </thead>
+          <tbody>
+          {% for k in top_kasir %}
+            <tr>
+              <td class="text-muted">{{ loop.index }}</td>
+              <td class="fw-semibold mp-kasir-name">
+                {% if loop.index == 1 %}<i class="fas fa-crown me-1" style="color:#f59e0b"></i>{% endif %}
+                {{ k.kasir }}
+              </td>
+              <td class="text-end">{{ k.jml }}</td>
+              <td class="text-end text-rp fw-semibold">{{ k.omzet|rp }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">Belum ada transaksi.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ TOP PRODUK (day + range view) ═════════ -->
+{# Top Produk & Daftar Transaksi tampil untuk semua periode (sinkron dengan KPI) #}
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-box-open" style="color:var(--ink)"></i>
+        <h6 class="mp-section-title">Top Produk Terjual (Periode)</h6>
+        <span class="ms-auto text-muted" style="font-size:.72rem">via POS</span>
+      </div>
+      <div class="card-body p-0">
+        {% if top_produk_day %}
+        <table class="mp-table">
+          <thead><tr><th>#</th><th>Produk</th><th class="text-end">Qty</th><th class="text-end">Est. Revenue</th></tr></thead>
+          <tbody>
+          {% for p in top_produk_day %}
+            <tr>
+              <td class="text-muted">{{ loop.index }}</td>
+              <td>
+                {% if loop.index == 1 %}<i class="fas fa-fire me-1" style="color:#ef4444;font-size:.7rem"></i>{% endif %}
+                <span class="fw-semibold mp-kasir-name">{{ p.nama }}</span>
+              </td>
+              <td class="text-end">{{ p.qty|qty }} <small class="text-muted">{{ p.satuan }}</small></td>
+              <td class="text-end text-rp fw-semibold">{{ p.est_revenue|rp }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="text-center text-muted py-4" style="font-size:.85rem">Belum ada penjualan produk hari ini.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════ DAFTAR TRANSAKSI HARIAN ═════════ -->
+  <div class="col-12 col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-list-check" style="color:var(--ink)"></i>
+        <h6 class="mp-section-title">Semua Transaksi</h6>
+        <span class="ms-auto text-muted" style="font-size:.72rem">{{ daily_transactions|length }} transaksi</span>
+      </div>
+      <div class="card-body p-0" style="max-height:340px;overflow-y:auto">
+        {% if daily_transactions %}
+        <table class="mp-table">
+          <thead style="position:sticky;top:0;background:var(--card);z-index:1">
+            <tr>
+              <th>Struk</th>
+              <th>Tgl / Jam</th>
+              <th>Kasir</th>
+              <th>Metode</th>
+              <th class="text-end">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for t in daily_transactions %}
+            <tr>
+              <td style="font-size:.75rem;font-family:monospace">{{ t.nomor_struk }}</td>
+              <td class="text-muted" style="font-size:.72rem;white-space:nowrap">
+                {{ t.tanggal }}<br><span style="opacity:.7">{{ t.dibuat|jam('jam') or '-' }}</span>
+              </td>
+              <td class="fw-semibold" style="font-size:.8rem">{{ t.kasir_nama or '-' }}</td>
+              <td>
+                <span class="badge {% if t.metode_bayar == 'TUNAI' %}bg-success{% elif t.metode_bayar == 'REKENING' %}bg-primary{% else %}bg-warning{% endif %}" style="font-size:.62rem;{% if t.metode_bayar not in ('TUNAI','REKENING') %}color:#fff{% endif %}">
+                  {{ t.metode_bayar }}
+                </span>
+              </td>
+              <td class="text-end text-rp fw-semibold">{{ t.total|rp }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="text-center text-muted py-4" style="font-size:.85rem">Belum ada transaksi pada periode ini.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ SHIFT JADWAL (ringkas; daftar lengkapnya di halaman sendiri) ═════════ -->
+{# Dulu seluruh daftar shift ditumpuk di sini. Di kedai yang ramai (banyak shift per
+   hari) tabelnya jadi panjang sekali dan menutupi panel setelan di bawahnya, jadi
+   sekarang cukup ringkasan + tombol ke halaman khusus yang sudah berpaginasi. #}
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+    <i class="fas fa-calendar-day" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Jadwal Shift Kasir</h6>
+    <a href="{{ url_for('pos_master_shift') }}" class="btn btn-sm btn-dark ms-auto">
+      <i class="fas fa-list-ul me-1"></i>Lihat Jadwal Shift
+    </a>
+  </div>
+  <div class="card-body">
+    <div class="d-flex flex-wrap gap-4 align-items-center" style="font-size:.85rem">
+      <div>
+        <div class="text-muted" style="font-size:.72rem">SEDANG OPEN</div>
+        <div class="fw-bold" style="font-size:1.15rem">{{ open_shifts_cnt }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.72rem">SHIFT HARI INI</div>
+        <div class="fw-bold" style="font-size:1.15rem">{{ shift_hari_ini }}</div>
+      </div>
+      <div>
+        <div class="text-muted" style="font-size:.72rem">TOTAL SHIFT TERCATAT</div>
+        <div class="fw-bold" style="font-size:1.15rem">{{ shift_total }}</div>
+      </div>
+      <div class="text-muted ms-auto" style="font-size:.78rem;max-width:420px;line-height:1.5">
+        Riwayat buka tutup kasir, jumlah transaksi, omzet, dan selisih kas per shift
+        ada di halaman Jadwal Shift.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ FORMASI KASIR ═════════ -->
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-users" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Formasi Kasir (Daftar Akun KASIR)</h6>
+    <span class="text-muted" style="font-size:.72rem">{{ kasir_users|length }} akun</span>
+    <button type="button" class="mp-add-kasir-btn ms-auto" data-bs-toggle="modal" data-bs-target="#modalTambahKasir">
+      <i class="fas fa-user-plus"></i> Tambah Kasir
+    </button>
+  </div>
+  <div class="card-body p-0">
+    <table class="mp-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Username</th>
+          <th>Nama</th>
+          <th>Status</th>
+          <th class="text-end" style="width:120px">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for u in kasir_users %}
+        <tr>
+          <td class="text-muted">{{ loop.index }}</td>
+          <td class="fw-semibold mp-kasir-name"><i class="fas fa-user me-1 text-muted"></i>{{ u.username }}</td>
+          <td class="mp-kasir-name">{{ u.nama }}</td>
+          <td>
+            {% if u.aktif %}
+              <span class="mp-shift-pill mp-shift-open">Aktif</span>
+            {% else %}
+              <span class="mp-shift-pill mp-shift-closed">Nonaktif</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <form method="POST" action="{{ url_for('pos_master_toggle_kasir', uid=u.id) }}" style="display:inline"
+                  onsubmit="return confirm('{% if u.aktif %}Nonaktifkan{% else %}Aktifkan{% endif %} kasir {{ u.username }}?')">
+              <button class="btn btn-xs {% if u.aktif %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                {% if u.aktif %}<i class="fas fa-pause"></i> Non-aktif{% else %}<i class="fas fa-play"></i> Aktifkan{% endif %}
+              </button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Belum ada kasir. Klik <strong>Tambah Kasir</strong> di pojok kanan atas tabel ini.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═════════ TAMPILAN KASIR ═════════ -->
+<div class="card mb-4" id="card-tampilan-kasir">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-display" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Tampilan Kasir</h6>
+    <span class="text-muted ms-2" style="font-size:.72rem">Ukuran kartu produk &amp; mode ikon di halaman POS Kasir</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('pos_master_tampilan') }}">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold mb-2">
+            <i class="fas fa-table-cells me-1 text-muted"></i>Ukuran Kartu Produk
+          </label>
+          <div class="btn-group w-100" role="group" aria-label="Ukuran kartu produk">
+            <input type="radio" class="btn-check" name="pos_menu_size" id="sizeSmall" value="small"
+                   {% if pos_menu_size == 'small' %}checked{% endif %}>
+            <label class="btn btn-outline-dark" for="sizeSmall">
+              <i class="fas fa-compress me-1"></i>Kecil
+              <div style="font-size:.65rem;opacity:.7;font-weight:400">Padat, banyak item</div>
+            </label>
+            <input type="radio" class="btn-check" name="pos_menu_size" id="sizeMedium" value="medium"
+                   {% if pos_menu_size == 'medium' %}checked{% endif %}>
+            <label class="btn btn-outline-dark" for="sizeMedium">
+              <i class="fas fa-grip me-1"></i>Sedang
+              <div style="font-size:.65rem;opacity:.7;font-weight:400">Seimbang (default)</div>
+            </label>
+            <input type="radio" class="btn-check" name="pos_menu_size" id="sizeLarge" value="large"
+                   {% if pos_menu_size == 'large' %}checked{% endif %}>
+            <label class="btn btn-outline-dark" for="sizeLarge">
+              <i class="fas fa-expand me-1"></i>Besar
+              <div style="font-size:.65rem;opacity:.7;font-weight:400">Layar sentuh</div>
+            </label>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold mb-2">
+            <i class="fas fa-icons me-1 text-muted"></i>Mode Ikon Produk
+          </label>
+          <div class="btn-group w-100" role="group" aria-label="Mode ikon produk">
+            <input type="radio" class="btn-check" name="pos_icon_mode" id="iconInitial" value="initial"
+                   {% if pos_icon_mode == 'initial' %}checked{% endif %}>
+            <label class="btn btn-outline-dark" for="iconInitial">
+              <i class="fas fa-font me-1"></i>Inisial Nama
+              <div style="font-size:.65rem;opacity:.7;font-weight:400">contoh: <strong>KO</strong> (Kopi)</div>
+            </label>
+            <input type="radio" class="btn-check" name="pos_icon_mode" id="iconCode" value="code"
+                   {% if pos_icon_mode == 'code' %}checked{% endif %}>
+            <label class="btn btn-outline-dark" for="iconCode">
+              <i class="fas fa-barcode me-1"></i>Kode Produk
+              <div style="font-size:.65rem;opacity:.7;font-weight:400">contoh: <strong>P001</strong></div>
+            </label>
+
+          </div>
+        </div>
+        <div class="col-12 d-flex justify-content-end pt-2">
+          <button type="submit" class="btn btn-dark">
+            <i class="fas fa-save me-1"></i>Simpan Tampilan Kasir
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═════════ KUNCI DISKON ═════════ -->
+<div class="card mb-4" id="card-kunci-diskon">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-lock" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Kunci Diskon Nota</h6>
+    <span class="text-muted ms-2" style="font-size:.72rem">Cegah kasir memberi diskon sembarangan tanpa izin supervisor</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('pos_master_diskon') }}">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-5">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="pos_diskon_lock" id="diskonLockSw"
+                   {% if pos_diskon_lock %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="diskonLockSw">Aktifkan kunci diskon</label>
+          </div>
+          <div class="form-text" style="font-size:.72rem">
+            Saat aktif, field Diskon Nota di kasir terkunci. Kasir harus menekan
+            "Buka Diskon" dan memasukkan PIN supervisor untuk memberi diskon.
+          </div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold mb-1">
+            <i class="fas fa-key me-1 text-muted"></i>PIN Supervisor
+            {% if pos_diskon_has_pin %}<span class="badge bg-success ms-1" style="font-size:.6rem">Sudah diset</span>{% else %}<span class="badge bg-secondary ms-1" style="font-size:.6rem">Belum diset</span>{% endif %}
+          </label>
+          <input type="text" inputmode="numeric" name="pos_diskon_pin" class="form-control" maxlength="8"
+                 placeholder="{% if pos_diskon_has_pin %}Isi untuk ganti (4-8 digit){% else %}4-8 digit angka{% endif %}"
+                 autocomplete="off">
+          <div class="form-text" style="font-size:.7rem">Kosongkan kalau tidak ingin mengubah PIN.</div>
+        </div>
+        <div class="col-md-3">
+          {% if pos_diskon_has_pin %}
+          <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="pos_diskon_pin_hapus" id="diskonPinHapus">
+            <label class="form-check-label" for="diskonPinHapus" style="font-size:.78rem">Hapus PIN</label>
+          </div>
+          {% endif %}
+          <button type="submit" class="btn btn-dark w-100">
+            <i class="fas fa-save me-1"></i>Simpan
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═════════ KONTROL STOK ═════════ -->
+<div class="card mb-4" id="card-stok-minus">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-boxes-stacked" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Kontrol Stok Kasir</h6>
+    <span class="text-muted ms-2" style="font-size:.72rem">Atur apakah kasir boleh menjual barang yang stoknya habis</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('pos_master_stok') }}">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-8">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" name="pos_block_minus" id="blockMinusSw"
+                   {% if pos_block_minus %}checked{% endif %}>
+            <label class="form-check-label fw-semibold" for="blockMinusSw">Blokir penjualan saat stok tidak cukup</label>
+          </div>
+          <div class="form-text" style="font-size:.72rem">
+            Nonaktif (bawaan): kasir tetap bisa checkout walau stok habis, transaksi tersimpan
+            dan sistem hanya memberi pengingat stok minus setelahnya. Cocok untuk usaha yang
+            menerima order dulu baru melengkapi barang.<br>
+            Aktif: checkout ditolak bila stok produk atau bahan resep tidak mencukupi. Kasir harus
+            menambah stok lewat menu Pembelian atau Produksi lebih dulu.
+          </div>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-dark w-100">
+            <i class="fas fa-save me-1"></i>Simpan
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═════════ TAMPILAN ITEM KASIR ═════════ -->
+<div class="card mb-4" id="card-show-mode">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-table-cells-large" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Tampilan Item di Kasir</h6>
+    <span class="text-muted ms-2" style="font-size:.72rem">Pilih apa yang muncul di grid kasir: barang jadi, racikan, atau keduanya</span>
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('pos_master_show_mode') }}">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-8">
+          <label class="form-label fw-semibold mb-1" for="showModeSel">Item yang ditampilkan</label>
+          <select name="pos_show_mode" id="showModeSel" class="form-select">
+            <option value="both"   {% if pos_show_mode == 'both' %}selected{% endif %}>Barang jadi + Racikan (keduanya)</option>
+            <option value="produk" {% if pos_show_mode == 'produk' %}selected{% endif %}>Barang jadi saja</option>
+            <option value="resep"  {% if pos_show_mode == 'resep' %}selected{% endif %}>Racikan / produksi saja</option>
+          </select>
+          <div class="form-text" style="font-size:.72rem">
+            Pilih <strong>Racikan / produksi saja</strong> untuk usaha yang menjual hasil racikan buatan sendiri
+            (mis. FnB made-to-order) dan tidak perlu memperlihatkan barang jadi di kasir. Pengaturan ini hanya
+            mengatur tampilan; produk dan resep tetap tersimpan seperti biasa.
+          </div>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-dark w-100">
+            <i class="fas fa-save me-1"></i>Simpan
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═════════ KATEGORI DI KASIR ═════════ -->
+<div class="card mb-4" id="card-kategori">
+  <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+    <i class="fas fa-layer-group" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Kategori di Kasir</h6>
+    <span class="text-muted ms-2" style="font-size:.72rem">Sembunyikan satu kategori penuh sekaligus, tanpa mengatur produk satu per satu</span>
+    {% if n_kategori_hidden %}
+    <span class="badge bg-secondary ms-auto">{{ n_kategori_hidden }} disembunyikan</span>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% if kategori_list %}
+    <form method="POST" action="{{ url_for('pos_master_kategori') }}">
+      <div class="text-muted mb-3" style="font-size:.78rem">
+        Hilangkan centang untuk menyembunyikan kategori dari layar kasir. Cocok untuk kategori
+        yang bukan barang dagangan, misalnya <strong>Bahan Baku</strong>. Produk baru yang masuk ke
+        kategori tersembunyi ikut tidak tampil, jadi tidak perlu diatur ulang setiap menambah barang.
+        Ini hanya mengatur tampilan kasir: stok, harga, dan laporan tetap berjalan seperti biasa.
+      </div>
+      <div class="row g-2">
+        {% for k in kategori_list %}
+        <div class="col-md-6 col-lg-4">
+          <div class="form-check p-2 rounded border {% if not k.tampil %}bg-light{% endif %}"
+               style="border-color:var(--bdr,#e2e2e0)!important">
+            <input class="form-check-input kat-cb" type="checkbox" name="kategori_tampil"
+                   value="{{ k.nama }}" id="kat{{ loop.index }}" {% if k.tampil %}checked{% endif %}>
+            <input type="hidden" name="kategori_all" value="{{ k.nama }}">
+            <label class="form-check-label d-flex align-items-center gap-2 w-100" for="kat{{ loop.index }}">
+              <span class="fw-semibold text-truncate">{{ k.nama }}</span>
+              <span class="text-muted ms-auto" style="font-size:.72rem;white-space:nowrap">{{ k.n }} item</span>
+            </label>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="d-flex align-items-center gap-2 mt-3 flex-wrap">
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="katSetAll(true)">Tampilkan semua</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="katSetAll(false)">Sembunyikan semua</button>
+        <button type="submit" class="btn btn-dark ms-auto">
+          <i class="fas fa-save me-1"></i>Simpan Kategori
+        </button>
+      </div>
+    </form>
+    <script>
+    function katSetAll(on){
+      var cbs = document.querySelectorAll('.kat-cb');
+      for (var i = 0; i < cbs.length; i++) { cbs[i].checked = on; }
+    }
+    </script>
+    {% else %}
+    <div class="text-muted" style="font-size:.8rem">
+      Belum ada kategori. Isi kolom <strong>Kategori</strong> saat menambah produk di menu Stok
+      (atau saat menyimpan racikan di menu Produksi), lalu kategorinya akan muncul di sini.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ═════════ PRODUK POS (LANJUTAN) ═════════ -->
+<div class="card mb-4" id="card-produk-lanjutan">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-sliders" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Produk POS (Lanjutan)</h6>
+    <span class="text-muted ms-2" style="font-size:.72rem">Pilih produk yang tampil di kasir &amp; atur beberapa harga per produk</span>
+    <a href="{{ url_for('pos_master_produk') }}" class="btn btn-sm btn-dark ms-auto">
+      <i class="fas fa-sliders me-1"></i>Buka Pengaturan</a>
+  </div>
+  <div class="card-body py-3">
+    <div class="text-muted" style="font-size:.8rem">
+      Di sini Anda bisa menyembunyikan produk tertentu dari layar kasir, dan mengaktifkan
+      <strong>beberapa harga per produk</strong> (mis. Grosir / Member). Pengaturan harga patokan
+      dan stok tetap di menu Stok seperti biasa, jadi yang belum butuh fitur ini tidak perlu berubah.
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ VOUCHER ═════════ -->
+<div class="card mb-4" id="card-voucher">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-ticket" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Voucher Diskon</h6>
+    <span class="text-muted ms-2" style="font-size:.72rem">Kode promo yang bisa dipakai kasir untuk memberi diskon terotorisasi</span>
+    <a href="/pos/voucher" class="btn btn-sm btn-dark ms-auto"><i class="fas fa-ticket me-1"></i>Kelola Voucher</a>
+  </div>
+  <div class="card-body py-3">
+    <div class="text-muted" style="font-size:.8rem">
+      Buat kode voucher (nominal atau persen) dengan minimal belanja, kuota, dan masa berlaku.
+      Kasir cukup ketik kodenya di halaman POS; potongan voucher otomatis sah tanpa perlu PIN supervisor.
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ QUICK SETTINGS ═════════ -->
+{% if session.role == 'ADMIN' %}
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-sliders" style="color:var(--ink)"></i>
+    <h6 class="mp-section-title">Setting POS</h6>
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <a href="{{ url_for('settings') }}#card-default-pos" class="text-decoration-none">
+          <div class="p-3 rounded-3 h-100" style="background:var(--card-h);border:1px solid var(--bdr-md);transition:transform .15s var(--ease-out)" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+            <div class="fw-bold mb-1" style="color:var(--tx)"><i class="fas fa-credit-card me-2 text-warning"></i>Default Metode Bayar</div>
+            <div class="text-muted" style="font-size:.78rem">Atur metode bayar yang otomatis terpilih saat kasir membuka checkout.</div>
+          </div>
+        </a>
+      </div>
+      <div class="col-md-6">
+        <a href="{{ url_for('settings') }}#card-struk-pos" class="text-decoration-none">
+          <div class="p-3 rounded-3 h-100" style="background:var(--card-h);border:1px solid var(--bdr-md)">
+            <div class="fw-bold mb-1" style="color:var(--tx)"><i class="fas fa-receipt me-2 text-warning"></i>Custom Struk POS</div>
+            <div class="text-muted" style="font-size:.78rem">Nama, alamat, telepon, header/footer struk, ukuran kartu, dan mode ikon produk.</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════ MODAL TAMBAH KASIR ═════════ -->
+{% endif %}
+<div class="modal fade" id="modalTambahKasir" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{{ url_for('pos_master_tambah_kasir') }}" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i>Tambah Akun Kasir Baru</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted" style="font-size:.82rem">
+          Akun yang dibuat di sini otomatis ber-role <strong>KASIR</strong> dengan hak akses
+          hanya untuk <strong>POS Kasir</strong> (tidak bisa membuka halaman Finance / akuntansi).
+        </p>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+          <input type="text" name="username" class="form-control" required autocomplete="off" placeholder="contoh: kasir01">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Nama Lengkap</label>
+          <input type="text" name="nama" class="form-control" placeholder="Nama kasir (opsional, dipakai di struk)">
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+          <input type="password" name="password" class="form-control" required minlength="4" placeholder="Min. 4 karakter">
+        </div>
+        <div class="form-text"><i class="fas fa-circle-info me-1"></i>Bagikan password ke kasir lewat kanal yang aman. Kasir bisa login di <code>/pos/login</code>.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="submit" class="btn btn-dark"><i class="fas fa-user-plus me-1"></i>Tambah Kasir</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  if(typeof Chart === 'undefined'){ console.error('Chart.js belum termuat'); return; }
+  const ink   = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim() || '#0A0A0A';
+  const gray  = getComputedStyle(document.documentElement).getPropertyValue('--gray-400').trim() || '#A0A0A0';
+  const grayD = getComputedStyle(document.documentElement).getPropertyValue('--gray-200').trim() || '#E2E2E0';
+  const txt   = getComputedStyle(document.documentElement).getPropertyValue('--tx').trim() || '#0A0A0A';
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const barColor = isDark ? '#ffffff' : ink;
+  const gridColor = isDark ? 'rgba(255,255,255,.08)' : 'rgba(10,10,10,.08)';
+  Chart.defaults.color = txt;
+  Chart.defaults.borderColor = gridColor;
+  Chart.defaults.font.family = "Montserrat, system-ui, sans-serif";
+
+  // 1) Orderan per jam — bandingkan 1–7 tanggal, toggle metrik Trx/Omzet
+  (function(){
+    const canvas = document.getElementById('chartHourly');
+    if(!canvas) return;
+    const HOURS = {{ hourly_labels|tojson }};
+    const hourLabels = HOURS.map(h => String(h).padStart(2,'0')+':00');
+    const palette  = ['#0A0A0A','#16a34a','#2563eb','#f59e0b','#dc2626','#9333ea','#0891b2'];
+    const paletteD = ['#ffffff','#4ade80','#60a5fa','#fbbf24','#f87171','#c084fc','#22d3ee'];
+    const colors = isDark ? paletteD : palette;
+    const todayS = '{{ today_s }}';
+    const seedDate = '{{ hourly_date_s }}' || todayS;
+    const cmpUrl = '{{ url_for("pos_master_hourly_compare") }}';
+    const seedSeries = [{ date: seedDate, count: {{ hourly_count|tojson }}, value: {{ hourly_value|tojson }} }];
+    const MAX = 7;
+    let chart = null;
+    let lastSeries = seedSeries;
+    let metric = 'count';   // 'count' | 'value'
+    const fmtRp = (v)=> 'Rp '+(+v||0).toLocaleString('id-ID');
+    const fmtRpShort = (v)=>{
+      v = +v || 0; const a = Math.abs(v);
+      if(a >= 1e9) return 'Rp '+(v/1e9).toFixed(a%1e9 ? 1 : 0)+'M';
+      if(a >= 1e6) return 'Rp '+(v/1e6).toFixed(a%1e6 ? 1 : 0)+'jt';
+      if(a >= 1e3) return 'Rp '+Math.round(v/1e3)+'rb';
+      return 'Rp '+v;
+    };
+
+    function render(series){
+      if(!series || !series.length) return;
+      lastSeries = series;
+      const multi = series.length > 1;
+      const isCount = metric === 'count';
+      const mainLabel = isCount ? 'Jumlah Orderan' : 'Omzet';
+      const datasets = series.map((s, i) => {
+        const col = colors[i % colors.length];
+        const data = isCount ? (s.count || []) : (s.value || []);
+        const alt  = isCount ? (s.value || []) : (s.count || []);
+        const base = { label: multi ? s.date : (mainLabel+' ('+s.date+')'),
+                       data, _alt: alt };
+        return multi
+          ? Object.assign(base, { borderColor: col, backgroundColor: col, tension:.3,
+                                  borderWidth:2, pointRadius:2, pointHoverRadius:5, fill:false })
+          : Object.assign(base, { backgroundColor: col, borderRadius:4 });
+      });
+      if(chart) chart.destroy();
+      chart = new Chart(canvas, {
+        type: multi ? 'line' : 'bar',
+        data: { labels: hourLabels, datasets },
+        options: {
+          interaction: { mode:'index', intersect:false },
+          plugins:{
+            legend:{ display:multi, position:'top', labels:{boxWidth:12,font:{size:10}} },
+            tooltip:{ callbacks:{
+              label:(ctx)=>{ const v=ctx.parsed.y; const lbl=ctx.dataset.label||'';
+                             return lbl+': '+(isCount ? v : fmtRp(v)); },
+              afterLabel:(ctx)=>{ const v=(ctx.dataset._alt||[])[ctx.dataIndex]||0;
+                                  return isCount ? ('Omzet: '+fmtRp(v)) : ('Trx: '+v); }
+            }}
+          },
+          scales:{
+            y:{ beginAtZero:true, ticks: isCount ? {precision:0} : {callback:(v)=>fmtRpShort(v)} },
+            x:{ ticks:{font:{size:10}} }
+          }
+        }
+      });
+    }
+
+    try { render(seedSeries); } catch(e){ console.error('chartHourly error', e); }
+
+    // ── toggle metrik Trx/Omzet ──
+    const metricGrp = document.getElementById('hourlyMetricGroup');
+    if(metricGrp){
+      metricGrp.addEventListener('click', (e)=>{
+        const btn = e.target.closest('[data-metric]');
+        if(!btn) return;
+        const m = btn.dataset.metric;
+        if(m === metric) return;
+        metric = m;
+        metricGrp.querySelectorAll('[data-metric]').forEach(b =>
+          b.classList.toggle('active', b.dataset.metric === metric));
+        render(lastSeries);
+      });
+    }
+
+    // ── kontrol bandingkan tanggal ──
+    const list   = document.getElementById('hourlyDateList');
+    const addBtn = document.getElementById('hourlyAddDate');
+    const cmpBtn = document.getElementById('hourlyCompareBtn');
+    const rstBtn = document.getElementById('hourlyResetBtn');
+    if(!list || !addBtn || !cmpBtn) return;
+
+    function refreshState(){
+      addBtn.disabled = list.children.length >= MAX;
+      const single = list.children.length <= 1;
+      list.querySelectorAll('[data-rm]').forEach(b => b.style.display = single ? 'none' : '');
+    }
+    function addRow(val){
+      if(list.children.length >= MAX) return;
+      const wrap = document.createElement('span');
+      wrap.className = 'd-inline-flex align-items-center gap-1';
+      const inp = document.createElement('input');
+      inp.type='date'; inp.className='form-control form-control-sm'; inp.style.width='148px';
+      inp.max = todayS; inp.value = val || todayS;
+      const rm = document.createElement('button');
+      rm.type='button'; rm.className='btn btn-sm btn-outline-danger px-2'; rm.setAttribute('data-rm','1');
+      rm.innerHTML='<i class="fas fa-times"></i>';
+      rm.addEventListener('click', ()=>{ wrap.remove(); refreshState(); });
+      wrap.appendChild(inp); wrap.appendChild(rm);
+      list.appendChild(wrap);
+      refreshState();
+    }
+    const pickedDates = ()=> Array.from(list.querySelectorAll('input')).map(i=>i.value).filter(Boolean);
+
+    addBtn.addEventListener('click', ()=> addRow(todayS));
+    cmpBtn.addEventListener('click', ()=>{
+      const ds = pickedDates();
+      if(!ds.length) return;
+      cmpBtn.disabled = true;
+      fetch(cmpUrl + '?dates=' + encodeURIComponent(ds.join(',')))
+        .then(r=>r.json()).then(d=> render(d.series))
+        .catch(e=> console.error('hourly-compare', e))
+        .finally(()=>{ cmpBtn.disabled=false; });
+    });
+    if(rstBtn) rstBtn.addEventListener('click', ()=>{
+      list.innerHTML=''; addRow(seedDate); try { render(seedSeries); } catch(e){}
+    });
+
+    addRow(seedDate);
+    refreshState();
+  })();
+
+  // 2) Metode bayar — doughnut
+  try {
+    const payLabels = {{ pay_split.keys()|list|tojson }};
+    const payValues = [{% for m,v in pay_split.items() %}{{ v.v }}{{ ',' if not loop.last }}{% endfor %}];
+    if (payLabels.length) {
+      new Chart(document.getElementById('chartPay'), {
+        type: 'doughnut',
+        data: {
+          labels: payLabels,
+          datasets: [{
+            data: payValues,
+            backgroundColor: [barColor, '#9ca3af', '#fbbf24', '#34d399'],
+            borderWidth: 0,
+          }]
+        },
+        options: { maintainAspectRatio:false, plugins:{legend:{display:false}}, cutout:'65%' }
+      });
+    }
+  } catch(e){ console.error('chartPay error', e); }
+
+  // 3) Trend — bar chart, mengikuti periode yang dipilih (sama dengan KPI di atas)
+  try {
+    const labels = {{ trend_labels|tojson }};
+    const values = {{ trend_value|tojson }};
+    const counts = {{ trend_count|tojson }};
+    new Chart(document.getElementById('chartTrend'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Omzet',
+          data: values,
+          backgroundColor: '#16a34a',
+          borderRadius: 4,
+          borderSkipped: false,
+          maxBarThickness: 48,
+        }]
+      },
+      options: {
+        responsive:true,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{
+            label:(ctx)=> 'Rp '+(ctx.parsed.y||0).toLocaleString('id-ID')+'  ('+(counts[ctx.dataIndex]||0)+' trx)'
+          }}
+        },
+        scales:{
+          x:{ ticks:{font:{size:10}, maxRotation:60, minRotation:0, autoSkip:true} },
+          y:{ beginAtZero:true, ticks:{callback:(v)=>'Rp '+(v||0).toLocaleString('id-ID'), font:{size:10}} }
+        }
+      }
+    });
+  } catch(e){ console.error('chartTrend error', e); }
+})();
+
+// ── Date Range Picker untuk filter periode rentang kustom ──
+(function(){
+  const BLN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const HRN=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  let _s=null,_e=null,_h=null,_sel=false,_ly,_lm,_panel=null;
+
+  function z(n){return String(n).padStart(2,'0');}
+  function ymd(d){return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
+  function fromYMD(s){if(!s)return null;const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);}
+  function disp(d){if(!d)return'';return d.getDate()+' '+BLN[d.getMonth()].slice(0,3)+' '+d.getFullYear();}
+
+  function mkPresets(){
+    const t=new Date();t.setHours(0,0,0,0);
+    function ago(n){const d=new Date(t);d.setDate(d.getDate()-n);return d;}
+    function sow(d){const r=new Date(d);const w=r.getDay();r.setDate(r.getDate()-(w===0?6:w-1));return r;}
+    function som(d){return new Date(d.getFullYear(),d.getMonth(),1);}
+    function eom(d){return new Date(d.getFullYear(),d.getMonth()+1,0);}
+    const lms=new Date(t.getFullYear(),t.getMonth()-1,1);
+    const lw=sow(ago(7));const lwe=new Date(lw);lwe.setDate(lwe.getDate()+6);
+    const earliest=fromYMD('{{ earliest_pos_s }}')||t;
+    return[
+      {l:'Hari Ini',s:t,e:t},
+      {l:'Kemarin',s:ago(1),e:ago(1)},
+      {l:'7 Hari Terakhir',s:ago(6),e:t},
+      {l:'14 Hari Terakhir',s:ago(13),e:t},
+      {l:'30 Hari Terakhir',s:ago(29),e:t},
+      {l:'Minggu Ini',s:sow(t),e:t},
+      {l:'Minggu Lalu',s:lw,e:lwe},
+      {l:'Bulan Ini',s:som(t),e:t},
+      {l:'Bulan Lalu',s:lms,e:eom(lms)},
+      {l:'Tahun Ini',s:new Date(t.getFullYear(),0,1),e:t},
+      {l:'★ Semua Data POS',s:earliest,e:t},
+    ];
+  }
+  const PS=mkPresets();
+
+  function activePI(){
+    if(!_s||!_e)return-1;
+    return PS.findIndex(p=>ymd(p.s)===ymd(_s)&&ymd(p.e)===ymd(_e));
+  }
+
+  function calCells(y,m){
+    const first=new Date(y,m,1).getDay(),total=new Date(y,m+1,0).getDate(),cells=[];
+    for(let i=0;i<first;i++)cells.push(null);
+    for(let d=1;d<=total;d++)cells.push(new Date(y,m,d));
+    return cells;
+  }
+
+  function dayClass(d){
+    const today=new Date();today.setHours(0,0,0,0);
+    let cls='drp2-day';
+    if(d.getTime()===today.getTime())cls+=' drp2-today';
+    if(_s&&ymd(d)===ymd(_s))cls+=' drp2-sel-s';
+    if(_e&&ymd(d)===ymd(_e))cls+=' drp2-sel-e';
+    if(_s&&_e){const lo=_s<_e?_s:_e,hi=_s<_e?_e:_s;if(d>lo&&d<hi)cls+=' drp2-in-range';}
+    if(_sel&&_s&&!_e&&_h){
+      const lo=_s<_h?_s:_h,hi=_s<_h?_h:_s;
+      if(d>=lo&&d<=hi){
+        if(ymd(d)===ymd(_s))cls=(cls+' drp2-sel-s').replace(' drp2-in-range','').replace(' drp2-hover-range','');
+        else if(ymd(d)===ymd(_h))cls+=' drp2-sel-e';
+        else cls+=' drp2-hover-range';
+      }
+    }
+    return cls;
+  }
+
+  function renderMo(y,m,isLeft){
+    const cells=calCells(y,m);
+    const MIN_YR=new Date().getFullYear()-10,MAX_YR=new Date().getFullYear();
+    const yrOpts=Array.from({length:MAX_YR-MIN_YR+1},(_,i)=>{const yr=MIN_YR+i;return`<option value="${yr}"${yr===y?' selected':''} >${yr}</option>`;}).join('');
+    return`<div class="drp2-month">
+      <div class="drp2-mhdr">
+        ${isLeft?`<button class="drp2-mnav" id="drp2Prev">&#8249;</button>`:'<span></span>'}
+        <div class="drp2-mtitle">${BLN[m]} <select class="drp2-yr-sel" id="${isLeft?'drp2YrL':'drp2YrR'}">${yrOpts}</select></div>
+        ${isLeft?`<button class="drp2-mnav" id="drp2Next">&#8250;</button>`:'<span></span>'}
+      </div>
+      <div class="drp2-daynames">${HRN.map(h=>`<div>${h}</div>`).join('')}</div>
+      <div class="drp2-grid">${cells.map(d=>d?`<div class="${dayClass(d)}" data-dt="${ymd(d)}">${d.getDate()}</div>`:'<div class="drp2-empty"></div>').join('')}</div>
+    </div>`;
+  }
+
+  function renderPanel(){
+    const ap=activePI(),rm=_lm===11?0:_lm+1,ry=_lm===11?_ly+1:_ly;
+    return`<div class="drp2-sidebar">
+        <div class="drp2-stitle">Pilih Cepat</div>
+        ${PS.map((p,i)=>`<div class="drp2-preset${i===ap?' drp2-active':''}" data-pi="${i}">${p.l}</div>`).join('')}
+      </div>
+      <div class="drp2-right">
+        <div class="drp2-cals">${renderMo(_ly,_lm,true)}${renderMo(ry,rm,false)}</div>
+        <div class="drp2-foot">
+          <div class="d-flex align-items-center gap-2">
+            <input id="drp2InS" class="drp2-inp" value="${disp(_s)}" placeholder="Tanggal awal" readonly>
+            <span class="drp2-sep">→</span>
+            <input id="drp2InE" class="drp2-inp" value="${disp(_e)}" placeholder="Tanggal akhir" readonly>
+          </div>
+          <div class="ms-auto d-flex gap-2">
+            <button id="drp2Cancel" class="btn btn-sm btn-outline-secondary">Batal</button>
+            <button id="drp2Update" class="btn btn-sm btn-success"${_s&&_e?'':' disabled'}>Terapkan</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function refresh(){if(!_panel)return;_panel.innerHTML=renderPanel();bindEvts();}
+
+  function updateDays(){
+    if(!_panel)return;
+    _panel.querySelectorAll('[data-dt]').forEach(el=>el.className=dayClass(fromYMD(el.dataset.dt)));
+    const is=_panel.querySelector('#drp2InS'),ie=_panel.querySelector('#drp2InE');
+    if(is)is.value=disp(_s);
+    if(_sel&&_h&&_s&&!_e){if(ie)ie.value=disp(_h<_s?_s:_h);}else{if(ie)ie.value=disp(_e);}
+    const ub=_panel.querySelector('#drp2Update');if(ub)ub.disabled=!(_s&&_e);
+  }
+
+  function bindEvts(){
+    _panel.querySelectorAll('.drp2-preset').forEach(el=>{
+      el.addEventListener('click',()=>{const p=PS[+el.dataset.pi];_s=new Date(p.s);_e=new Date(p.e);_sel=false;_h=null;_ly=_s.getFullYear();_lm=_s.getMonth();refresh();updateLbl();});
+    });
+    _panel.querySelectorAll('[data-dt]').forEach(el=>{
+      el.addEventListener('click',()=>{
+        const d=fromYMD(el.dataset.dt);
+        if(!_sel||!_s){_s=d;_e=null;_sel=true;_h=null;}
+        else{if(d<_s){_e=new Date(_s);_s=d;}else{_e=d;}_sel=false;_h=null;}
+        refresh();updateLbl();
+      });
+      el.addEventListener('mouseenter',()=>{if(!_sel)return;_h=fromYMD(el.dataset.dt);updateDays();});
+      el.addEventListener('mouseleave',()=>{if(!_sel)return;_h=null;updateDays();});
+    });
+    const prev=_panel.querySelector('#drp2Prev'),next=_panel.querySelector('#drp2Next');
+    if(prev)prev.addEventListener('click',()=>{_lm--;if(_lm<0){_lm=11;_ly--;}refresh();});
+    if(next)next.addEventListener('click',()=>{_lm++;if(_lm>11){_lm=0;_ly++;}refresh();});
+    const yrL=_panel.querySelector('#drp2YrL'),yrR=_panel.querySelector('#drp2YrR');
+    if(yrL)yrL.addEventListener('change',()=>{_ly=parseInt(yrL.value);refresh();});
+    if(yrR)yrR.addEventListener('change',()=>{_ly=parseInt(yrR.value)-(_lm===11?1:0);refresh();});
+    const cancel=_panel.querySelector('#drp2Cancel');
+    if(cancel)cancel.addEventListener('click',closePanel);
+    const upd=_panel.querySelector('#drp2Update');
+    if(upd)upd.addEventListener('click',()=>{
+      if(!_s||!_e)return;
+      closePanel();
+      // Smart-detect preset → pakai param period yang tepat supaya backend optimal
+      const t=new Date();t.setHours(0,0,0,0);
+      const sYmd=ymd(_s),eYmd=ymd(_e),tYmd=ymd(t);
+      const ago=(n)=>{const d=new Date(t);d.setDate(d.getDate()-n);return ymd(d);};
+      const som=ymd(new Date(t.getFullYear(),t.getMonth(),1));
+      if(sYmd===tYmd && eYmd===tYmd){
+        window.location.href='?period=today';
+      } else if(sYmd===ago(6) && eYmd===tYmd){
+        window.location.href='?period=week';
+      } else if(sYmd===som && eYmd===tYmd){
+        window.location.href='?period=month';
+      } else if(sYmd===eYmd){
+        window.location.href='?period=day&tanggal='+sYmd;
+      } else {
+        window.location.href='?period=range&sd='+sYmd+'&ed='+eYmd;
+      }
+    });
+  }
+
+  function posPanel(){
+    const btn=document.getElementById('posDrpBtn');if(!btn||!_panel)return;
+    const rect=btn.getBoundingClientRect(),pw=_panel.offsetWidth||700,ph=_panel.offsetHeight||380;
+    let top=rect.bottom+6,left=rect.left;
+    if(left+pw>window.innerWidth-8)left=Math.max(8,window.innerWidth-pw-8);
+    if(top+ph>window.innerHeight-8)top=Math.max(8,rect.top-ph-6);
+    _panel.style.top=top+'px';_panel.style.left=left+'px';
+  }
+
+  function openPanel(){
+    if(_panel){closePanel();return;}
+    _panel=document.createElement('div');_panel.className='drp2-panel';_panel.innerHTML=renderPanel();
+    document.body.appendChild(_panel);posPanel();bindEvts();
+    setTimeout(()=>document.addEventListener('mousedown',outerClick),0);
+  }
+
+  function closePanel(){
+    if(_panel){_panel.remove();_panel=null;}
+    document.removeEventListener('mousedown',outerClick);_sel=false;_h=null;
+  }
+
+  function outerClick(e){
+    const btn=document.getElementById('posDrpBtn');
+    if(_panel&&!_panel.contains(e.target)&&btn&&!btn.contains(e.target))closePanel();
+  }
+
+  function updateLbl(){
+    const lbl=document.getElementById('posDrpLbl');
+    if(!lbl||!_s||!_e)return;
+    const sY=ymd(_s),eY=ymd(_e);
+    lbl.textContent = (sY===eY) ? disp(_s) : (disp(_s)+' – '+disp(_e));
+  }
+
+  // Init langsung (script di akhir body, button sudah ada di DOM)
+  function initDrp(){
+    try {
+      {% if period == 'range' %}
+        _s=fromYMD('{{ range_sd_s }}');_e=fromYMD('{{ range_ed_s }}');
+      {% elif period == 'day' %}
+        _s=fromYMD('{{ selected_date_s }}');_e=fromYMD('{{ selected_date_s }}');
+      {% elif period == 'week' %}
+        _e=new Date();_e.setHours(0,0,0,0);_s=new Date(_e);_s.setDate(_s.getDate()-6);
+      {% elif period == 'month' %}
+        var _t=new Date();_t.setHours(0,0,0,0);_s=new Date(_t.getFullYear(),_t.getMonth(),1);_e=_t;
+      {% else %}
+        _s=new Date();_s.setHours(0,0,0,0);_e=new Date(_s);
+      {% endif %}
+      var base=_s||new Date();_ly=base.getFullYear();_lm=base.getMonth();
+      var btn=document.getElementById('posDrpBtn');
+      if(btn){
+        btn.addEventListener('click',function(e){e.preventDefault();openPanel();});
+      } else {
+        console.warn('posDrpBtn tidak ditemukan, retry...');
+        setTimeout(initDrp, 100);
+      }
+    } catch(err){ console.error('initDrp error', err); }
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', initDrp);
+  } else {
+    initDrp();
+  }
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Produk POS (Lanjutan) - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-sliders text-primary me-2"></i>Produk POS (Lanjutan){% endblock %}
+{% block content %}
+<style>
+.pp-chip{cursor:pointer;border:1px solid var(--bdr-md);background:var(--card);border-radius:999px;
+  padding:.25rem .8rem;font-size:.78rem;font-weight:600;color:var(--tx2)}
+.pp-chip.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.pp-result{cursor:pointer;padding:.5rem .7rem;border-bottom:1px solid var(--bdr);display:flex;
+  align-items:center;gap:.6rem}
+.pp-result:hover{background:var(--card-h)}
+.pp-result:last-child{border-bottom:0}
+.pp-badge{font-size:.6rem;font-weight:700;padding:.1rem .4rem;border-radius:6px;white-space:nowrap}
+.pp-badge-produk{background:#e0edff;color:#1e40af}
+.pp-badge-resep{background:#e7f8f2;color:#0d9488}
+.pp-results-wrap{max-height:46vh;overflow:auto;border:1px solid var(--bdr);border-radius:10px}
+.pp-card-item{border:1px solid var(--bdr-md);border-radius:12px;padding:.85rem 1rem;margin-bottom:.7rem;background:var(--card)}
+.pp-harga-inp{max-width:150px}
+.pp-utama-ro{font-variant-numeric:tabular-nums;font-weight:700}
+.pp-saved{color:#0d9488;font-size:.72rem}
+</style>
+
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+  <a href="{{ url_for('pos_master') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="fas fa-arrow-left me-1"></i>Kembali ke POS Master</a>
+  <span class="text-muted" style="font-size:.8rem">
+    Pengaturan ini soal tampilan &amp; harga di kasir. Harga patokan &amp; stok produk tetap diatur di menu Stok,
+    isi bahan racikan tetap di menu Produksi.
+  </span>
+</div>
+
+<!-- Global: Multi-harga -->
+<form method="POST" action="{{ url_for('pos_master_produk_simpan') }}" id="globalForm">
+  <div class="card mb-3">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="fas fa-tags" style="color:var(--ink)"></i>
+      <h6 class="mb-0 fw-bold" style="font-size:.9rem">Multi-Harga (Produk &amp; Racikan)</h6>
+    </div>
+    <div class="card-body">
+      <div class="form-check form-switch mb-2">
+        <input class="form-check-input" type="checkbox" name="pos_multi_harga_aktif" id="multiSw"
+               {% if multi_harga %}checked{% endif %}>
+        <label class="form-check-label fw-semibold" for="multiSw">Aktifkan beberapa harga per item di kasir</label>
+      </div>
+      <div class="form-text mb-3" style="font-size:.72rem">
+        Nonaktif (bawaan): tiap item pakai satu harga (produk = harga patokan Stok, racikan = harga jual racikan),
+        persis seperti sekarang. Aktif: kasir bisa memilih level harga (mis. Grosir / Member) per baris di keranjang.
+        Harga <strong>Utama</strong> tetap harga dasar item.
+      </div>
+      <label class="form-label small fw-semibold mb-1">Nama level harga tambahan</label>
+      <input type="text" name="harga_levels" id="levelsInp" class="form-control form-control-sm"
+             style="max-width:420px" value="{{ levels|join(', ') }}"
+             placeholder="mis. Grosir, Member" autocomplete="off">
+      <div class="form-text" style="font-size:.72rem">
+        Pisahkan dengan koma, maksimal 5 level. Setelah mengubah nama level, klik <strong>Simpan Multi-Harga</strong>;
+        kolom harga saat mengatur item akan menyesuaikan.
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm mt-3"><i class="fas fa-save me-1"></i>Simpan Multi-Harga</button>
+    </div>
+  </div>
+</form>
+
+<!-- Cari & atur item -->
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center gap-2 flex-wrap">
+    <i class="fas fa-magnifying-glass" style="color:var(--ink)"></i>
+    <h6 class="mb-0 fw-bold" style="font-size:.9rem">Atur item di kasir</h6>
+    <span class="text-muted ms-1" style="font-size:.72rem">Cari produk atau racikan, klik untuk atur tampil &amp; harganya.</span>
+  </div>
+  <div class="card-body">
+    <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
+      <span class="pp-chip active" data-tipe="all" onclick="ppChip(this)">Semua</span>
+      <span class="pp-chip" data-tipe="produk" onclick="ppChip(this)">Produk <span class="text-muted">({{ n_produk }})</span></span>
+      <span class="pp-chip" data-tipe="resep" onclick="ppChip(this)">Racikan <span class="text-muted">({{ n_resep }})</span></span>
+    </div>
+    <input type="search" id="ppSearch" class="form-control form-control-sm mb-2"
+           placeholder="Ketik nama atau kode produk / racikan..." autocomplete="off">
+    <div class="pp-results-wrap" id="ppResultsWrap">
+      <div id="ppResults"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Kartu edit item (dinamis) -->
+<div id="editCards"></div>
+
+<script>
+const LEVELS = {{ levels|default([])|tojson }};
+const MULTI  = {{ multi_harga|default(false)|tojson }};
+const CARI_URL = "{{ url_for('pos_master_produk_cari') }}";
+const SIMPAN_URL = "{{ url_for('pos_master_item_simpan') }}";
+let ppTipe = 'all';
+let ppTimer = null;
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+function rp(n){ return window.rpFmt ? window.rpFmt(n) : ('Rp ' + Math.round(n||0).toLocaleString('id-ID')); }
+
+function ppChip(el){
+  document.querySelectorAll('.pp-chip').forEach(function(c){ c.classList.remove('active'); });
+  el.classList.add('active');
+  ppTipe = el.getAttribute('data-tipe') || 'all';
+  doSearch();
+}
+function doSearch(){
+  var q = document.getElementById('ppSearch').value.trim();
+  fetch(CARI_URL + '?tipe=' + encodeURIComponent(ppTipe) + '&q=' + encodeURIComponent(q))
+    .then(function(r){ return r.json(); })
+    .then(function(res){ renderResults((res && res.items) || []); })
+    .catch(function(){ document.getElementById('ppResults').innerHTML =
+      '<div class="pp-result text-muted">Gagal memuat (jaringan).</div>'; });
+}
+function renderResults(items){
+  var box = document.getElementById('ppResults');
+  if(!items.length){ box.innerHTML = '<div class="pp-result text-muted">Tidak ada yang cocok.</div>'; return; }
+  box.innerHTML = items.map(function(it){
+    var badge = it.tipe === 'resep'
+      ? '<span class="pp-badge pp-badge-resep">RACIKAN</span>'
+      : '<span class="pp-badge pp-badge-produk">PRODUK</span>';
+    var tampil = it.tampil ? '' : '<span class="text-muted" style="font-size:.68rem">(disembunyikan)</span>';
+    return '<div class="pp-result" data-json="' + esc(JSON.stringify(it)) + '" onclick="openCard(this)">'
+      + badge
+      + '<div style="flex:1;min-width:0"><div class="fw-semibold" style="font-size:.84rem">' + esc(it.nama) + ' ' + tampil + '</div>'
+      + '<div class="text-muted" style="font-size:.7rem">' + esc(it.kode || '') + (it.kategori ? ' &middot; ' + esc(it.kategori) : '') + '</div></div>'
+      + '<div class="text-muted" style="font-size:.76rem;white-space:nowrap">' + rp(it.harga_utama) + '</div></div>';
+  }).join('');
+}
+function cardKey(it){ return it.tipe + '-' + it.id; }
+function openCard(el){
+  var it;
+  try { it = JSON.parse(el.getAttribute('data-json')); } catch(e){ return; }
+  var key = cardKey(it);
+  var existing = document.getElementById('card-' + key);
+  if(existing){ existing.scrollIntoView({block:'center'}); return; }
+  var wrap = document.createElement('div');
+  wrap.className = 'pp-card-item';
+  wrap.id = 'card-' + key;
+  var isResep = it.tipe === 'resep';
+  var badge = isResep ? '<span class="pp-badge pp-badge-resep">RACIKAN</span>' : '<span class="pp-badge pp-badge-produk">PRODUK</span>';
+  // Harga Utama: resep = editable; produk = read-only (dari Stok).
+  var utamaHtml;
+  if(isResep){
+    utamaHtml = '<div class="input-group input-group-sm pp-harga-inp"><span class="input-group-text">Rp</span>'
+      + '<input type="number" class="form-control pp-utama" min="0" step="1" placeholder="0"'
+      + ' value="' + (it.harga_utama > 0 ? it.harga_utama : '') + '"></div>'
+      + '<div class="form-text" style="font-size:.68rem">Harga jual dasar racikan (juga dipakai di menu Penjualan).</div>';
+  } else {
+    utamaHtml = '<div class="pp-utama-ro">' + rp(it.harga_utama) + '</div>'
+      + '<div class="form-text" style="font-size:.68rem">Harga patokan dari menu Stok (tidak diubah dari sini).</div>';
+  }
+  // Kolom level (kalau multi-harga aktif & ada level)
+  var levelHtml = '';
+  if(MULTI && LEVELS.length){
+    levelHtml = '<div class="row g-2 mt-1">' + LEVELS.map(function(lv){
+      var val = (it.prices && it.prices[lv] > 0) ? it.prices[lv] : '';
+      return '<div class="col-auto"><label class="form-label small mb-0" style="font-size:.72rem">' + esc(lv) + '</label>'
+        + '<div class="input-group input-group-sm pp-harga-inp"><span class="input-group-text">Rp</span>'
+        + '<input type="number" class="form-control pp-lv" data-lv="' + esc(lv) + '" min="0" step="1" placeholder="0" value="' + val + '"></div></div>';
+    }).join('') + '</div>';
+  } else if(!MULTI){
+    levelHtml = '<div class="form-text mt-1" style="font-size:.7rem">Multi-harga nonaktif. Aktifkan di atas untuk mengisi level harga.</div>';
+  }
+  wrap.innerHTML =
+    '<div class="d-flex align-items-start gap-2 mb-2">' + badge
+    + '<div style="flex:1;min-width:0"><div class="fw-bold" style="font-size:.9rem">' + esc(it.nama) + '</div>'
+    + '<div class="text-muted" style="font-size:.7rem">' + esc(it.kode || '') + (it.kategori ? ' &middot; ' + esc(it.kategori) : '') + '</div></div>'
+    + '<button type="button" class="btn btn-xs btn-outline-secondary" onclick="this.closest(\'.pp-card-item\').remove()" title="Tutup"><i class="fas fa-times"></i></button></div>'
+    + '<div class="form-check form-switch mb-2"><input class="form-check-input pp-tampil" type="checkbox" ' + (it.tampil ? 'checked' : '') + '>'
+    + '<label class="form-check-label small fw-semibold">Tampil di kasir</label></div>'
+    + '<label class="form-label small fw-semibold mb-1">Harga Utama</label>' + utamaHtml
+    + levelHtml
+    + '<div class="d-flex align-items-center gap-2 mt-3"><button type="button" class="btn btn-primary btn-sm pp-save" onclick="saveCard(this,\'' + it.tipe + '\',' + it.id + ')"><i class="fas fa-save me-1"></i>Simpan item</button>'
+    + '<span class="pp-status text-muted" style="font-size:.72rem"></span></div>';
+  document.getElementById('editCards').prepend(wrap);
+  if(window.numFmtInitAll) window.numFmtInitAll();
+  wrap.scrollIntoView({block:'center'});
+}
+function saveCard(btn, tipe, id){
+  var card = btn.closest('.pp-card-item');
+  var status = card.querySelector('.pp-status');
+  var tampil = card.querySelector('.pp-tampil').checked ? 1 : 0;
+  var levels = {};
+  card.querySelectorAll('.pp-lv').forEach(function(inp){ levels[inp.getAttribute('data-lv')] = inp.value; });
+  var payload = {tipe: tipe, id: id, tampil: tampil, levels: levels};
+  var utamaEl = card.querySelector('.pp-utama');
+  if(utamaEl) payload.harga_utama = utamaEl.value;   // hanya resep
+  btn.disabled = true; status.textContent = 'Menyimpan...'; status.className = 'pp-status text-muted';
+  fetch(SIMPAN_URL, {method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+                     body: JSON.stringify(payload)})
+    .then(function(r){ return r.json(); })
+    .then(function(res){
+      btn.disabled = false;
+      if(res && res.ok){ status.textContent = '✓ Tersimpan'; status.className = 'pp-status pp-saved'; }
+      else { status.textContent = (res && res.error) || 'Gagal menyimpan.'; status.className = 'pp-status text-danger'; }
+    })
+    .catch(function(){ btn.disabled = false; status.textContent = 'Gagal (jaringan).'; status.className = 'pp-status text-danger'; });
+}
+// Pencarian debounce + muat awal
+(function(){
+  var sb = document.getElementById('ppSearch');
+  sb.addEventListener('input', function(){ clearTimeout(ppTimer); ppTimer = setTimeout(doSearch, 250); });
+  doSearch();   // tampilkan daftar awal (25 pertama)
+})();
+</script>
+{% endblock %}

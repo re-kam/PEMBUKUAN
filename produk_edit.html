@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Edit Produk - FinansialApp{% endblock %}
+{% block page_title %}Edit Produk{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-6">
+<div class="card">
+  <div class="card-header py-2 px-3">
+    <i class="fas fa-edit text-primary me-2"></i>
+    <span class="fw-semibold">Edit Produk: {{ p.nama }}</span>
+  </div>
+  <div class="card-body">
+  <form method="POST">
+    <div class="row g-3">
+      <div class="col-12">
+        <label class="form-label fw-semibold">Kode</label>
+        <input type="text" class="form-control bg-light" value="{{ p.kode }}" readonly>
+        <div class="form-text">Kode tidak bisa diubah</div>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Nama Produk *</label>
+        <input type="text" name="nama" class="form-control" value="{{ p.nama }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Varian</label>
+        <input type="text" name="varian" class="form-control" value="{{ p.varian or '' }}"
+               placeholder="Misal: Merah L">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Kategori</label>
+        <input type="text" name="kategori" class="form-control" value="{{ p.kategori or '' }}"
+               list="kategoriProdukListEdit" placeholder="Misal: Elektronik, Pakaian">
+        <datalist id="kategoriProdukListEdit">
+          {% for c in kategori_produk %}<option value="{{ c }}">{% endfor %}
+        </datalist>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Satuan</label>
+        <input type="text" name="satuan" class="form-control" value="{{ p.satuan or 'pcs' }}"
+               list="satuanProdukListEdit" placeholder="Misal: pcs, kg, LOT">
+        <datalist id="satuanProdukListEdit">
+          {% for s in ['pcs','kg','liter','box','lusin','meter','unit','set','LOT'] %}
+          <option value="{{ s }}">
+          {% endfor %}
+        </datalist>
+      </div>
+      {% if can.inventory_hpp %}
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Harga Beli (HPP)</label>
+          <div class="input-group">
+            <span class="input-group-text">Rp</span>
+            <input type="number" name="harga_beli" class="form-control" value="{{ p.harga_beli }}" min="0">
+          </div>
+          <div class="form-text">Jika HPP berubah saat stok masih ada, selisih nilai persediaan otomatis dijurnal sebagai koreksi.</div>
+        </div>
+      {% else %}
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">HPP Produk</label>
+          <div class="alert alert-warning py-2 mb-0" style="font-size:.82rem">
+            <i class="fas fa-lock me-1"></i>Disembunyikan oleh hak akses. User ini tetap bisa edit data produk selain HPP.
+          </div>
+        </div>
+      {% endif %}
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Harga Jual</label>
+        <div class="input-group">
+          <span class="input-group-text">Rp</span>
+          <input type="number" name="harga_jual" class="form-control" value="{{ p.harga_jual }}" min="0">
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Min. Stok Alert</label>
+        <input type="number" name="min_stok" class="form-control" value="{{ p.min_stok }}" min="0" step="0.01">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Stok Saat Ini</label>
+        <input type="text" class="form-control bg-light" value="{{ p.stok|qty }} {{ p.satuan }}" readonly>
+        <div class="form-text">Ubah stok melalui Koreksi Stok atau Upload Excel hasil opname.</div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">
+          Barcode
+          <span class="text-muted fw-normal ms-1" style="font-size:.78rem">opsional</span>
+        </label>
+        {# type="text", BUKAN number. Barcode boleh berawalan nol ("0012345") dan
+           nol itu hilang kalau kolomnya dianggap angka. inputmode="numeric" tetap
+           memunculkan papan angka di HP. #}
+        <input type="text" name="barcode" class="form-control" inputmode="numeric"
+               value="{{ p.barcode or '' }}" placeholder="Scan atau ketik di sini"
+               autocomplete="off">
+        <div class="form-text">
+          Klik kolom ini lalu tembak barangnya dengan scanner. Setelah terisi, produk ini
+          bisa langsung masuk keranjang di POS Kasir cukup dengan discan.
+        </div>
+      </div>
+      <!-- ── Label Ikon POS ── -->
+      <div class="col-12">
+        <label class="form-label fw-semibold">
+          Label Ikon POS
+          <span class="text-muted fw-normal ms-1" style="font-size:.78rem">opsional · maks 5 huruf</span>
+        </label>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <input type="text" name="pos_label" id="posLabelInput"
+                 class="form-control" style="max-width:90px;font-family:monospace;font-weight:900;letter-spacing:.12em;text-transform:uppercase;font-size:1rem"
+                 value="{{ p.pos_label or '' }}" maxlength="5" autocomplete="off"
+                 placeholder="cth: KSG"
+                 oninput="this.value=this.value.toUpperCase();updatePosPreview(this.value)">
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setInisialPOS()">
+            <i class="fas fa-wand-magic-sparkles me-1"></i>Dari Inisial
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setKodePOS()">
+            <i class="fas fa-barcode me-1"></i>Dari Kode
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearPOS()">
+            <i class="fas fa-xmark me-1"></i>Reset
+          </button>
+          <!-- Live preview -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;margin-left:4px">
+            <div id="posIconPreview"
+                 style="width:68px;height:68px;display:flex;align-items:center;justify-content:center;
+                        background:#f1f5f9;border:2px solid #cbd5e1;border-radius:10px;
+                        font-family:'Montserrat',system-ui,sans-serif;font-weight:900;
+                        color:#0f172a;letter-spacing:.06em;transition:font-size .15s">
+            </div>
+            <span style="font-size:.65rem;color:var(--tx3);letter-spacing:.05em">PREVIEW</span>
+          </div>
+        </div>
+        <div class="form-text">Kosong = pakai mode global dari Setting POS. Diisi = override khusus produk ini di layar kasir.</div>
+      </div>
+
+      <div class="col-12 d-flex gap-2 justify-content-end">
+        <a href="/stok" class="btn btn-outline-secondary">Batal</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save me-1"></i>Simpan Perubahan</button>
+      </div>
+    </div>
+  </form>
+
+<script>
+(function(){
+  const inp     = document.getElementById('posLabelInput');
+  const preview = document.getElementById('posIconPreview');
+  const namaInp = document.querySelector('[name="nama"]');
+  const kode    = {{ p.kode|tojson }};
+
+  function render(val){
+    const v = (val || '').toUpperCase();
+    const fallback = (namaInp.value.trim()[0] || '?').toUpperCase();
+    preview.textContent = v || fallback;
+    const len = (v || fallback).length;
+    preview.style.fontSize = len <= 1 ? '34px' : len <= 2 ? '28px' : len <= 3 ? '22px' : '16px';
+    preview.style.background = v ? '#e0f2fe' : '#f1f5f9';
+    preview.style.borderColor = v ? '#38bdf8' : '#cbd5e1';
+  }
+
+  window.updatePosPreview = render;
+  window.setInisialPOS = function(){
+    const words = namaInp.value.trim().split(/\s+/);
+    const label = words.map(w => (w[0]||'')).join('').toUpperCase().slice(0,5);
+    inp.value = label; render(label);
+  };
+  window.setKodePOS = function(){
+    const label = kode.replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,5);
+    inp.value = label; render(label);
+  };
+  window.clearPOS = function(){
+    inp.value = ''; render('');
+  };
+
+  namaInp.addEventListener('input', function(){ if(!inp.value) render(''); });
+  render(inp.value);
+})();
+</script>
+  </div>
+</div>
+</div>
+</div>
+{% endblock %}

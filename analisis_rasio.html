@@ -1,0 +1,369 @@
+{% extends "base.html" %}
+{% block title %}Analisis Rasio Keuangan - FinansialApp{% endblock %}
+{% block page_title %}Analisis Rasio Keuangan{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRasioHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_rasio_help_modal.html' %}
+
+{% macro badge(status) -%}
+  {% if status == 'Sehat' %}
+    <span class="badge badge-lunas">Sehat</span>
+  {% elif status == 'Cukup' %}
+    <span class="badge badge-sebagian">Cukup</span>
+  {% else %}
+    <span class="badge badge-belum">Perlu Perhatian</span>
+  {% endif %}
+{%- endmacro %}
+
+{% macro trend(curr_val, prev_val, suffix='', decimals=2, lower_better=False) -%}
+  {% if prev is not none %}
+    {% set delta = curr_val - prev_val %}
+    {% set better = (delta < 0) if lower_better else (delta > 0) %}
+    {% if delta|abs < 0.01 %}
+      <span class="ar-trend" style="color:var(--tx3)">
+        <i class="fas fa-minus"></i> sama
+      </span>
+    {% else %}
+      <span class="ar-trend" style="color:{{ '#15803d' if better else '#dc2626' }}">
+        <i class="fas fa-arrow-{{ 'up' if delta > 0 else 'down' }}"></i>
+        {{ '%.2f' % (delta|abs) }}{{ suffix }}
+      </span>
+    {% endif %}
+  {% endif %}
+{%- endmacro %}
+
+{% macro ratio_card(label, value, status, fmt, prev_val=None, lower_better=False, desc='', formula='') -%}
+<div class="card h-100 ar-card">
+  <div class="card-body p-3">
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <div class="ar-lbl">{{ label }}</div>
+      {{ badge(status) }}
+    </div>
+    <div class="ar-val">{{ fmt }}</div>
+    <div class="d-flex justify-content-between align-items-center mt-1">
+      <small class="text-muted" style="font-size:.68rem">{{ formula }}</small>
+      {% if prev is not none and prev_val is not none %}
+        {% set delta = value - prev_val %}
+        {% set better = (delta < 0) if lower_better else (delta > 0) %}
+        {% if delta|abs < 0.01 %}
+          <small style="color:var(--tx3);font-size:.68rem"><i class="fas fa-minus"></i> sama</small>
+        {% else %}
+          <small style="color:{{ '#15803d' if better else '#dc2626' }};font-size:.68rem">
+            <i class="fas fa-arrow-{{ 'up' if delta > 0 else 'down' }}"></i>
+            {{ '%.2f' % (delta|abs) }}
+          </small>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% if desc %}<div class="ar-desc">{{ desc }}</div>{% endif %}
+  </div>
+</div>
+{%- endmacro %}
+
+<style>
+.ar-card{}
+.ar-card .ar-lbl{font-size:.72rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.04em}
+.ar-card .ar-val{font-size:1.6rem;font-weight:800;color:#0f172a;letter-spacing:-.5px;line-height:1.1;font-variant-numeric:tabular-nums}
+.ar-card .ar-desc{font-size:.7rem;color:var(--tx3);margin-top:.4rem;line-height:1.35}
+[data-theme="dark"] .ar-card .ar-val{color:var(--tx)}
+[data-theme="dark"] .ar-card .ar-lbl{color:var(--tx2)}
+[data-theme="dark"] .ar-card .ar-desc{color:var(--tx3)}
+.ar-section-title{font-size:.78rem;font-weight:800;color:#1e293b;text-transform:uppercase;letter-spacing:.06em;margin:1rem 0 .5rem;display:flex;align-items:center;gap:.5rem}
+[data-theme="dark"] .ar-section-title{color:var(--tx)}
+.ar-section-title .pill{font-size:.65rem;font-weight:600;padding:.15rem .5rem;border-radius:5px;letter-spacing:0;text-transform:none}
+.ar-sum-card{border-radius:12px}
+.ar-sum-card .lbl{font-size:.66rem;color:rgba(255,255,255,.85);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.ar-sum-card .val{font-size:1.55rem;font-weight:800;color:#fff;letter-spacing:-.5px;line-height:1.1;font-variant-numeric:tabular-nums}
+.ar-sum-card .stat{font-size:.7rem;color:rgba(255,255,255,.9);margin-top:.2rem}
+.ar-explain{background:var(--card);border-radius:8px;padding:.75rem 1rem;margin-top:1rem;font-size:.78rem;color:var(--tx2);line-height:1.5}
+.ar-explain b{color:var(--tx)}
+@media print{.no-print{display:none!important}}
+</style>
+
+<div class="d-flex gap-2 mb-3 align-items-center flex-wrap no-print">
+  <form class="d-flex gap-2 align-items-center" method="get">
+    <label class="mb-0 fw-semibold text-nowrap">Periode:</label>
+    <input type="date" name="sd" value="{{ sd }}" class="form-control form-control-sm" style="width:150px">
+    <span>s/d</span>
+    <input type="date" name="ed" value="{{ ed }}" class="form-control form-control-sm" style="width:150px">
+    <button class="btn btn-primary btn-sm"><i class="fas fa-sync me-1"></i>Tampilkan</button>
+  </form>
+  <button onclick="window.print()" class="btn btn-outline-secondary btn-sm ms-auto">
+    <i class="fas fa-print me-1"></i>Cetak
+  </button>
+</div>
+
+{% if prev %}
+<div class="text-muted mb-3 no-print" style="font-size:.78rem">
+  <i class="fas fa-info-circle me-1"></i>
+  Pembanding: <strong>{{ prev_sd }} s/d {{ prev_ed }}</strong> (rentang sama panjang sebelum periode ini)
+</div>
+{% endif %}
+
+<div class="row g-3 mb-1">
+  <div class="col-md-3 col-6">
+    <div class="card ar-sum-card" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)">
+      <div class="card-body p-3">
+        <div class="lbl">Likuiditas</div>
+        <div class="val">{{ '%.2f' % cur.current_ratio }}x</div>
+        <div class="stat">Current Ratio · {{ cur.current_int }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card ar-sum-card" style="background:linear-gradient(135deg,#f97316,#c2410c)">
+      <div class="card-body p-3">
+        <div class="lbl">Solvabilitas</div>
+        <div class="val">{{ '%.2f' % cur.der }}x</div>
+        <div class="stat">DER · {{ cur.der_int }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card ar-sum-card" style="background:linear-gradient(135deg,#10b981,#15803d)">
+      <div class="card-body p-3">
+        <div class="lbl">Profitabilitas</div>
+        <div class="val">{{ '%.1f' % cur.roe }}%</div>
+        <div class="stat">ROE · {{ cur.roe_int }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card ar-sum-card" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9)">
+      <div class="card-body p-3">
+        <div class="lbl">Margin Bersih</div>
+        <div class="val">{{ '%.1f' % cur.npm }}%</div>
+        <div class="stat">NPM · {{ cur.npm_int }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── LIKUIDITAS ── -->
+<div class="ar-section-title">
+  <i class="fas fa-droplet" style="color:#0369a1"></i> Rasio Likuiditas
+  <span class="pill" style="background:#e0f2fe;color:#0369a1">Kemampuan bayar hutang jangka pendek</span>
+</div>
+<div class="row g-3">
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Current Ratio',
+      cur.current_ratio,
+      cur.current_int,
+      ('%.2f' % cur.current_ratio) ~ 'x',
+      prev.current_ratio if prev else None,
+      False,
+      'Setiap Rp1 hutang jangka pendek dijamin Rp' ~ ('%.2f' % cur.current_ratio) ~ ' aset lancar.',
+      'Aset Lancar ÷ Liab Lancar') }}
+  </div>
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Quick Ratio',
+      cur.quick_ratio,
+      cur.quick_int,
+      ('%.2f' % cur.quick_ratio) ~ 'x',
+      prev.quick_ratio if prev else None,
+      False,
+      'Likuiditas tanpa mengandalkan penjualan persediaan.',
+      '(Aset Lancar − Persediaan) ÷ Liab Lancar') }}
+  </div>
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Cash Ratio',
+      cur.cash_ratio,
+      cur.cash_int,
+      ('%.2f' % cur.cash_ratio) ~ 'x',
+      prev.cash_ratio if prev else None,
+      False,
+      'Hanya kas & bank vs hutang jangka pendek, paling konservatif.',
+      'Kas & Bank ÷ Liab Lancar') }}
+  </div>
+</div>
+
+<!-- ── SOLVABILITAS ── -->
+<div class="ar-section-title">
+  <i class="fas fa-scale-balanced" style="color:#c2410c"></i> Rasio Solvabilitas
+  <span class="pill" style="background:#fff7ed;color:#c2410c">Struktur modal & beban hutang</span>
+</div>
+<div class="row g-3">
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Debt to Equity (DER)',
+      cur.der,
+      cur.der_int,
+      ('%.2f' % cur.der) ~ 'x',
+      prev.der if prev else None,
+      True,
+      'Setiap Rp1 modal pemilik diimbangi Rp' ~ ('%.2f' % cur.der) ~ ' hutang.',
+      'Total Liabilitas ÷ Total Ekuitas') }}
+  </div>
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Debt to Asset',
+      cur.debt_to_asset,
+      cur.dta_int,
+      ('%.1f' % (cur.debt_to_asset*100)) ~ '%',
+      prev.debt_to_asset if prev else None,
+      True,
+      'Porsi aset yang dibiayai hutang.',
+      'Total Liabilitas ÷ Total Aset') }}
+  </div>
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Equity Ratio',
+      cur.equity_ratio,
+      cur.eqr_int,
+      ('%.1f' % (cur.equity_ratio*100)) ~ '%',
+      prev.equity_ratio if prev else None,
+      False,
+      'Porsi aset yang dibiayai modal sendiri.',
+      'Total Ekuitas ÷ Total Aset') }}
+  </div>
+</div>
+
+<!-- ── PROFITABILITAS ── -->
+<div class="ar-section-title">
+  <i class="fas fa-chart-line" style="color:#10b981"></i> Rasio Profitabilitas
+  <span class="pill" style="background:#f0fdf4;color:#15803d">Kemampuan menghasilkan laba</span>
+</div>
+<div class="row g-3">
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Gross Profit Margin',
+      cur.gpm,
+      cur.gpm_int,
+      ('%.1f' % cur.gpm) ~ '%',
+      prev.gpm if prev else None,
+      False,
+      'Sisa pendapatan setelah HPP.',
+      'Laba Kotor ÷ Pendapatan') }}
+  </div>
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Operating Profit Margin',
+      cur.opm,
+      cur.opm_int,
+      ('%.1f' % cur.opm) ~ '%',
+      prev.opm if prev else None,
+      False,
+      'Margin setelah HPP & beban operasional.',
+      'Laba Operasional ÷ Pendapatan') }}
+  </div>
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Net Profit Margin',
+      cur.npm,
+      cur.npm_int,
+      ('%.1f' % cur.npm) ~ '%',
+      prev.npm if prev else None,
+      False,
+      'Margin akhir setelah semua beban.',
+      'Laba Bersih ÷ Pendapatan') }}
+  </div>
+  <div class="col-md-6">
+    {{ ratio_card(
+      'Return on Assets (ROA)',
+      cur.roa,
+      cur.roa_int,
+      ('%.1f' % cur.roa) ~ '%',
+      prev.roa if prev else None,
+      False,
+      'Seberapa efektif aset menghasilkan laba.',
+      'Laba Bersih ÷ Total Aset') }}
+  </div>
+  <div class="col-md-6">
+    {{ ratio_card(
+      'Return on Equity (ROE)',
+      cur.roe,
+      cur.roe_int,
+      ('%.1f' % cur.roe) ~ '%',
+      prev.roe if prev else None,
+      False,
+      'Return untuk modal pemilik.',
+      'Laba Bersih ÷ Total Ekuitas') }}
+  </div>
+</div>
+
+<!-- ── AKTIVITAS ── -->
+<div class="ar-section-title">
+  <i class="fas fa-rotate" style="color:#8b5cf6"></i> Rasio Aktivitas
+  <span class="pill" style="background:#f5f3ff;color:#6d28d9">Efisiensi pemanfaatan aset</span>
+</div>
+<div class="row g-3">
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Inventory Turnover',
+      cur.inv_turnover,
+      cur.inv_int,
+      ('%.2f' % cur.inv_turnover) ~ 'x',
+      prev.inv_turnover if prev else None,
+      False,
+      'Berapa kali persediaan terjual habis dalam periode.',
+      'HPP ÷ Persediaan') }}
+  </div>
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Asset Turnover',
+      cur.asset_turnover,
+      cur.at_int,
+      ('%.2f' % cur.asset_turnover) ~ 'x',
+      prev.asset_turnover if prev else None,
+      False,
+      'Setiap Rp1 aset menghasilkan Rp' ~ ('%.2f' % cur.asset_turnover) ~ ' penjualan.',
+      'Pendapatan ÷ Total Aset') }}
+  </div>
+  <div class="col-md-4">
+    {{ ratio_card(
+      'Receivables Turnover',
+      cur.receivables_turnover,
+      cur.recv_int,
+      ('%.2f' % cur.receivables_turnover) ~ 'x',
+      prev.receivables_turnover if prev else None,
+      False,
+      'Kecepatan piutang tertagih.',
+      'Pendapatan ÷ Piutang') }}
+  </div>
+</div>
+
+<!-- ── DATA SUMBER ── -->
+<div class="ar-section-title">
+  <i class="fas fa-database" style="color:#64748b"></i> Data Sumber
+  <span class="pill" style="background:#f1f5f9;color:#475569">Snapshot per {{ ed }}</span>
+</div>
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <tbody>
+        <tr><td class="ps-3 text-muted" style="width:55%">Total Aset</td><td class="text-end pe-3 fw-bold text-rp">{{ cur.bs.total_aset|rp }}</td></tr>
+        <tr><td class="ps-4" style="font-size:.8rem;color:#64748b">›&nbsp;Aset Lancar</td><td class="text-end pe-3 text-rp">{{ cur.bs.aset_lancar|rp }}</td></tr>
+        <tr><td class="ps-4" style="font-size:.8rem;color:#64748b">›&nbsp;Aset Tetap (net)</td><td class="text-end pe-3 text-rp">{{ cur.bs.aset_tetap|rp }}</td></tr>
+        <tr><td class="ps-5" style="font-size:.78rem;color:var(--tx3)">&nbsp;&nbsp;&nbsp;Persediaan</td><td class="text-end pe-3 text-rp" style="font-size:.82rem">{{ cur.bs.persediaan|rp }}</td></tr>
+        <tr><td class="ps-5" style="font-size:.78rem;color:var(--tx3)">&nbsp;&nbsp;&nbsp;Piutang</td><td class="text-end pe-3 text-rp" style="font-size:.82rem">{{ cur.bs.piutang|rp }}</td></tr>
+        <tr><td class="ps-5" style="font-size:.78rem;color:var(--tx3)">&nbsp;&nbsp;&nbsp;Kas & Bank</td><td class="text-end pe-3 text-rp" style="font-size:.82rem">{{ cur.bs.kas_bank|rp }}</td></tr>
+        <tr class="border-top"><td class="ps-3 text-muted">Total Liabilitas</td><td class="text-end pe-3 fw-bold text-rp">{{ cur.bs.total_liab|rp }}</td></tr>
+        <tr><td class="ps-4" style="font-size:.8rem;color:#64748b">›&nbsp;Liabilitas Lancar</td><td class="text-end pe-3 text-rp">{{ cur.bs.liab_lancar|rp }}</td></tr>
+        <tr><td class="ps-4" style="font-size:.8rem;color:#64748b">›&nbsp;Liabilitas Jangka Panjang</td><td class="text-end pe-3 text-rp">{{ cur.bs.liab_jp|rp }}</td></tr>
+        <tr class="border-top"><td class="ps-3 text-muted">Total Ekuitas</td><td class="text-end pe-3 fw-bold text-rp">{{ cur.bs.total_ekuitas|rp }}</td></tr>
+        <tr class="border-top"><td class="ps-3 text-muted">Pendapatan ({{ sd }} – {{ ed }})</td><td class="text-end pe-3 fw-bold text-rp">{{ cur.pnl.rev|rp }}</td></tr>
+        <tr><td class="ps-4" style="font-size:.8rem;color:#64748b">›&nbsp;HPP</td><td class="text-end pe-3 text-rp">{{ cur.pnl.hpp|rp }}</td></tr>
+        <tr><td class="ps-4" style="font-size:.8rem;color:#64748b">›&nbsp;Laba Kotor</td><td class="text-end pe-3 text-rp">{{ cur.pnl.laba_kotor|rp }}</td></tr>
+        <tr><td class="ps-4" style="font-size:.8rem;color:#64748b">›&nbsp;Laba Operasional</td><td class="text-end pe-3 text-rp">{{ cur.pnl.laba_op|rp }}</td></tr>
+        <tr><td class="ps-4" style="font-size:.8rem;color:#64748b">›&nbsp;Laba Bersih</td><td class="text-end pe-3 fw-bold text-rp {% if cur.pnl.laba_bersih >= 0 %}text-success{% else %}text-danger{% endif %}">{{ cur.pnl.laba_bersih|rp }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="ar-explain">
+  <b>Cara membaca:</b> Label <span class="badge badge-lunas">Sehat</span>,
+  <span class="badge badge-sebagian">Cukup</span>, dan
+  <span class="badge badge-belum">Perlu Perhatian</span>
+  menggunakan rule of thumb umum yang berlaku lintas industri. Setiap industri punya benchmark berbeda, gunakan angka pembanding (periode sebelumnya) sebagai indikator tren bisnis Anda sendiri.
+</div>
+
+{% endblock %}

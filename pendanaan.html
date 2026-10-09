@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block title %}Pendanaan - FinansialApp{% endblock %}
+{% block page_title %}Pendanaan{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="row justify-content-center">
+<div class="col-lg-9">
+
+<ul class="nav nav-tabs mb-3" id="sumberTabs">
+  <li class="nav-item">
+    <a class="nav-link active" id="tab-modal" href="#" onclick="switchSumber('modal');return false">
+      <i class="fas fa-hand-holding-heart me-1"></i>Setoran Modal Pemilik</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" id="tab-hutang" href="#" onclick="switchSumber('hutang');return false">
+      <i class="fas fa-building-columns me-1"></i>Pinjaman / Hutang</a>
+  </li>
+</ul>
+
+<form method="POST">
+  <input type="hidden" name="sumber" id="sumberInput" value="modal">
+  <div class="card">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="fas fa-sack-dollar text-success"></i>
+      <span class="section-title" id="formTitle">Setoran Modal Pemilik</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
+          <input type="date" name="tanggal" class="form-control" value="{{ today }}" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">
+            <i class="fas fa-vault text-success me-1"></i>Dana Masuk ke Rekening</label>
+          <select name="akun_kas" class="form-select">
+            {% for a in akun_kas %}
+            <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Nominal <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <span class="input-group-text">Rp</span>
+            <input type="number" name="nominal" id="nominal" class="form-control" min="0" step="1"
+                   required placeholder="0" oninput="renderPreview()">
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Keterangan</label>
+          <input type="text" name="keterangan" class="form-control"
+                 id="keterangan" placeholder="Opsional, mis: Tambahan modal kerja">
+        </div>
+
+        <!-- Hutang-only fields -->
+        <div class="col-12 hutang-field" style="display:none">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">
+              <i class="fas fa-file-signature me-1"></i>Detail Pinjaman
+            </span>
+            <hr class="flex-fill my-0">
+          </div>
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Jenis Liabilitas</label>
+              <select name="akun_hutang" class="form-select form-select-sm">
+                {% for a in akun_hutang %}
+                <option value="{{ a.kode }}" {% if a.kode=='2200' %}selected{% endif %}>{{ a.kode }} - {{ a.nama }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Pemberi Pinjaman / Kreditur</label>
+              <input type="text" name="kreditur" class="form-control form-control-sm"
+                     placeholder="Mis: Bank BRI, Koperasi, Investor A">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Jatuh Tempo</label>
+              <input type="date" name="jatuh_tempo" class="form-control form-control-sm">
+            </div>
+          </div>
+        </div>
+
+        <!-- Preview jurnal -->
+        <div class="col-12">
+          <div class="rounded-3 p-3" style="background:var(--pg);border:1px solid var(--pgb);color:var(--tx)">
+            <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--pgt);margin-bottom:.5rem">
+              <i class="fas fa-scale-balanced me-1"></i>Pratinjau Jurnal (Neraca)
+            </div>
+            <div class="d-flex justify-content-between" style="font-size:.85rem;color:var(--tx)">
+              <span><i class="fas fa-arrow-right text-success me-1"></i><strong>Debit</strong> <span id="prevDebitAkun">Kas/Bank</span></span>
+              <strong id="prevDebitNom">Rp 0</strong>
+            </div>
+            <div class="d-flex justify-content-between" style="font-size:.85rem;color:var(--tx)">
+              <span><i class="fas fa-arrow-left text-primary me-1"></i><strong>Kredit</strong> <span id="prevKreditAkun">Modal Pemilik</span></span>
+              <strong id="prevKreditNom">Rp 0</strong>
+            </div>
+            <div class="mt-2" id="prevNote" style="font-size:.76rem;color:var(--tx2)">
+              <i class="fas fa-circle-info me-1"></i>Setoran modal menambah Kas dan Ekuitas (Modal Pemilik). Tidak dihitung sebagai pendapatan.
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 d-flex gap-2 justify-content-end">
+          <a href="/" class="btn btn-outline-secondary">Batal</a>
+          <button type="submit" class="btn btn-success">
+            <i class="fas fa-save me-1"></i>Catat Pendanaan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<!-- Riwayat -->
+<div class="card mt-3">
+  <div class="card-header"><i class="fas fa-clock-rotate-left me-2"></i>Riwayat Pendanaan</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" style="width:110px">Tanggal</th>
+            <th>Keterangan</th>
+            <th>Sumber</th>
+            <th class="text-end">Nominal</th>
+            <th class="text-end pe-3" style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in riwayat %}
+          <tr>
+            <td class="ps-3 text-muted">{{ r.tanggal|tgl }}</td>
+            <td>{{ r.keterangan }}{% if r.pihak %} <span class="text-muted">· {{ r.pihak }}</span>{% endif %}</td>
+            <td>
+              {% if r.sumber == 'modal' %}
+                <span class="badge bg-success-subtle text-success"><i class="fas fa-hand-holding-heart me-1"></i>Modal</span>
+              {% else %}
+                <span class="badge bg-primary-subtle text-primary"><i class="fas fa-building-columns me-1"></i>Pinjaman</span>
+              {% endif %}
+            </td>
+            <td class="text-end text-rp fw-semibold">{{ r.nominal|rp }}</td>
+            <td class="text-end pe-3">
+              <form method="POST" action="/pendanaan/{{ r.id }}/hapus" class="d-inline"
+                    onsubmit="return confirm('Hapus data pendanaan ini? Efek kas{% if r.sumber!='modal' %} dan hutang{% endif %} akan dibatalkan.')">
+                <button class="btn btn-xs btn-outline-danger" title="Hapus"><i class="fas fa-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-4">
+            <i class="fas fa-sack-dollar fa-2x mb-2 d-block opacity-50"></i>
+            Belum ada pendanaan tercatat lewat menu ini.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div><!-- col -->
+</div><!-- row -->
+{{ pagination(pg) }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fmt(n){ return window.rpAbsFmt ? window.rpAbsFmt(n) : 'Rp ' + Math.round(Math.abs(n||0)).toLocaleString('id-ID'); }
+
+function switchSumber(s){
+  document.getElementById('sumberInput').value = s;
+  document.getElementById('tab-modal').classList.toggle('active', s==='modal');
+  document.getElementById('tab-hutang').classList.toggle('active', s==='hutang');
+  document.querySelectorAll('.hutang-field').forEach(function(el){
+    el.style.display = s==='hutang' ? 'block' : 'none';
+  });
+  document.getElementById('formTitle').textContent =
+    s==='modal' ? 'Setoran Modal Pemilik' : 'Pinjaman / Hutang';
+  renderPreview();
+}
+
+function renderPreview(){
+  var s = document.getElementById('sumberInput').value;
+  var nom = parseInt((document.getElementById('nominal').value||'0').replace(/\./g,''),10) || 0;
+  document.getElementById('prevDebitNom').textContent  = fmt(nom);
+  document.getElementById('prevKreditNom').textContent = fmt(nom);
+  document.getElementById('prevDebitAkun').textContent = 'Kas/Bank';
+  if (s === 'modal') {
+    document.getElementById('prevKreditAkun').textContent = 'Modal Pemilik (3100)';
+    document.getElementById('prevNote').innerHTML =
+      '<i class="fas fa-circle-info me-1"></i>Setoran modal menambah Kas dan Ekuitas (Modal Pemilik). Tidak dihitung sebagai pendapatan.';
+  } else {
+    document.getElementById('prevKreditAkun').textContent = 'Hutang / Liabilitas';
+    document.getElementById('prevNote').innerHTML =
+      '<i class="fas fa-circle-info me-1"></i>Pinjaman menambah Kas dan Liabilitas (hutang). Masuk ke tracker Hutang untuk dilunasi. Bukan pendapatan.';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', renderPreview);
+</script>
+{% endblock %}

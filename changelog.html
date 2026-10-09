@@ -1,0 +1,1022 @@
+{% extends "base.html" %}
+{% block title %}Apa yang Baru - FinansialApp{% endblock %}
+{% block page_title %}Apa yang Baru{% endblock %}
+{% block content %}
+{#
+  Catatan rilis. Dulu ini pop-up kecil di base.html yang isinya harus dibuka
+  satu versi per satu lewat tombol maju-mundur. Karena versinya terus bertambah,
+  isinya dipindah ke halaman sendiri: semua versi tampil sekaligus, bisa
+  di-scroll biasa, dicari dengan Ctrl+F, dan alamatnya bisa dibagikan.
+  Isi tiap versi TIDAK diubah, hanya wadahnya.
+#}
+<style>
+  .cl-page{max-width:1400px}
+  .cl-slide{background:var(--card,#fff);border:1px solid var(--bdr,#e5e7eb);
+            border-radius:12px;padding:1.1rem 1.25rem;margin-bottom:1rem}
+  .cl-slide:first-of-type{border-color:var(--bs-primary,#0d6efd)}
+  {# Urutan VERSI tetap 1 kolom penuh dari atas ke bawah (kronologis, jangan
+     diacak). Yang dipecah 2 kolom cuma daftar poin DI DALAM satu versi --
+     tiap poin berdiri sendiri (bukan prosa berkelanjutan), jadi aman dibaca
+     kolom-per-kolom. break-inside:avoid supaya satu poin tak terpotong di
+     tengah saat pindah kolom. #}
+  .cl-slide > ul.list-unstyled{column-count:2;column-gap:2rem}
+  .cl-slide > ul.list-unstyled > li{break-inside:avoid;-webkit-column-break-inside:avoid}
+  @media (max-width:900px){
+    .cl-slide > ul.list-unstyled{column-count:1}
+  }
+</style>
+
+<div class="cl-page">
+  <p class="text-muted mb-3" style="font-size:.84rem">
+    Daftar perubahan aplikasi dari versi terbaru sampai yang paling lama.
+    Versi yang sedang Anda pakai ada di paling atas.
+  </p>
+
+    {# Konten dibagi jadi beberapa slide (paginasi) — dinavigasi dari footer. #}
+    <div class="cl-slide">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-primary" style="font-size:.72rem">Versi 7</span>
+        <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>18 September 2026</span>
+        <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:.6rem">TERBARU</span>
+      </div>
+      <ul class="list-unstyled mb-0">
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-lock-open mt-1" style="color:#b45309;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Transaksi yang terkunci invoice Lunas kini bisa dibuka untuk dikoreksi</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Penjualan yang invoicenya sudah Lunas atau Terkirim, atau yang sudah menerima pembayaran,
+              dikunci supaya tidak bisa diedit atau dihapus. Sebelumnya kunci ini tidak disertai petunjuk
+              cara membukanya. Mengubah status invoice ke Draft ditolak dengan pesan "hapus dulu pembayaran
+              itu" tanpa menyebut pembayaran yang mana, dan form edit baru menolak setelah semua isian diisi.
+              Sekarang Detail Transaksi menyebut alasan terkuncinya. Admin dan Finance mendapat tombol Buka
+              Kunci untuk Koreksi di Detail Transaksi, halaman invoice, dan halaman Hapus. Halaman itu merinci
+              apa saja yang dibatalkan: invoice kembali ke Draft, dan pembayaran yang tercatat dihapus dengan
+              jejak tersimpan di Arsip Transaksi, sehingga saldo kas dan sisa piutang kembali seperti sebelum
+              dibayar. Sesudahnya transaksi bisa diedit atau dihapus, lalu pembayarannya dicatat ulang kalau
+              memang sudah diterima. Retur dan write-off tidak ikut dibatalkan otomatis, dan halaman itu
+              menyebutkan mana yang perlu dihapus lebih dulu.
+              Penyebab invoice tunai terkunci Lunas padahal tidak punya piutang juga sudah diperbaiki. Restore
+              database dengan mode tambah data dulu menyalin tautan piutang ke invoice apa adanya dari database
+              lama, padahal urutan invoice di database tujuan berbeda. Akibatnya piutang pelanggan lain bisa
+              menempel ke invoice yang salah, dan menandai invoice itu Lunas bisa ikut melunasi piutang pelanggan
+              lain tersebut. Tautan yang salah kini dibetulkan otomatis saat aplikasi dijalankan, dan restore
+              berikutnya tidak lagi membuatnya.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-file-invoice mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Invoice bisa dicetak mendatar dengan format A4 Landscape</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Menu Format cetak di halaman cetak invoice dan di Pengaturan Invoice kini punya pilihan
+              A4 Landscape. Pilihan A4 yang lama sekarang bernama A4 Portrait, dan setelan yang sudah
+              tersimpan tidak berubah.
+              Sebelumnya dialog print di browser tidak menawarkan posisi landscape karena halaman cetak
+              sudah menentukan ukuran kertasnya sendiri. Kalau kertas dibuat mendatar lewat pengaturan
+              printer, isinya tidak ikut melebar sehingga banyak ruang kosong.
+              Format A4 Landscape punya tata letak sendiri yang memakai lebar kertas. Nama usaha, kotak
+              pelanggan, detail invoice, dan judul INVOICE diletakkan sejajar dalam satu baris. Rekening,
+              catatan, syarat, dan tanda tangan diletakkan berdampingan di bawah tabel. Invoice dengan
+              sekitar 8 barang biasanya muat satu halaman, lengkap dengan rekening dan syarat. Karena
+              kertasnya lebih pendek, invoice yang panjang memakai lebih banyak halaman daripada A4 Portrait.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-cash-register mt-1" style="color:#2563eb;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Struk POS kini pas di kertas thermal 58 mm dan 80 mm</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Struk POS sebelumnya bisa keluar dengan ukuran kertas yang salah. Halaman struk
+              meminta ukuran kertas dengan format yang tidak dikenali browser, sehingga browser
+              memakai ukuran kertas bawaan dan struk yang panjang bisa terpecah menjadi beberapa
+              lembar. Sekarang panjang struk dihitung otomatis setiap kali mencetak, jadi struk
+              keluar sebagai satu gulungan selebar area cetak printer.
+              Di kertas 58 mm, struk sebelumnya tercetak lebih lebar dari kertasnya sehingga
+              terpotong di sisi kiri dan kanan. Lebarnya kini sudah pas. Nominal seperti Rp 18.000
+              juga tidak lagi terbelah ke dua baris. Kalau rincian item tidak muat dalam satu
+              baris, subtotal item pindah ke baris berikutnya dan tetap rata kanan.
+              Tampilan struk untuk kertas 80 mm tidak berubah.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-receipt mt-1" style="color:#0f766e;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Invoice bisa dicetak untuk printer thermal dan dot matrix</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di Pengaturan Invoice kini ada kartu Format Cetak untuk memilih printer yang dipakai:
+              A4 untuk printer laser atau inkjet, thermal 58 mm atau 80 mm, dot matrix kertas
+              continuous 9,5 x 11 inci, atau dot matrix setengah halaman. Pilihan itu menjadi
+              tampilan awal setiap kali invoice dibuka untuk dicetak.
+              Di halaman cetak ada menu Format cetak untuk mengganti format sekali pakai, misalnya
+              toko yang biasa mencetak thermal tapi sesekali perlu invoice A4. Pilihan di menu ini
+              diingat di masing-masing perangkat, jadi komputer kasir dan komputer admin boleh
+              memakai format yang berbeda. Tombol Struk Mode yang lama digantikan menu ini.
+              Format dot matrix memakai huruf mesin ketik, semuanya hitam pekat, tanpa warna latar
+              dan tanpa logo, karena printer jenis ini tidak bisa mencetak abu-abu dengan rapi.
+              Karena dicetak lewat browser, printer dot matrix bekerja lebih lambat daripada saat
+              mencetak teks biasa. Format thermal kini mengikuti lebar area cetak printer dan keluar
+              sebagai satu gulungan utuh.
+              Sekalian dirapikan dua hal kecil: garis tipis yang sempat muncul di bawah baris
+              Subtotal, Diskon, dan TOTAL pada invoice A4 sudah hilang, dan kartu di halaman
+              Pengaturan Invoice kembali tersusun rapi selebar halaman.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-boxes-stacked mt-1" style="color:#0369a1;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Produksi tidak lagi terkunci oleh saldo bahan non-SKU yang minus</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Sebagian pengguna yang mencatat semua belanja dan bahan produksi lewat SKU mendapati
+              tombol Simpan di halaman Produksi tetap menolak dengan pesan nilai bahan non-SKU
+              melebihi saldo, padahal tidak ada satu pun bahan non-SKU yang diisi. Ini terjadi kalau
+              saldo persediaan non-SKU pernah menjadi minus, misalnya dari penjualan produk yang
+              Master HPP atau resepnya memuat bahan non-SKU. Pemeriksaannya dulu tetap berjalan
+              walau kolom non-SKU kosong, dan saldo yang minus malah dipakai sebagai batas.
+              Sekarang pemeriksaan itu hanya berjalan kalau Anda memang mengisi bahan non-SKU.
+              Kalau nilainya melebihi saldo yang tersedia, aplikasi bertanya apakah tetap mau
+              lanjut, tidak lagi langsung menolak. Peringatan bahwa nilai persediaan non-SKU menjadi
+              minus juga hanya muncul untuk produksi yang benar-benar memakai bahan non-SKU. Saldo
+              terkininya tetap bisa dilihat di halaman Produksi.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-print mt-1" style="color:#475569;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Cetak invoice: kaki halaman tidak lagi tertimpa, dan TOTAL cuma sekali</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kalau daftar barangnya panjang sampai invoice tercetak beberapa halaman, baris nama
+              usaha dan nomor invoice di kaki halaman bisa tertimpa isi tabel sampai sulit dibaca.
+              Penyebabnya kaki halaman itu tidak punya jatah ruang sendiri, jadi daftar barang
+              mengalir terus sampai menabraknya. Sekarang jatahnya dipesan di setiap halaman, jadi
+              seberapa pun panjang daftarnya kaki halaman tetap bersih. Sudah dicoba sampai 150
+              barang atau sembilan halaman.
+              Sekalian dibetulkan satu hal lain yang ketemu di halaman yang sama. Blok Subtotal,
+              TOTAL, Sudah Dibayar, dan Lunas dulu ikut tercetak di setiap halaman. Itu bisa
+              menyesatkan, karena angka di halaman pertama gampang dikira total halaman itu saja
+              padahal isinya total seluruh invoice. Sekarang blok itu muncul sekali saja di halaman
+              terakhir, tepat di bawah baris barang yang paling akhir.
+              Satu perubahan tampilan yang perlu Anda tahu: di halaman terakhir, baris nama usaha
+              kini menempel tepat di bawah isi, tidak lagi dipaku ke dasar kertas.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-scale-balanced mt-1" style="color:#b45309;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Beban pajak dan bunga kini selalu mengikuti Peran akun yang Anda tetapkan</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Aplikasi mempersilakan nama akun bawaan diganti, dan sejak ada pengaturan Peran di
+              Laba Rugi, laporan membaca arti sebuah akun dari Perannya, bukan dari nomornya.
+              Ternyata masih ada dua tempat yang belum ikut aturan itu.
+              Pertama, Pajak lalu Setor Pajak. Saat Anda menyetor PPh Badan yang belum pernah
+              dicatat, aplikasi membuatkan jurnal bebannya otomatis, dan jurnal itu dulu selalu
+              diarahkan ke akun bernomor 6170 apa pun namanya sekarang. Kalau nomor itu sudah Anda
+              pakai ulang untuk hal lain, misalnya Beban Pengiriman, beban pajaknya masuk ke ongkos
+              kirim tanpa ketahuan. Kedua, Pengeluaran dengan sub-kategori Bunga, yang diarahkan ke
+              akun bernomor 6160 dengan cara yang sama.
+              Sekarang keduanya mencari akun lewat Perannya. Kalau belum ada akun yang berperan
+              sebagai Pajak atau Bunga, aplikasi menolak dan mengarahkan Anda ke Daftar Akun untuk
+              menetapkannya, bukan menebak lalu salah menaruh. Bagi Anda yang tidak pernah mengubah
+              nama akun bawaan, tidak ada yang berubah sama sekali.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-user-pen mt-1" style="color:#0f766e;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Ganti nama vendor kini ikut menyapu transaksi Pembelian PKP</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Menyambung perbaikan ganti nama sebelumnya, satu jenis transaksi masih tertinggal,
+              yaitu pembelian yang dicatat lewat Pajak lalu Pembelian PKP. Setelah nama vendor
+              diubah, daftar hutangnya sudah memakai nama baru tetapi transaksinya di Daftar
+              Transaksi masih memakai nama lama, sehingga satu pemasok terlihat seperti dua pihak
+              yang berbeda. Sekarang transaksi itu ikut diperbarui bersama yang lain.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-user-tag mt-1" style="color:#0f766e;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Nama pelanggan atau vendor kini terlihat di Detail Transaksi</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Nama pelanggan atau vendor yang Anda isi lewat Edit Transaksi selama ini
+              tersimpan, tapi tidak pernah ditampilkan lagi di halaman transaksinya. Satu-satunya
+              cara melihatnya adalah membuka kembali form editnya. Sekarang nama itu muncul
+              sebagai label kecil di sebelah keterangan, di halaman Detail Transaksi.
+              Label hijau dengan ikon orang berarti pelanggan, label cokelat dengan ikon truk
+              berarti vendor. Untuk transaksi yang arahnya memang tidak jelas, seperti pelunasan,
+              transfer antar rekening, dan jurnal umum, labelnya abu-abu dan hanya bertulis Pihak,
+              sebab aplikasi tidak menebak siapa yang pelanggan dan siapa yang vendor.
+              Transaksi yang kolom pelanggan atau vendornya kosong tidak menampilkan label apa pun.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-clock mt-1" style="color:#0891b2;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Jam di Log Aktivitas dan riwayat POS sekarang ikut jam Anda</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Beberapa layar menampilkan jam pencatatan otomatis: Log Aktivitas, jam transaksi
+              di POS, jam buka dan tutup shift, waktu transaksi diarsipkan, serta baris Dibuat
+              di detail transaksi. Jam di layar-layar itu dulu tampil mundur 7 jam untuk pemakai
+              WIB. Penyebabnya, aplikasi menyimpan jam tersebut dalam waktu standar dunia (UTC)
+              lalu menampilkannya begitu saja tanpa dikembalikan dulu ke waktu setempat.
+              Sekarang semuanya dikonversi sebelum tampil. Di aplikasi Windows dan Mac, jamnya
+              mengikuti jam komputer yang Anda pakai. Di versi online, jamnya mengikuti pilihan
+              di Pengaturan bagian Zona Waktu. Tanggal transaksi, struk, dan seluruh laporan
+              tidak ikut berubah karena memang sudah benar sejak awal.
+              Pilihan Zona Waktu sendiri kini tidak lagi muncul di aplikasi Windows, sebab di
+              sana aplikasi selalu memakai jam komputer dan pilihan itu tidak berpengaruh apa pun.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-barcode mt-1" style="color:#0369a1;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Scan barcode di kasir, barcodenya diisi lewat Stok</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Produk kini punya kolom Barcode sendiri, terpisah dari kode SKU. Isinya lewat
+              Stok, Edit Produk, klik kolom Barcode, lalu tembak barangnya dengan alat scan.
+              Setelah terisi, barang itu bisa langsung discan di POS Kasir. Arahkan alatnya ke
+              barcode, barangnya masuk keranjang, dan kotak pencarian langsung siap untuk scan
+              berikutnya. Scan barang yang sama dua kali menambah jumlahnya, bukan membuat baris
+              baru. Kalau barcodenya belum terdaftar, muncul pesan merah singkat yang hilang
+              sendiri, jadi tidak ada kotak dialog yang harus ditutup di tengah antrean.
+              Barcode juga ikut terjaring saat mencari di halaman Stok, dan sudah ada kolomnya
+              di template Excel untuk mengisi banyak barang sekaligus. Berkas Excel lama Anda
+              tetap bisa dipakai seperti biasa, karena kolomnya dicocokkan berdasarkan nama,
+              bukan urutan. Barcode disimpan sebagai teks, jadi angka nol di depan seperti
+              0012345 tidak hilang. Alat yang didukung jenis USB atau Bluetooth yang bekerja
+              seperti keyboard, bukan kamera.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-triangle-exclamation mt-1" style="color:#d97706;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Peringatan baru saat HPP tidak bisa dihitung ulang otomatis</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kalau sebuah produk pernah terjual habis sampai stoknya 0 lalu direstock, kemudian
+              ada transaksi lama di sekitar titik itu yang dihapus, HPP produk tersebut dulu bisa
+              diam-diam berubah jadi angka campuran yang tidak benar. Sekarang aplikasi mendeteksi
+              situasi ini dan TIDAK menebak angkanya, cukup memberi peringatan lewat notifikasi
+              dan mencatatnya di Log Aktivitas, supaya HPP-nya diperiksa dan dibetulkan manual
+              lewat Edit Produk. Tombol Perbaiki HPP di halaman Stok juga ikut melewati produk
+              dengan riwayat seperti ini, tidak lagi ikut menimpanya secara otomatis.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-palette mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Tampilan dirapikan: kartu ringkasan, menu samping, dan kotak contoh</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Banyak kartu di aplikasi ini dulu ditandai garis tipis yang menebal di satu sisi saja,
+              sehingga terlihat seperti tempelan. Sekarang judul kartu ringkasan memakai pita warna
+              penuh selebar kartunya, jadi jenis angkanya langsung kebaca tanpa perlu garis tambahan.
+              Warna pitanya sudah dicek supaya tulisan putih di atasnya tetap jelas, baik di tema
+              terang maupun gelap.
+              Menu samping juga disesuaikan: sudutnya tidak lagi terlalu membulat dan menu yang
+              sedang dibuka kini memanjang sampai tepi kanan, jadi jelas kelihatan mana yang aktif.
+              Kotak Contoh kasus di setiap halaman Petunjuk sekarang jadi satu blok berlatar
+              lembut dengan judulnya ikut di dalam, bukan paragraf yang ditempeli garis.
+              Tidak ada perhitungan atau data yang berubah, hanya tampilannya.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-boxes-stacked mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Bahan tanpa SKU tidak lagi mengunci produksi dan retur</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Usaha yang memakai bahan tanpa kode barang, misalnya kacang curah, kemasan, atau
+              stiker, sempat terjebak dua hal. Produksi yang memakai bahan itu tidak bisa dihapus
+              atau diedit karena muncul peringatan agar menghapus retur penjualan lebih dulu,
+              padahal returnya memang tidak pernah ada sehingga tidak akan pernah ketemu.
+              Retur penjualan berikut nilai modalnya juga selalu ditolak dengan alasan melebihi
+              persediaan yang bisa dikembalikan.
+              Penyebabnya satu: saldo awal dan pembelian bahan ikut dihitung sebagai retur.
+              Sekarang hanya retur penjualan yang benar-benar dihitung, jadi kedua alur itu
+              berjalan normal. Kalau memang ada retur yang menghalangi, pesannya kini menyebut
+              nomor transaksi returnya supaya langsung bisa dituju.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-tags mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Akun yang Anda ganti nama kini dibaca sesuai maksudnya</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Aplikasi mempersilakan nama akun bawaan disesuaikan dengan istilah usaha Anda,
+              tetapi laporan masih menebak artinya dari nomor akun. Akibatnya kalau akun
+              bawaan dipakai ulang, misalnya akun pajak diganti nama jadi Beban Pengiriman,
+              ongkos kirim tampil bertanda Pajak dan tidak ikut mengurangi Laba Usaha,
+              sehingga laba terlihat lebih besar dari kenyataan.
+              Sekarang tiap akun beban punya pengaturan <strong>Peran di Laba Rugi</strong>
+              di menu Daftar Akun, isinya Penyusutan, Bunga, Pajak, atau dibiarkan sebagai
+              beban operasional biasa. Saat aplikasi diperbarui, akun yang namanya masih
+              bawaan tetap seperti semula sehingga laporan lama tidak berubah, sedangkan
+              akun yang sudah Anda ganti nama otomatis dihitung sebagai beban operasional.
+              Total biaya dan laba bersih tidak berubah, yang dirapikan adalah
+              pengelompokannya.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-calculator mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Saldo awal berdesimal tidak lagi menggelembung 100 kali lipat</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Saat mode dua angka desimal aktif, isian di <strong>Setup Saldo Awal</strong> yang memakai
+              koma tersimpan seratus kali lipat. Contohnya 10.000,05 masuk ke pembukuan sebagai
+              1.000.005. Halaman ini memakai cara baca angka sendiri yang berbeda dari form lain,
+              sehingga titik desimal ikut terbuang. Sekarang saldo awal memakai pembaca angka yang
+              sama dengan seluruh aplikasi, termasuk untuk harga perolehan dan akumulasi penyusutan
+              aset tetap. Form lain tidak pernah terpengaruh masalah ini.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-list-check mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Hutang bisa dicatat ke akun pilihan sendiri</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Saat belanja atau mencatat pengeluaran yang belum dibayar penuh, kini ada pilihan
+              <strong>Dicatat sebagai akun</strong> di kotak Detail Hutang. Semua hutang tidak lagi
+              harus menumpuk di satu akun Hutang Usaha, jadi bisa dipisah misalnya hutang ke bank,
+              hutang ke pemilik, atau hutang ke pemasok tertentu, dan pemisahan itu langsung
+              terlihat di Neraca. Pelunasannya nanti otomatis mengurangi akun yang sama, tidak
+              perlu diatur ulang. Biarkan pilihan <strong>Otomatis</strong> kalau tidak yakin,
+              hasilnya persis seperti sebelumnya.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-key mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Lupa password tidak lagi bikin data terkunci</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di halaman masuk aplikasi versi desktop sekarang ada tautan <strong>Lupa password?</strong>
+              Aplikasi akan menampilkan daftar semua pengguna, lalu mengembalikan password mereka ke
+              bawaan dan menampilkannya di layar untuk dicatat. Seluruh transaksi, laporan, produk,
+              dan stok tidak tersentuh sama sekali, yang berubah hanya passwordnya.
+              Semua pengguna sengaja ikut direset, bukan cuma admin, supaya tidak ada yang bisa
+              diam-diam mengambil akses admin tanpa ketahuan, dan setiap pemulihan tercatat di
+              Log Aktivitas. Semuanya berjalan di komputer Anda sendiri, jadi file pembukuan tidak
+              perlu dikirim ke mana pun.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-flag-checkered mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Hutang dan piutang dari Saldo Awal kini bisa dilunasi</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Hutang dan piutang lama yang diisi lewat <strong>Setup Saldo Awal</strong> dulu hanya
+              masuk ke Neraca. Di Dashboard, halaman Hutang, dan menu Pelunasan semuanya tidak
+              kelihatan, jadi tidak pernah bisa dicicil dan total hutang tampil lebih kecil dari
+              yang sebenarnya. Sekarang saldo awal langsung membuat tagihannya, ditandai lencana
+              <strong>SALDO AWAL</strong> supaya jelas ini bawaan pembukuan lama dan bukan belanja
+              baru. Ada juga kolom rincian per pemasok dan per pelanggan, jadi hutang lama bisa
+              dipecah dan dilunasi satu per satu. Kolom rincian boleh dilewati, hutangnya tetap
+              bisa dilunasi sebagai satu tagihan gabungan. Untuk mencegah angka dobel, Setup Saldo
+              Awal kini menolak diisi dua kali dan mengarahkan Anda menghapus yang lama lebih dulu.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-file-excel mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Upload Excel inventory tidak lagi gagal total karena satu baris salah ketik</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kalau ada kolom angka (Harga Beli, Harga Jual, Stok, Min Stok) yang keisi teks
+              yang bukan angka, misalnya salah taruh satuan seperti &ldquo;1 kali&rdquo; ke kolom
+              Harga Beli, dulu seluruh proses upload berhenti dengan halaman error tanpa
+              penjelasan. Sekarang baris seperti itu dilewati sendiri, dan pesan yang muncul
+              menyebutkan persis kode produk, nama kolom, dan isi yang salah, supaya bisa
+              dibetulkan tanpa menebak. Baris lain yang datanya benar tetap tersimpan seperti
+              biasa.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-user-pen mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Ganti nama customer/vendor kini konsisten di semua transaksi</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Saat nama customer atau vendor diubah di menu Database, sebagian riwayat
+              transaksi belum ikut berganti nama, khususnya pelunasan piutang/hutang,
+              write-off, koreksi hapus, dan invoice yang diposting manual ke jurnal.
+              Layar Piutang, Hutang, dan Invoice sudah benar, tapi Daftar Transaksi untuk
+              jenis-jenis itu masih menampilkan nama lama, seolah satu pelanggan atau
+              pemasok terpecah jadi dua identitas. Sekarang semua jenis transaksi tersebut
+              ikut diperbarui otomatis begitu nama disimpan.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-calculator mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Nominal berdesimal tertentu tidak lagi meleset saat disimpan</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Harga per unit dengan pola tertentu, misalnya Rp 52,417 (angka depan koma 1-3
+              digit, dan tepat 3 digit di belakang koma), bisa tersimpan salah menjadi
+              Rp 52.417 saat transaksi disimpan atau diedit, karena cara pengiriman nominal ke
+              server sempat bentrok dengan aturan baca pemisah ribuan. Sekarang nominal
+              berdesimal selalu dikirim dengan tanda yang tidak pernah ambigu, sehingga
+              tersimpan persis seperti yang diketik, seberapa pun jumlah digit desimalnya.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-receipt mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Ukuran kertas struk kasir bisa dipilih</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Struk kasir dulu selalu tercetak selebar kertas 80 mm, jadi pemilik printer
+              thermal 58 mm mendapati struknya terpotong di sisi kanan. Sekarang di
+              <strong>Pengaturan</strong> ada pilihan <strong>Ukuran Kertas Struk</strong>,
+              yaitu 80 mm atau 58 mm, dan struk langsung menyesuaikan. Bagi yang selama ini
+              sudah pas, tidak ada yang berubah karena pilihannya tetap 80 mm.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-0">
+          <i class="fas fa-print mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Struk kasir lebih tegas terbaca di printer thermal</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Beberapa baris di struk dulu dicetak berwarna abu, seperti alamat toko, rincian
+              jumlah dan harga per barang, serta baris Tunai dan Kembalian. Printer thermal
+              tidak mengenal warna abu, jadi baris itu dipecah jadi titik-titik renggang dan
+              hasilnya pudar sampai sulit dibaca. Sekarang semua teks struk hitam pekat,
+              di layar maupun di kertas, jadi yang Anda lihat sebelum mencetak sama persis
+              dengan yang keluar dari printer. Harga sebelum diskon tetap dikenali karena
+              tetap dicoret, dan harga akhir tetap ditebalkan, bukan dibedakan lewat warna.
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="cl-slide">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-primary" style="font-size:.72rem">Versi 6.5</span>
+        <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>17 Agustus 2026</span>
+      </div>
+      <ul class="list-unstyled mb-0">
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-layer-group mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Sembunyikan satu kategori penuh dari layar kasir</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di <strong>POS Master</strong> ada panel baru <strong>Kategori di Kasir</strong>. Hilangkan centang
+              pada sebuah kategori, misalnya <strong>Bahan Baku</strong>, maka seluruh isinya langsung tidak tampil
+              di layar kasir. Sebelumnya harus dimatikan satu per satu per produk.
+              Produk baru yang masuk ke kategori tersembunyi ikut tidak tampil, jadi tidak perlu diatur ulang
+              setiap menambah barang. Ini hanya mengatur tampilan kasir: stok, harga, dan laporan tetap berjalan
+              seperti biasa, dan menampilkannya kembali cukup satu klik.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-clone mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Checkout kasir tidak lagi bisa tergandakan</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Dulu kalau tombol <strong>&ldquo;Selesaikan&rdquo;</strong> di layar bayar tertekan dua kali
+              (tap ganda di layar sentuh, atau koneksi lambat lalu dicoba lagi), transaksi yang sama bisa
+              tersimpan dua kali: stok terpotong dua kali, pendapatan tercatat dua kali.
+              Sekarang setiap sesi bayar punya kunci unik. Percobaan kedua dengan kunci yang sama otomatis
+              dikenali sebagai pengulangan dan diarahkan ke struk yang sudah tersimpan, bukan diproses ulang.
+              Tombol Selesaikan juga langsung terkunci begitu ditekan.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-ticket mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Voucher pada pesanan yang ditahan kini divalidasi ulang</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Pesanan yang memakai voucher lalu ditahan (<strong>&ldquo;Tahan Pesanan&rdquo;</strong>) dan dibuka
+              lagi nanti sekarang mengecek ulang voucher itu ke server sebelum diskonnya dipasang kembali,
+              bukan sekadar memakai angka potongan lama. Kalau voucher itu sudah kedaluwarsa atau kuotanya
+              habis, diskonnya dihapus dan kasir diberi tahu, bukan diam-diam tetap terpasang.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-scale-balanced mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Kuota voucher lebih tahan pemakaian bersamaan</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kalau ada dua transaksi checkout dengan voucher berkuota terbatas yang nyaris bersamaan
+              (dua kasir/terminal), sistem sekarang memastikan kuota benar-benar dicek ulang tepat saat
+              disimpan. Kalau kuota ternyata baru saja habis, checkout itu dibatalkan dengan pesan yang
+              jelas, bukan lolos melebihi kuota yang sudah ditetapkan.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-table-list mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Halaman Stok kini berpaginasi</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Katalog besar (ribuan produk ke atas) dulu membuat halaman <strong>Stok</strong> berat dimuat karena
+              seluruh katalog dirender sekaligus. Sekarang daftar produk tampil bertahap, bisa dipilih
+              <strong>50 / 100 / 500 / 1.000</strong> item per halaman lengkap dengan navigasi nomor halaman.
+              Pencarian, filter kategori, dan pengurutan tetap berjalan seperti biasa di atas data lengkap,
+              begitu juga peringatan stok di bawah minimum yang tetap dihitung dari seluruh katalog, bukan
+              cuma yang sedang tampil di layar.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-tablet-screen-button mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Tombol Bayar di kasir tidak lagi terpotong di layar pendek</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di tablet posisi mendatar dan layar yang tingginya terbatas, panel Pesanan bisa lebih
+              panjang daripada layar sehingga tombol <strong>Bayar Sekarang</strong> di paling bawah
+              ikut terpotong dan tidak bisa ditekan sama sekali, bahkan saat tampilan diperkecil.
+              Sekarang panel Pesanan menyesuaikan diri di layar pendek: tombol bayar dijamin selalu
+              muat, dan daftar item justru mendapat ruang lebih lega dari sebelumnya karena bagian
+              lain dirapatkan. Kalau item terlalu banyak, daftarnya yang bisa digulir, bukan tombol
+              bayarnya yang hilang.
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="cl-slide">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-primary" style="font-size:.72rem">Versi 6.4</span>
+        <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>23 Juli 2026</span>
+      </div>
+      <ul class="list-unstyled mb-0">
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-shield-halved mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Akun bawaan sistem kini terlindungi</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Dulu akun bawaan seperti <strong>1130 Persediaan Barang</strong> masih bisa terhapus dari
+              Daftar Akun selama belum dipakai di jurnal. Padahal akun itu dipakai otomatis oleh sistem
+              saat mencatat pembelian, penjualan, terima barang PO, dan produksi. Kalau sampai terhapus,
+              penyimpanan transaksi gagal dengan pesan error.
+              Sekarang akun bawaan diberi tanda <strong>BAWAAN</strong>, tombol hapusnya dikunci, dan
+              kode serta tipenya tidak bisa diubah. Nama akun tetap bebas Anda sesuaikan.
+              Kalau ada akun bawaan yang terlanjur hilang, aplikasi memulihkannya sendiri saat dijalankan.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-tags mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Resep yang dijual di POS sekarang punya harga jual sendiri</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Dulu harga resep di kasir hanya ikut produk jadi yang tertaut. Resep yang dimasak saat
+              ada pesanan biasanya tidak punya produk jadi, jadi harganya selalu tampil Rp 0.
+              Sekarang begitu saklar <strong>&ldquo;Jual resep ini langsung di POS Kasir&rdquo;</strong> dinyalakan,
+              muncul kolom <strong>Harga Jual di POS</strong> yang bisa diisi langsung.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-cash-register mt-1" style="color:#2563eb;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Harga di kasir mengikuti urutan yang jelas</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kasir memakai harga resep lebih dulu. Kalau dikosongkan, sistem memakai harga jual produk
+              jadi seperti sebelumnya, jadi resep lama tetap jalan tanpa perlu diubah.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-triangle-exclamation mt-1" style="color:#b45309;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Peringatan kalau harga masih kosong</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kalau resep aktif di POS tapi harganya masih 0, aplikasi mengingatkan saat mengisi dan
+              saat menyimpan template. Peringatan saja, tidak menghalangi, supaya barang setengah jadi
+              yang memang belum dijual tetap bisa disimpan.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-table-cells-large mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Atur item yang tampil di kasir</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di POS Master ada pilihan baru: tampilkan <strong>barang jadi + racikan</strong>, <strong>barang jadi saja</strong>,
+              atau <strong>racikan / produksi saja</strong>. Cocok untuk usaha yang memasak saat ada pesanan
+              dan tidak perlu menampilkan barang jadi di layar kasir.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-tags mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Racikan bisa punya kategori sendiri di kasir</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Saat menyimpan template racikan, ada kolom <strong>Kategori di POS</strong>. Kategori ini muncul
+              sebagai tombol yang bisa diklik di kasir untuk menyaring racikan, sama seperti kategori produk.
+              Kalau dikosongkan, racikan ikut kategori produk jadinya atau masuk grup &ldquo;Racikan&rdquo;.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-layer-group mt-1" style="color:#2563eb;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Satu produk bisa punya beberapa harga di kasir</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Fitur baru di <strong>POS Master &rsaquo; Produk POS (Lanjutan)</strong>. Nyalakan
+              <strong>Multi-Harga</strong>, beri nama level (misal Grosir, Member), lalu isi harga tiap level per produk.
+              Di kasir, tiap baris keranjang muncul pilihan level harga. Harga <strong>Utama</strong> tetap ikut
+              harga patokan di menu Stok. Kalau fitur ini dimatikan, semuanya sama persis seperti sebelumnya,
+              satu produk satu harga.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-eye mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Pilih produk mana saja yang tampil di kasir</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Masih di <strong>Produk POS (Lanjutan)</strong>, tiap produk punya centang <strong>Tampil</strong>.
+              Hilangkan centang untuk menyembunyikan produk dari layar kasir tanpa mengubah data stoknya.
+              Berguna kalau ada barang yang dijual lewat jalur lain dan tidak perlu muncul di POS.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-box-archive mt-1" style="color:#64748b;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Tombol hapus produk sekarang lebih jujur</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Produk yang sudah pernah ada transaksinya memang tidak bisa dihapus permanen supaya
+              riwayat dan laporan tidak rusak. Di halaman Stok, tombolnya kini jelas jadi
+              <strong>Arsipkan</strong> untuk produk seperti itu, dengan keterangan bahwa produk hanya
+              disembunyikan dari daftar dan datanya tetap tersimpan. Tombol <strong>Hapus</strong> permanen
+              hanya muncul untuk produk yang belum pernah dipakai sama sekali.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-arrow-down-1-9 mt-1" style="color:#2563eb;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Urut Kode Barang sekarang benar-benar urut</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di halaman Stok, saat memilih urut <strong>Kode Barang</strong>, angka di dalam kode kini
+              diurutkan sebagai angka, bukan sebagai teks. Jadi KODE-2 muncul sebelum KODE-10 (dulu
+              KODE-10 keliru naik ke atas karena diurutkan huruf per huruf).
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-money-bill-wave mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Harga jual resep kini dipakai juga di menu Penjualan</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kolom <strong>Harga Jual</strong> di modul Produksi sekarang selalu bisa diisi, tidak lagi
+              harus menyalakan tombol jual di POS dulu. Harga itu terisi otomatis sebagai harga default
+              ketika resep dipilih, baik di kasir POS maupun di menu <strong>Penjualan</strong> (Penjualan
+              Umum), dan tetap bisa diubah per transaksi.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-mobile-screen mt-1" style="color:#2563eb;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Perbaikan tombol di perangkat lama</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di sebagian HP atau tablet dengan browser lawas, tombol seperti <strong>Tambah Baris</strong>
+              di menu Penjualan bisa tidak berfungsi karena satu bagian skrip gagal jalan. Sekarang aplikasi
+              memuat penyesuaian kompatibilitas lebih dulu, jadi tombol tetap berfungsi di perangkat lama.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-cash-register mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Perbaikan hitung kembalian di kasir (mode desimal)</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Saat mode angka desimal (pakai sen) aktif, kolom Uang Diterima di kasir bisa terisi seperti
+              <strong>58000.00</strong>, dan sistem keliru membaca titik desimal sebagai pemisah ribuan
+              sehingga kembalian melonjak jauh (mis. tampil jutaan). Ini hanya salah tampilan; transaksi
+              yang tercatat tetap benar. Sekarang perhitungan kembalian sudah membaca angka dengan benar.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-pen-to-square mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Bisa mengubah template produksi yang sudah ada</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di modul Produksi, dulu mengubah template (mis. harga jual atau bahan) harus menyimpan
+              template baru sehingga bisa menumpuk duplikat. Sekarang pilih dulu templatenya, ubah isinya,
+              lalu klik tombol baru <strong>Perbarui template ini</strong>. Tombol <strong>Simpan sebagai baru</strong>
+              tetap ada untuk membuat template baru.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-calculator mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Perbaikan penting: angka desimal panjang saat mengedit transaksi</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Harga per unit yang lahir dari pembagian (mis. total Rp 1.395.850 dibagi 3) dulu
+              tersimpan dengan ekor desimal sangat panjang, lalu muncul saat transaksi dibuka lagi
+              sebagai angka aneh seperti <strong>17.800,54545454</strong>. Pada kondisi tertentu titik
+              desimalnya bahkan ikut terbaca sebagai pemisah ribuan, sehingga Total Belanja melonjak
+              jadi angka raksasa. Sekarang angka dibulatkan rapi ke 2 desimal saat disimpan dan
+              ditampilkan, dan cara aplikasi membaca angka sudah diperkuat agar tidak salah tafsir.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-sliders mt-1" style="color:#2563eb;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Produk POS (Lanjutan) kini mencari + mendukung racikan</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Halaman <strong>POS Master &rsaquo; Produk POS (Lanjutan)</strong> tidak lagi menampilkan
+              seluruh produk sekaligus (tetap ringan walau ribuan produk). Sekarang <strong>cari</strong>
+              produk atau racikan, klik untuk mengatur tampil di kasir dan harganya. <strong>Racikan</strong>
+              juga bisa diatur di sini, termasuk harga jual dan multi-harga (Grosir / Member) seperti produk.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-percent mt-1" style="color:#dc2626;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Perbaikan: tarif pajak berkoma (mis. 1,5%) kini terbaca utuh</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Saat mengisi persen pajak dengan angka berkoma seperti <strong>1,5%</strong> di menu Penjualan,
+              Pembelian, Pengeluaran, maupun Invoice, ringkasan di layar dulu keliru membacanya jadi 1% karena
+              angka di belakang koma terpotong. Nilai yang benar-benar tersimpan sebenarnya sudah tepat, jadi ini
+              hanya salah tampil di pratinjau. Sekarang pratinjaunya sudah membaca koma dengan benar. Selain itu,
+              nilai bawaan PPh Pasal 22 di Invoice yang seharusnya 1,5% diperbaiki agar tidak lagi keliru
+              tersimpan menjadi 15%.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-wallet mt-1" style="color:#15803d;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Rekening kas/bank kini bisa diaktifkan dari tempat Anda berada</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Dulu hanya rekening yang dibuat lewat Pengaturan yang bisa dipilih saat terima atau
+              bayar uang. Akun bank yang dibuat sendiri di <strong>Bagan Akun</strong> bisa diisi saldo awal,
+              tapi tidak pernah muncul di pilihan pembayaran, dan saldonya tidak ikut dihitung sebagai
+              Kas &amp; Bank maupun Arus Kas. Sekarang ada centang
+              <strong>&ldquo;Jadikan rekening kas/bank&rdquo;</strong> di form Tambah dan Edit Akun, serta centang
+              <strong>&ldquo;Ini rekening kas/bank saya&rdquo;</strong> langsung di baris akun pada halaman
+              <strong>Setup Saldo Awal</strong>. Begitu dicentang, akun langsung bisa dipilih dan saldo yang
+              sudah tercatat ikut terhitung, tanpa perlu memperbaiki data lama. Akun bertanda
+              <strong>REKENING</strong> juga terlihat jelas di Bagan Akun.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-wand-magic-sparkles mt-1" style="color:#b45309;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Tombol Perbaiki HPP saat nilai persediaan selisih</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kadang harga beli rata-rata sebagian produk jadi usang gara-gara transaksi lama diinput
+              belakangan (mis. saat memindahkan data dari catatan lama), sehingga muncul peringatan
+              <strong>&ldquo;Ada selisih nilai persediaan&rdquo;</strong> di halaman Inventory. Sekarang tinggal klik
+              tombol <strong>Perbaiki HPP</strong> yang muncul di peringatan itu. Aplikasi menghitung ulang
+              harga beli rata-rata dari riwayat pembelian dan penjualan yang sebenarnya, lalu menyamakannya
+              dengan pembukuan. Jurnal <strong>tidak diubah sama sekali</strong>, jadi Neraca dan Laba Rugi tetap
+              sama seperti sebelumnya. Produk yang jumlah stoknya sendiri tidak cocok (bukan cuma harganya)
+              tidak disentuh; itu tetap lewat Upload Excel mode Koreksi Stok Opname supaya ada jejak jurnalnya.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-keyboard mt-1" style="color:#2563eb;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Jumlah di kasir bisa langsung diketik</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Dulu menambah jumlah barang di keranjang kasir harus menekan tombol tambah berkali-kali.
+              Sekarang angkanya bisa diketik langsung, jadi pesanan 12 gelas cukup ketik <strong>12</strong>.
+              Tombol tambah dan kurang tetap ada untuk penyesuaian cepat. Isi angkanya dengan 0 atau
+              kosongkan untuk menghapus barang dari keranjang. Jumlah pecahan juga bisa, misalnya
+              <strong>2,5</strong> kg.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-0">
+          <i class="fas fa-calendar-day mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Jadwal shift kasir pindah ke halaman sendiri</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di POS Master, daftar shift dulu ditumpuk memanjang sehingga menutupi panel setelan
+              di bawahnya. Sekarang yang tampil cukup ringkasannya (sedang open, shift hari ini,
+              total tercatat) dengan tombol <strong>Lihat Jadwal Shift</strong>. Halaman jadwalnya
+              sudah berhalaman, plus saringan status, kasir, dan rentang tanggal.
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="cl-slide">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-primary" style="font-size:.72rem">Versi 6.3.2</span>
+        <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>18 Juli 2026</span>
+      </div>
+      <ul class="list-unstyled mb-0">
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-circle-check mt-1" style="color:#15803d;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Perbaikan: hutang tidak lagi muncul Rp 1 karena pembulatan</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Pada pembelian dengan jumlah pecahan (mis. 0,5 kg), sisa pembulatan sub-rupiah
+              dulu bisa nyangkut jadi Hutang Usaha kecil (tampil &ldquo;Rp 1&rdquo;). Sekarang di mode
+              rupiah bulat semua nominal dibulatkan konsisten, jadi bayar penuh = tidak ada hutang.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-receipt mt-1" style="color:#2563eb;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Pembelian: catat No. Invoice &amp; No. Faktur Pajak</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Saat mencatat pembelian ada dua kolom baru: <strong>No. Invoice Supplier</strong> dan
+              <strong>No. Faktur Pajak</strong>. Sekadar catatan referensi, tampil lagi di Detail Transaksi
+              supaya mudah dicocokkan dengan dokumen supplier. Tidak mengubah jurnal.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-truck mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Catat Pembelian PKP: pilih supplier dari daftar</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kolom nama supplier bisa dipilih langsung dari <strong>Database Vendor</strong>.
+              Tetap bisa diketik bebas kalau suppliernya baru.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-file-excel mt-1" style="color:#15803d;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">SPT Masa PPN &amp; Buku Besar bisa diunduh ke Excel</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Laporan <strong>SPT Masa PPN</strong> bisa dipilih per bulan lalu diunduh ke Excel lengkap
+              dengan rincian PPN Keluaran dan Masukan. <strong>Buku Besar</strong> tiap akun juga bisa
+              diunduh beserta saldo berjalannya.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-magnifying-glass mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Produksi: cari template resep</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Kalau template produksi sudah banyak, ada kotak pencarian untuk menemukan resep dengan cepat.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-0">
+          <i class="fas fa-boxes-stacked mt-1" style="color:#b45309;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">POS: pilihan blokir penjualan saat stok habis</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di POS Master ada saklar baru. Bawaannya kasir tetap boleh menjual walau stok habis
+              (barang menyusul, sistem hanya memberi pengingat). Kalau diaktifkan, kasir tidak bisa
+              checkout saat stok produk atau bahan resep tidak mencukupi.
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="cl-slide">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-primary" style="font-size:.72rem">Versi 6.2</span>
+        <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>10 Juli 2026</span>
+      </div>
+      <ul class="list-unstyled mb-0">
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-cart-plus mt-1" style="color:#0d9488;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Penjualan Umum kini satu pintu untuk semua</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Cukup satu kotak <strong>Item</strong>: ketik bebas untuk jasa/item tanpa stok, atau cari lalu
+              pilih <strong>produk stok</strong> (stok &amp; HPP otomatis), <strong>Master HPP</strong>, atau <strong>resep</strong>.
+              Barang, jasa, dan produk bisa digabung dalam satu nota, lengkap dengan <strong>diskon per item</strong>.
+              Tab &ldquo;Per Produk&rdquo; digabung ke sini, jadi tak perlu pindah-pindah tab lagi.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-utensils mt-1" style="color:#b45309;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Jual sekaligus potong stok bahan (resep produksi)</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di Penjualan Umum, tiap baris bisa memilih <strong>Resep Produksi</strong>. Saat menjual,
+              stok bahan otomatis berkurang sesuai resep dan HPP dihitung dari harga beli bahan.
+              Cocok untuk usaha makanan yang memasak saat ada pesanan.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-layer-group mt-1" style="color:#0891b2;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Penjualan Umum bisa banyak baris</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Satu transaksi Penjualan Umum kini bisa berisi banyak item sekaligus, tidak lagi satu
+              nominal gabungan. Tiap baris bisa diketik bebas atau diambil dari Master HPP.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-0">
+          <i class="fas fa-tags mt-1" style="color:#7c3aed;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Varian produk muncul di struk &amp; data transaksi</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Barang yang punya varian (mis. ukuran S/M/L) kini tampil lengkap dengan variannya,
+              misalnya <strong>&ldquo;Celana Panjang (S)&rdquo;</strong>, di keranjang kasir, struk, dan Detail Transaksi.
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="cl-slide">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-primary" style="font-size:.72rem">Versi 6.2</span>
+        <span class="text-muted" style="font-size:.78rem">lanjutan</span>
+      </div>
+      <ul class="list-unstyled mb-0">
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-hand-holding-dollar mt-1" style="color:#15803d;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Invoice bisa terima DP / pembayaran sebagian</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Di halaman invoice (yang sudah tercatat ke jurnal) ada kotak <strong>Terima DP / Pembayaran</strong>.
+              Nominal yang diterima langsung mengurangi Sisa Tagihan dan tercatat sebagai penerimaan kas.
+              Bisa dicicil beberapa kali sampai lunas.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-cash-register mt-1" style="color:#0369a1;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Nama barang di POS Kasir lebih terbaca</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Nama produk yang panjang tidak lagi terpotong di kartu POS.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-0">
+          <i class="fas fa-table-columns mt-1" style="color:#b45309;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Kolom nama produk di Pembelian diperlebar</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Saat input pembelian di laptop, kolom nama produk kini lebih lebar sehingga nama produk terbaca jelas.
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <div class="cl-slide">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <span class="badge bg-secondary" style="font-size:.72rem">Versi 6.1</span>
+        <span class="text-muted" style="font-size:.78rem"><i class="fas fa-calendar-day me-1"></i>7 Juli 2026</span>
+      </div>
+      <ul class="list-unstyled mb-0">
+        <li class="d-flex gap-2 mb-3">
+          <i class="fas fa-rotate-left mt-1" style="color:#c2410c;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Retur kini muncul di Daftar Transaksi</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Transaksi retur penjualan &amp; pembelian yang sebelumnya tidak tampil sekarang punya tab
+              <strong>&ldquo;Retur&rdquo;</strong> sendiri, dan juga muncul di tab <strong>&ldquo;Semua&rdquo;</strong>,
+              lengkap dengan kolom Kas &amp; Laba Rugi serta bisa diunduh ke Excel.
+            </div>
+          </div>
+        </li>
+        <li class="d-flex gap-2 mb-0">
+          <i class="fas fa-chart-pie mt-1" style="color:#2563eb;font-size:.9rem"></i>
+          <div>
+            <div class="fw-semibold" style="font-size:.88rem">Perbaikan grafik Cashflow di Dashboard</div>
+            <div class="text-muted" style="font-size:.8rem;line-height:1.5">
+              Donut <em>&ldquo;uang keluar per kategori&rdquo;</em> tidak lagi menghitung ganda transaksi retur.
+              Nilai retur kini tampil benar dengan label <strong>&ldquo;Retur Penjualan&rdquo;</strong>,
+              tidak lagi tercampur ke kategori &ldquo;Lainnya&rdquo;.
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+  <p class="text-muted mt-3 mb-0" style="font-size:.78rem">
+    Ada kendala atau usulan fitur? Sampaikan saja, catatan ini diperbarui tiap kali
+    ada perubahan.
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Bukti Potong PPh 23 - {{ no_bp }}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;color:#000;font-family:'Segoe UI',Arial,sans-serif}
+body{font-size:12px;background:#fff;padding:30px 36px}
+.header{border-bottom:3px solid #000;padding-bottom:14px;margin-bottom:18px;text-align:center}
+.title{font-size:18px;font-weight:900;letter-spacing:.04em;text-transform:uppercase}
+.subtitle{font-size:11px;margin-top:4px;color:#555}
+.no-bp{font-size:13px;font-weight:700;margin-top:8px;font-family:monospace}
+.row{display:flex;gap:14px;margin-bottom:14px}
+.col{flex:1}
+.box{border:1px solid #ccc;border-radius:5px;padding:10px 14px;background:#fafafa}
+.box-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#555;margin-bottom:4px}
+.box-val{font-size:12px;font-weight:600}
+table{width:100%;border-collapse:collapse;margin:12px 0}
+table th, table td{border:1px solid #ccc;padding:6px 10px;font-size:11px;text-align:left}
+table th{background:#f0f0f0;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+.text-right{text-align:right}
+.text-center{text-align:center}
+.calc-row td{font-weight:600}
+.calc-total td{background:#fef9c3;font-weight:900;font-size:13px;color:#92400e}
+.tt-box{margin-top:30px;display:flex;justify-content:space-between}
+.tt-block{width:200px;text-align:center}
+.tt-line{margin-top:60px;border-top:1px solid #000;padding-top:5px;font-size:11px}
+.notes{margin-top:20px;padding:10px;background:#fef9c3;border-left:3px solid #f59e0b;font-size:10px;line-height:1.5}
+.btn-print{background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;font-size:13px;margin-right:8px;margin-bottom:14px}
+.btn-back{background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;font-size:13px;margin-bottom:14px}
+@media print{.no-print{display:none!important} body{padding:14mm 16mm}}
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <button onclick="window.print()" class="btn-print">&#128424; Cetak / Save PDF</button>
+  <button onclick="window.close()" class="btn-back">Tutup</button>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="title">Bukti Pemotongan PPh Pasal 23</div>
+  <div class="subtitle">Sesuai PER-04/PJ/2017 - Pemotongan Pajak Penghasilan Pasal 23</div>
+  <div class="no-bp">No: {{ no_bp }}</div>
+</div>
+
+<!-- Pemotong (yang motong) = Customer / Pelanggan -->
+<div class="row">
+  <div class="col">
+    <div class="box">
+      <div class="box-label">A. Identitas Pemotong (Customer)</div>
+      <table style="margin:0;border:0">
+        <tr><td style="border:0;padding:2px 0;width:35%">Nama</td>
+            <td style="border:0;padding:2px 0">: <strong>{{ inv.pelanggan }}</strong></td></tr>
+        <tr><td style="border:0;padding:2px 0">Alamat</td>
+            <td style="border:0;padding:2px 0">: {{ inv.alamat_pelanggan or '-' }}</td></tr>
+        <tr><td style="border:0;padding:2px 0">Telp</td>
+            <td style="border:0;padding:2px 0">: {{ inv.telepon_pelanggan or '-' }}</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="col">
+    <div class="box">
+      <div class="box-label">B. Identitas Yang Dipotong (Penerima Penghasilan)</div>
+      <table style="margin:0;border:0">
+        <tr><td style="border:0;padding:2px 0;width:35%">Nama</td>
+            <td style="border:0;padding:2px 0">: <strong>{{ inv_s.inv_nama }}</strong></td></tr>
+        <tr><td style="border:0;padding:2px 0">Alamat</td>
+            <td style="border:0;padding:2px 0">: {{ inv_s.inv_alamat or '-' }}</td></tr>
+        <tr><td style="border:0;padding:2px 0">Telp</td>
+            <td style="border:0;padding:2px 0">: {{ inv_s.inv_telepon or '-' }}</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Pemotongan -->
+<div class="box-label">C. Rincian Penghasilan dan Pemotongan PPh 23</div>
+<table>
+  <thead>
+    <tr>
+      <th style="width:50px">No</th>
+      <th>Jenis Penghasilan</th>
+      <th style="width:140px" class="text-right">Dasar Pengenaan Pajak</th>
+      <th style="width:80px" class="text-right">Tarif</th>
+      <th style="width:140px" class="text-right">PPh 23 Dipotong</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="text-center">1</td>
+      <td>
+        Pendapatan jasa berdasarkan Invoice <strong>{{ inv.nomor }}</strong>
+        ({{ inv.tanggal|tgl }})
+        {% if items %}
+        <ul style="margin:4px 0 0 18px;font-size:10px;color:#555">
+          {% for it in items %}
+          <li>{{ it.deskripsi }} - Qty {{ it.qty|qty }} {{ it.satuan }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </td>
+      <td class="text-right">{{ dpp|rp }}</td>
+      <td class="text-right">{{ inv.pph23_persen|round(2) }}%</td>
+      <td class="text-right"><strong>{{ inv.pph23_nominal|rp }}</strong></td>
+    </tr>
+    <tr class="calc-total">
+      <td colspan="4" class="text-right">JUMLAH PPh 23 YANG DIPOTONG</td>
+      <td class="text-right">{{ inv.pph23_nominal|rp }}</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="notes">
+  <strong>Catatan:</strong>
+  <ul style="margin:4px 0 0 18px">
+    <li>PPh Pasal 23 yang telah dipotong oleh Pemotong di atas merupakan kredit pajak yang dapat dikreditkan dalam SPT Tahunan PPh penerima penghasilan.</li>
+    <li>Bukti potong ini diterbitkan sebagai dokumentasi resmi pemotongan PPh 23 atas transaksi yang tercantum.</li>
+    <li>Simpan dokumen ini untuk keperluan pelaporan SPT Tahunan PPh Badan/OP.</li>
+  </ul>
+</div>
+
+<!-- Tanda Tangan -->
+<div class="tt-box">
+  <div class="tt-block">
+    <div style="font-size:11px;margin-bottom:6px">Yang Dipotong,</div>
+    <div class="tt-line"><strong>{{ inv_s.inv_nama }}</strong></div>
+  </div>
+  <div class="tt-block">
+    <div style="font-size:11px;margin-bottom:6px">Pemotong PPh 23,</div>
+    <div class="tt-line"><strong>{{ inv.pelanggan }}</strong></div>
+  </div>
+</div>
+
+</body>
+</html>

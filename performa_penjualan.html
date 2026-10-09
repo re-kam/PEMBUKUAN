@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block title %}Performa Penjualan - FinansialApp{% endblock %}
+{% block page_title %}Top Performa Produk & Penjualan{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalPerformaHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_performa_help_modal.html' %}
+
+{% macro pct(v) -%}{{ '%.1f' % (v or 0) }}%{%- endmacro %}
+{% macro metric_card(label, value, icon, color, sub='') -%}
+<div class="col-md-3 col-6">
+  <div class="card sp-kpi h-100" style="border-left-color:{{ color }}">
+    <div class="card-body p-3">
+      <div class="d-flex align-items-start justify-content-between gap-2">
+        <div>
+          <div class="sp-lbl">{{ label }}</div>
+          <div class="sp-val text-rp">{{ value }}</div>
+          {% if sub %}<div class="sp-sub">{{ sub }}</div>{% endif %}
+        </div>
+        <div class="sp-ico" style="background:{{ color }}22;color:{{ color }}"><i class="fas {{ icon }}"></i></div>
+      </div>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+<style>
+.sp-toolbar{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem}
+.sp-kpi{}
+.sp-lbl{font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3);margin-bottom:.32rem}
+.sp-val{font-size:1.18rem;font-weight:900;line-height:1.1;color:var(--tx);font-variant-numeric:tabular-nums}
+.sp-sub{font-size:.68rem;color:var(--tx3);margin-top:.25rem}
+.sp-ico{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sp-section{font-size:.78rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:var(--tx);display:flex;align-items:center;gap:.5rem;margin:1rem 0 .55rem}
+.sp-rank{width:28px;height:28px;border-radius:8px;background:var(--bg2);display:inline-flex;align-items:center;justify-content:center;font-size:.74rem;font-weight:800;color:var(--tx2)}
+.sp-bar{height:7px;border-radius:999px;background:var(--bdr);overflow:hidden;min-width:80px}
+.sp-bar span{display:block;height:100%;border-radius:999px;background:#16a34a}
+.sp-pill{font-size:.68rem;border-radius:999px;padding:.18rem .5rem;background:var(--bg2);color:var(--tx2);white-space:nowrap}
+.sp-note{font-size:.74rem;color:var(--tx3);line-height:1.45}
+.sp-table{font-size:.84rem}
+.sp-table th{font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--tx3);white-space:nowrap}
+@media print{.no-print{display:none!important}.card{box-shadow:none!important}.sp-table{font-size:.76rem}}
+</style>
+
+<div class="sp-toolbar no-print">
+  <form class="d-flex gap-2 align-items-center flex-wrap" method="get">
+    <label class="mb-0 fw-semibold text-nowrap">Periode:</label>
+    <input type="date" name="sd" value="{{ sd }}" class="form-control form-control-sm" style="width:150px">
+    <span class="text-muted">s/d</span>
+    <input type="date" name="ed" value="{{ ed }}" class="form-control form-control-sm" style="width:150px">
+    <button class="btn btn-primary btn-sm"><i class="fas fa-sync me-1"></i>Tampilkan</button>
+  </form>
+  <a class="btn btn-outline-secondary btn-sm" href="/performa-penjualan">
+    <i class="fas fa-calendar-day me-1"></i>Bulan Ini
+  </a>
+  <button onclick="window.print()" class="btn btn-outline-secondary btn-sm ms-auto">
+    <i class="fas fa-print me-1"></i>Cetak
+  </button>
+</div>
+
+<div class="text-muted mb-3" style="font-size:.78rem">
+  <i class="fas fa-calendar-days me-1"></i>{{ sd|tgl }} s/d {{ ed|tgl }}
+  <span class="mx-2">|</span>
+  <i class="fas fa-circle-info me-1"></i>Metrik produk memakai item penjualan dan retur yang terhubung ke inventory.
+</div>
+
+<div class="row g-3">
+  {{ metric_card('Omzet Produk Bersih', report.totals.omzet_net|rp, 'fa-sack-dollar', '#16a34a', 'Setelah retur produk') }}
+  {{ metric_card('Margin Kotor Produk', report.totals.margin|rp, 'fa-chart-line', '#2563eb', pct(report.totals.margin_pct) ~ ' dari omzet produk') }}
+  {{ metric_card('Qty Terjual Bersih', (report.totals.qty_net|qty), 'fa-boxes-stacked', '#7c3aed', report.totals.active_products ~ ' produk aktif') }}
+  {{ metric_card('Rata-rata Order', report.totals.avg_order|rp, 'fa-receipt', '#d97706', report.totals.trx_count ~ ' transaksi penjualan') }}
+</div>
+
+<div class="row g-3 mt-0">
+  <div class="col-md-3 col-6">
+    <div class="card h-100"><div class="card-body p-3">
+      <div class="sp-lbl">Diskon Item</div>
+      <div class="sp-val text-rp">{{ report.totals.item_discount|rp }}</div>
+      <div class="sp-sub">{{ pct(report.totals.discount_rate) }} dari bruto produk</div>
+    </div></div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card h-100"><div class="card-body p-3">
+      <div class="sp-lbl">Retur Produk</div>
+      <div class="sp-val text-rp">{{ report.totals.return_net|rp }}</div>
+      <div class="sp-sub">{{ pct(report.totals.return_rate) }} dari penjualan produk</div>
+    </div></div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card h-100"><div class="card-body p-3">
+      <div class="sp-lbl">HPP Produk Bersih</div>
+      <div class="sp-val text-rp">{{ report.totals.hpp_net|rp }}</div>
+      <div class="sp-sub">Estimasi modal barang terjual</div>
+    </div></div>
+  </div>
+  <div class="col-md-3 col-6">
+    <div class="card h-100"><div class="card-body p-3">
+      <div class="sp-lbl">Revenue Buku Besar</div>
+      <div class="sp-val text-rp">{{ pnl.rev|rp }}</div>
+      <div class="sp-sub">Termasuk jasa / non-SKU</div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-body p-3">
+        <div class="sp-section mt-0"><i class="fas fa-ranking-star text-warning"></i>Highlight</div>
+        <div class="d-grid gap-2">
+          <div class="d-flex justify-content-between gap-3">
+            <span class="text-muted">Top omzet</span>
+            <strong class="text-end">{{ report.insights.top_omzet.nama if report.insights.top_omzet else '-' }}</strong>
+          </div>
+          <div class="d-flex justify-content-between gap-3">
+            <span class="text-muted">Top margin</span>
+            <strong class="text-end">{{ report.insights.top_margin.nama if report.insights.top_margin else '-' }}</strong>
+          </div>
+          <div class="d-flex justify-content-between gap-3">
+            <span class="text-muted">Top qty</span>
+            <strong class="text-end">{{ report.insights.top_qty.nama if report.insights.top_qty else '-' }}</strong>
+          </div>
+          <div class="d-flex justify-content-between gap-3">
+            <span class="text-muted">Kategori terbaik</span>
+            <strong class="text-end">{{ report.insights.top_category.kategori if report.insights.top_category else '-' }}</strong>
+          </div>
+          <div class="d-flex justify-content-between gap-3">
+            <span class="text-muted">Customer terbesar</span>
+            <strong class="text-end">{{ report.insights.best_customer.nama if report.insights.best_customer else '-' }}</strong>
+          </div>
+        </div>
+        <div class="sp-note mt-3">
+          Margin produk dihitung dari omzet produk bersih dikurangi HPP mutasi stok. Untuk penjualan umum/non-SKU, nilai tetap muncul di Revenue Buku Besar.
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-body p-3">
+        <div class="sp-section mt-0"><i class="fas fa-layer-group text-primary"></i>Performa Kategori</div>
+        <div class="table-responsive">
+          <table class="table table-sm sp-table mb-0">
+            <thead><tr><th>Kategori</th><th class="text-end">Produk</th><th class="text-end">Omzet</th><th style="width:140px">Kontribusi</th><th class="text-end">Margin</th></tr></thead>
+            <tbody>
+              {% for c in report.categories[:6] %}
+              <tr>
+                <td class="fw-semibold">{{ c.kategori }}</td>
+                <td class="text-end">{{ c.produk_count }}</td>
+                <td class="text-end text-rp">{{ c.omzet_net|rp }}</td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="sp-bar flex-grow-1"><span style="width:{{ [c.share,100]|min }}%"></span></div>
+                    <span class="sp-pill">{{ pct(c.share) }}</span>
+                  </div>
+                </td>
+                <td class="text-end">
+                  <div class="text-rp fw-semibold">{{ c.margin|rp }}</div>
+                  <small class="text-muted">{{ pct(c.margin_pct) }}</small>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="text-center text-muted py-3">Belum ada data produk pada periode ini.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sp-section"><i class="fas fa-trophy text-warning"></i>Top Performa Produk</div>
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-sm table-hover align-middle sp-table mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">Rank</th>
+          <th>Produk</th>
+          <th>Kategori</th>
+          <th class="text-end">Qty Net</th>
+          <th class="text-end">Omzet Net</th>
+          <th class="text-end">HPP</th>
+          <th class="text-end">Margin</th>
+          <th style="width:145px">Kontribusi</th>
+          <th class="text-end">Retur</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in report.products[:15] %}
+        <tr>
+          <td class="ps-3"><span class="sp-rank">{{ loop.index }}</span></td>
+          <td>
+            <div class="fw-semibold">{{ p.nama }}</div>
+            <small class="text-muted">{{ p.kode }}{% if p.varian %} | {{ p.varian }}{% endif %}</small>
+          </td>
+          <td><span class="sp-pill">{{ p.kategori }}</span></td>
+          <td class="text-end">{{ p.qty_net|qty }} <small class="text-muted">{{ p.satuan }}</small></td>
+          <td class="text-end text-rp fw-semibold">{{ p.omzet_net|rp }}</td>
+          <td class="text-end text-rp">{{ p.hpp_net|rp }}</td>
+          <td class="text-end">
+            <div class="text-rp fw-semibold {{ 'text-success' if p.margin >= 0 else 'text-danger' }}">{{ p.margin|rp }}</div>
+            <small class="text-muted">{{ pct(p.margin_pct) }}</small>
+          </td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="sp-bar flex-grow-1"><span style="width:{{ [p.share,100]|min }}%"></span></div>
+              <span class="sp-pill">{{ pct(p.share) }}</span>
+            </div>
+          </td>
+          <td class="text-end">
+            <div class="text-rp">{{ p.return_net|rp }}</div>
+            <small class="text-muted">{{ pct(p.return_rate) }}</small>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="text-center text-muted py-4">Belum ada penjualan produk pada periode ini.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-6">
+    <div class="sp-section"><i class="fas fa-user-group text-primary"></i>Top Customer</div>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-sm sp-table mb-0">
+          <thead class="table-light"><tr><th class="ps-3">Customer</th><th class="text-end">Transaksi</th><th class="text-end">Omzet</th><th class="text-end">Margin</th><th class="text-end">AOV</th></tr></thead>
+          <tbody>
+            {% for c in report.customers %}
+            <tr>
+              <td class="ps-3 fw-semibold">{{ c.nama }}</td>
+              <td class="text-end">{{ c.trx_count }}</td>
+              <td class="text-end text-rp">{{ c.omzet|rp }}</td>
+              <td class="text-end"><span class="text-rp">{{ c.margin|rp }}</span><br><small class="text-muted">{{ pct(c.margin_pct) }}</small></td>
+              <td class="text-end text-rp">{{ c.avg_order|rp }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">Belum ada customer pada periode ini.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="sp-section"><i class="fas fa-calendar-week text-success"></i>Tren Bulanan Produk</div>
+    <div class="card">
+      <div class="table-responsive">
+        <table class="table table-sm sp-table mb-0">
+          <thead class="table-light"><tr><th class="ps-3">Periode</th><th class="text-end">Transaksi</th><th class="text-end">Penjualan Produk</th><th class="text-end">Retur</th><th class="text-end">Net</th></tr></thead>
+          <tbody>
+            {% for t in report.trends %}
+            <tr>
+              <td class="ps-3 fw-semibold">{{ t.periode }}</td>
+              <td class="text-end">{{ t.trx_count }}</td>
+              <td class="text-end text-rp">{{ t.omzet_produk|rp }}</td>
+              <td class="text-end"><span class="text-rp">{{ t.retur_produk|rp }}</span><br><small class="text-muted">{{ pct(t.return_rate) }}</small></td>
+              <td class="text-end text-rp fw-semibold">{{ t.omzet_net|rp }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted py-3">Belum ada tren bulanan pada periode ini.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

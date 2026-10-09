@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+{% block title %}Proses Gaji - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-calculator me-2" style="color:#7c3aed"></i>Proses Gaji Bulanan{% endblock %}
+{% block content %}
+
+{% if not karyawan_list %}
+<div class="card">
+  <div class="card-body text-center py-5">
+    <i class="fas fa-users fa-3x mb-3 opacity-25"></i>
+    <div class="fw-semibold mb-2">Belum ada karyawan aktif</div>
+    <div class="text-muted mb-3" style="font-size:.88rem">Tambah data karyawan dulu sebelum memproses gaji.</div>
+    <a href="/gaji/karyawan" class="btn btn-sm" style="background:#7c3aed;color:#fff">
+      <i class="fas fa-user-plus me-1"></i>Tambah Karyawan</a>
+  </div>
+</div>
+{% else %}
+
+<div class="row g-3">
+
+  <!-- Form Proses -->
+  <div class="col-lg-5">
+    <div class="card">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-calculator" style="color:#7c3aed"></i>
+        <span class="section-title">Input Payroll</span>
+      </div>
+      <div class="card-body">
+        <form method="POST" id="formProses">
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Karyawan <span class="text-danger">*</span></label>
+            <select name="karyawan_id" id="selKaryawan" class="form-select form-select-sm" required
+                    onchange="onSelectKaryawan()">
+              <option value="">Pilih karyawan...</option>
+              {% for k in karyawan_list %}
+              <option value="{{ k.id }}"
+                      data-gaji="{{ k.gaji_pokok }}"
+                      data-tunjangan="{{ k.tunjangan_tetap }}"
+                      data-pajak="{{ k.status_pajak }}"
+                      data-jenis="{{ k.jenis_upah or 'BULANAN' }}"
+                      data-tarif="{{ k.tarif_harian or 0 }}">
+                {{ k.nama }}{% if k.jabatan %} - {{ k.jabatan }}{% endif %}{% if (k.jenis_upah or 'BULANAN') != 'BULANAN' %} &middot; {{ k.jenis_upah }}{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold small">Bulan <span class="text-danger">*</span></label>
+              <select name="bulan" id="selBulan" class="form-select form-select-sm" onchange="fetchPreview()">
+                {% for m in range(1,13) %}
+                <option value="{{ m }}" {% if m == bulan_ini %}selected{% endif %}>
+                  {{ ['','Januari','Februari','Maret','April','Mei','Juni',
+                       'Juli','Agustus','September','Oktober','November','Desember'][m] }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold small">Tahun <span class="text-danger">*</span></label>
+              <select name="tahun" id="selTahun" class="form-select form-select-sm" onchange="fetchPreview()">
+                {% for y in range(tahun_ini - 2, tahun_ini + 2) %}
+                <option value="{{ y }}" {% if y == tahun_ini %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold small">Catatan (opsional)</label>
+            <input type="text" name="catatan" class="form-control form-control-sm"
+                   placeholder="Mis: Termasuk lembur 8 jam">
+          </div>
+
+          <!-- Komponen Variabel (per periode): opsional, selalu terlihat -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold small mb-1">
+              <i class="fas fa-coins me-1 text-muted"></i>Komponen Variabel (opsional)</label>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label small mb-1" style="font-size:.74rem">Uang Makan</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">Rp</span>
+                  <input type="number" name="uang_makan" id="inpUangMakan" class="form-control"
+                         min="0" step="1" value="0" oninput="fetchPreview()" placeholder="0">
+                </div>
+              </div>
+              <div class="col-6">
+                <label class="form-label small mb-1" style="font-size:.74rem">Uang Transport</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">Rp</span>
+                  <input type="number" name="uang_transport" id="inpUangTransport" class="form-control"
+                         min="0" step="1" value="0" oninput="fetchPreview()" placeholder="0">
+                </div>
+              </div>
+              <div class="col-6">
+                <label class="form-label small mb-1" style="font-size:.74rem">Bonus / THR</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">Rp</span>
+                  <input type="number" name="bonus" id="inpBonus" class="form-control"
+                         min="0" step="1" value="0" oninput="fetchPreview()" placeholder="0">
+                </div>
+              </div>
+              <div class="col-6">
+                <label class="form-label small mb-1" style="font-size:.74rem">Lain-lain</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">Rp</span>
+                  <input type="number" name="lain_lain" id="inpLainLain" class="form-control"
+                         min="0" step="1" value="0" oninput="fetchPreview()" placeholder="0">
+                </div>
+              </div>
+            </div>
+            <div class="form-text" style="font-size:.66rem">
+              Uang makan &amp; transport = penghasilan teratur (anualisasi). Bonus &amp; lain-lain = tidak teratur (THR/bonus). Biarkan 0 jika tidak ada.</div>
+          </div>
+
+          <!-- Rincian Lanjutan: tarif/qty/hari utk Harian & Borongan (disembunyikan utk Bulanan) -->
+          <div class="accordion accordion-flush mb-3" id="accLanjutanProses" style="display:none">
+            <div class="accordion-item" style="border:1px solid var(--bdr);border-radius:8px;overflow:hidden">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse"
+                        data-bs-target="#collapseLanjutanProses" style="font-size:.82rem;font-weight:600">
+                  <i class="fas fa-sliders me-2 text-muted"></i>Rincian Upah Non-Bulanan (Harian / Borongan)
+                  <span id="badgeJenis" class="badge ms-2" style="background:#7c3aed;font-size:.62rem">Bulanan</span>
+                </button>
+              </h2>
+              <div id="collapseLanjutanProses" class="accordion-collapse collapse"
+                   data-bs-parent="#accLanjutanProses">
+                <div class="accordion-body py-2">
+                  <div id="boxNonTetap" style="display:none">
+                    <div class="row g-2">
+                      <div class="col-6">
+                        <label class="form-label fw-semibold small mb-1" id="lblTarif">Tarif / Hari</label>
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text">Rp</span>
+                          <input type="number" name="tarif" id="inpTarif" class="form-control"
+                                 min="0" step="1" oninput="fetchPreview()">
+                        </div>
+                      </div>
+                      <div class="col-6" id="colQty" style="display:none">
+                        <label class="form-label fw-semibold small mb-1">Qty Output</label>
+                        <input type="number" name="qty_output" id="inpQty" class="form-control form-control-sm"
+                               min="0" step="0.01" value="0" oninput="fetchPreview()">
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label fw-semibold small mb-1">Jumlah Hari Kerja</label>
+                        <input type="number" name="hari_kerja" id="inpHari" class="form-control form-control-sm"
+                               min="0" step="0.5" value="0" oninput="fetchPreview()">
+                      </div>
+                    </div>
+                    <div class="form-text" id="hintNonTetap" style="font-size:.68rem"></div>
+                  </div>
+                  <input type="hidden" name="jenis_upah" id="inpJenisUpah" value="BULANAN">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn w-100" style="background:#7c3aed;color:#fff"
+                  id="btnProses" disabled>
+            <i class="fas fa-check me-1"></i>Proses & Catat Jurnal</button>
+          <div class="form-text mt-2" style="font-size:.72rem">
+            <i class="fas fa-circle-info me-1"></i>
+            Jurnal gaji dibuat otomatis. Tanggal gajian: tanggal 25 atau akhir bulan.
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview Kalkulasi -->
+  <div class="col-lg-7">
+    <div class="card" id="cardPreview" style="display:none">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-file-invoice-dollar" style="color:#7c3aed"></i>
+        <span class="section-title">Preview Slip Gaji</span>
+        <span id="prevNama" class="ms-auto text-muted" style="font-size:.82rem"></span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0" style="font-size:.85rem">
+          <tbody>
+            <tr class="table-light">
+              <td colspan="2" class="ps-3 fw-bold" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3)">
+                Penghasilan
+              </td>
+            </tr>
+            <tr>
+              <td class="ps-3" id="lblPokok">Gaji Pokok</td>
+              <td class="text-end pe-3 text-rp fw-semibold" id="prevGajiPokok">-</td>
+            </tr>
+            <tr id="rowTunjangan">
+              <td class="ps-3">Tunjangan Tetap</td>
+              <td class="text-end pe-3 text-rp" id="prevTunjangan">-</td>
+            </tr>
+            <tr id="rowUangMakan" style="display:none">
+              <td class="ps-3">Uang Makan</td>
+              <td class="text-end pe-3 text-rp" id="prevUangMakan">-</td>
+            </tr>
+            <tr id="rowUangTransport" style="display:none">
+              <td class="ps-3">Uang Transport</td>
+              <td class="text-end pe-3 text-rp" id="prevUangTransport">-</td>
+            </tr>
+            <tr id="rowBonus" style="display:none">
+              <td class="ps-3">Bonus / THR</td>
+              <td class="text-end pe-3 text-rp" id="prevBonus">-</td>
+            </tr>
+            <tr id="rowLainLain" style="display:none">
+              <td class="ps-3">Lain-lain</td>
+              <td class="text-end pe-3 text-rp" id="prevLainLain">-</td>
+            </tr>
+            <tr class="table-success">
+              <td class="ps-3 fw-bold">Total Penghasilan Bruto</td>
+              <td class="text-end pe-3 text-rp fw-bold" id="prevBruto">-</td>
+            </tr>
+            <tr class="table-light">
+              <td colspan="2" class="ps-3 fw-bold" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3)">
+                Potongan Karyawan
+              </td>
+            </tr>
+            <tr class="bpjs-row">
+              <td class="ps-3 text-muted">BPJS Kesehatan (1%)</td>
+              <td class="text-end pe-3 text-rp text-danger" id="prevBpjsKesKar">-</td>
+            </tr>
+            <tr class="bpjs-row">
+              <td class="ps-3 text-muted">BPJS Ketenagakerjaan (3%)</td>
+              <td class="text-end pe-3 text-rp text-danger" id="prevBpjsTkKar">-</td>
+            </tr>
+            <tr>
+              <td class="ps-3 text-muted">PPh Pasal 21</td>
+              <td class="text-end pe-3 text-rp text-danger" id="prevPph21">-</td>
+            </tr>
+            <tr class="table-primary">
+              <td class="ps-3 fw-bold">Gaji Bersih (Take-Home Pay)</td>
+              <td class="text-end pe-3 text-rp fw-bold" id="prevBersih">-</td>
+            </tr>
+            <tr class="table-light bpjs-row">
+              <td colspan="2" class="ps-3 fw-bold" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3)">
+                Tanggungan Perusahaan
+              </td>
+            </tr>
+            <tr class="bpjs-row">
+              <td class="ps-3 text-muted">BPJS Kesehatan (4%)</td>
+              <td class="text-end pe-3 text-rp" id="prevBpjsKesPrs">-</td>
+            </tr>
+            <tr class="bpjs-row">
+              <td class="ps-3 text-muted">BPJS Ketenagakerjaan (5.7%)</td>
+              <td class="text-end pe-3 text-rp" id="prevBpjsTkPrs">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer py-2 px-3" style="font-size:.72rem;color:var(--tx3)">
+        <div class="rounded-2 p-2" style="background:var(--card-h);border:1px solid var(--bdr)">
+          <div style="font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3);margin-bottom:.4rem">
+            <i class="fas fa-scale-balanced me-1"></i>Pratinjau Jurnal
+          </div>
+          <div class="d-flex justify-content-between" style="font-size:.78rem">
+            <span><strong>Dr</strong> 6100 Beban Gaji</span>
+            <span id="jrBruto" class="text-rp">-</span>
+          </div>
+          <div class="d-flex justify-content-between" style="font-size:.78rem" id="jrBpjsPrs">
+            <span><strong>Dr</strong> 6101 Beban BPJS Perusahaan</span>
+            <span id="jrBpjsPrsNom" class="text-rp">-</span>
+          </div>
+          <div class="d-flex justify-content-between" style="font-size:.78rem" id="jrPph21Row">
+            <span><strong>Cr</strong> 2115 Hutang PPh 21</span>
+            <span id="jrPph21" class="text-rp text-danger">-</span>
+          </div>
+          <div class="d-flex justify-content-between" style="font-size:.78rem" id="jrBpjsRow">
+            <span><strong>Cr</strong> 2116 Hutang BPJS</span>
+            <span id="jrBpjs" class="text-rp text-danger">-</span>
+          </div>
+          <div class="d-flex justify-content-between" style="font-size:.78rem">
+            <span><strong>Cr</strong> 2120 Hutang Gaji</span>
+            <span id="jrBersih" class="text-rp text-danger">-</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="cardPlaceholder" class="card">
+      <div class="card-body text-center py-5">
+        <i class="fas fa-calculator fa-3x mb-3 opacity-25"></i>
+        <div class="text-muted" style="font-size:.88rem">Pilih karyawan untuk melihat preview kalkulasi gaji</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<script>
+function fmt(n){ return window.rpAbsFmt ? window.rpAbsFmt(n) : 'Rp ' + Math.round(Math.abs(n||0)).toLocaleString('id-ID'); }
+function setEl(id, val){ var el=document.getElementById(id); if(el) el.textContent=val; }
+function showEl(id, on){ var el=document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; }
+
+function onSelectKaryawan(){
+  var sel = document.getElementById('selKaryawan');
+  var opt = sel.options[sel.selectedIndex];
+  var jenis = (opt && opt.getAttribute('data-jenis')) || 'BULANAN';
+  document.getElementById('inpJenisUpah').value = jenis;
+  setEl('badgeJenis', jenis==='HARIAN' ? 'Harian' : (jenis==='BORONGAN' ? 'Borongan' : 'Bulanan'));
+  var nonTetap = (jenis !== 'BULANAN');
+  showEl('accLanjutanProses', nonTetap);
+  showEl('boxNonTetap', nonTetap);
+  showEl('colQty', jenis==='BORONGAN');
+  setEl('lblTarif', jenis==='BORONGAN' ? 'Tarif / Satuan' : 'Tarif / Hari');
+  setEl('hintNonTetap', jenis==='BORONGAN'
+      ? 'Upah = Tarif/Satuan × Qty. Hari kerja dipakai untuk ambang PPh 21 harian.'
+      : 'Upah = Tarif/Hari × Jumlah Hari Kerja.');
+  var inpTarif = document.getElementById('inpTarif');
+  if(nonTetap && inpTarif && (!inpTarif.value || inpTarif.value==='0')){
+    var t = parseFloat((opt && opt.getAttribute('data-tarif')) || 0);
+    if(t > 0) inpTarif.value = Math.round(t);
+  }
+  if(nonTetap){
+    var coll = document.getElementById('collapseLanjutanProses');
+    if(coll && !coll.classList.contains('show')){
+      try { new bootstrap.Collapse(coll, {show:true}); } catch(e){ coll.classList.add('show'); }
+    }
+  }
+  fetchPreview();
+}
+
+function fetchPreview(){
+  var kid = document.getElementById('selKaryawan').value;
+  if(!kid){
+    showEl('cardPreview', false); showEl('cardPlaceholder', true);
+    document.getElementById('btnProses').disabled=true;
+    return;
+  }
+  var params = new URLSearchParams({
+    karyawan_id: kid,
+    jenis_upah: (document.getElementById('inpJenisUpah')||{}).value || 'BULANAN',
+    bonus:      (document.getElementById('inpBonus')||{}).value || 0,
+    uang_makan: (document.getElementById('inpUangMakan')||{}).value || 0,
+    uang_transport: (document.getElementById('inpUangTransport')||{}).value || 0,
+    lain_lain:  (document.getElementById('inpLainLain')||{}).value || 0,
+    hari_kerja: (document.getElementById('inpHari') ||{}).value || 0,
+    qty_output: (document.getElementById('inpQty')  ||{}).value || 0,
+    tarif:      (document.getElementById('inpTarif')||{}).value || ''
+  });
+  fetch('/gaji/preview-kalkulasi?'+params.toString())
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d.ok){ alert(d.msg||'Error'); return; }
+      showEl('cardPreview', true); showEl('cardPlaceholder', false);
+      document.getElementById('btnProses').disabled=false;
+      var nonTetap = (d.jenis_upah !== 'BULANAN');
+
+      setEl('prevNama', d.nama + (nonTetap ? '  ·  ' + d.jenis_upah : ''));
+      setEl('lblPokok', nonTetap ? ('Upah (' + d.jenis_upah.toLowerCase() + ')') : 'Gaji Pokok + Tunjangan');
+      setEl('prevGajiPokok', fmt(d.upah));
+      showEl('rowTunjangan', false);              // tunjangan sudah termasuk di 'upah'
+      showEl('rowUangMakan', (d.uang_makan||0) > 0);
+      setEl('prevUangMakan', fmt(d.uang_makan||0));
+      showEl('rowUangTransport', (d.uang_transport||0) > 0);
+      setEl('prevUangTransport', fmt(d.uang_transport||0));
+      showEl('rowBonus', (d.bonus||0) > 0);
+      setEl('prevBonus', fmt(d.bonus||0));
+      showEl('rowLainLain', (d.lain_lain||0) > 0);
+      setEl('prevLainLain', fmt(d.lain_lain||0));
+      setEl('prevBruto', fmt(d.bruto));
+
+      // Baris BPJS hanya relevan utk pegawai BULANAN
+      document.querySelectorAll('.bpjs-row').forEach(function(el){ el.style.display = nonTetap ? 'none' : ''; });
+      setEl('prevBpjsKesKar', d.bpjs_kes_kar > 0 ? '- '+fmt(d.bpjs_kes_kar) : 'Rp 0');
+      setEl('prevBpjsTkKar',  d.bpjs_tk_kar  > 0 ? '- '+fmt(d.bpjs_tk_kar)  : 'Rp 0');
+      setEl('prevPph21',      d.pph21 > 0 ? '- '+fmt(d.pph21) : 'Rp 0');
+      setEl('prevBersih', fmt(d.gaji_bersih));
+      setEl('prevBpjsKesPrs', fmt(d.bpjs_kes_prs));
+      setEl('prevBpjsTkPrs',  fmt(d.bpjs_tk_prs));
+
+      // Pratinjau jurnal
+      setEl('jrBruto', fmt(d.bruto));
+      var bpjsPrs = (d.bpjs_kes_prs||0)+(d.bpjs_tk_prs||0);
+      setEl('jrBpjsPrsNom', fmt(bpjsPrs));
+      showEl('jrBpjsPrs', bpjsPrs>0);
+      setEl('jrPph21', '- '+fmt(d.pph21));
+      showEl('jrPph21Row', d.pph21>0);
+      var bpjsTot = (d.bpjs_kes_kar||0)+(d.bpjs_tk_kar||0)+bpjsPrs;
+      setEl('jrBpjs', '- '+fmt(bpjsTot));
+      showEl('jrBpjsRow', bpjsTot>0);
+      setEl('jrBersih', '- '+fmt(d.gaji_bersih));
+    });
+}
+</script>
+{% endblock %}

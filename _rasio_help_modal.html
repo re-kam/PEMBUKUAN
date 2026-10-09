@@ -1,0 +1,52 @@
+{# Modal petunjuk Analisis Rasio. Di-include di analisis_rasio.html; dipicu tombol [data-bs-target="#modalRasioHelp"]. #}
+<div class="modal fade" id="modalRasioHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Analisis Rasio</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Halaman ini menilai kesehatan keuangan usaha lewat rasio. Semua dihitung otomatis dari
+          angka yang sudah ada di Neraca dan Laba Rugi.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>Rasio tidak butuh input baru.</strong>
+            Sistem mengambil angka dari Neraca dan Laba Rugi, lalu membandingkannya jadi rasio yang
+            mudah dibaca. Jadi kalau laporan dasarnya benar, rasionya ikut benar.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-layer-group me-1" style="color:var(--ink)"></i>Tiga jenis yang dilihat</div>
+        <ul class="ps-3 mb-3" style="font-size:.82rem">
+          <li class="mb-1"><strong>Likuiditas</strong>: sanggup tidak membayar hutang jangka pendek. Dari pos Neraca.</li>
+          <li class="mb-1"><strong>Solvabilitas</strong>: seberapa besar hutang dibanding modal. Dari pos Neraca.</li>
+          <li><strong>Profitabilitas</strong>: seberapa untung usaha. Dari Laba Rugi dibanding modal atau aset.</li>
+        </ul>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Current ratio (rasio lancar) = Aset Lancar dibagi Hutang Lancar.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Misal Aset Lancar Rp15.000.000 dan Hutang Lancar Rp5.000.000.</li>
+            <li>Rasionya 3. Artinya tiap Rp1 hutang jangka pendek dijamin Rp3 aset lancar.</li>
+            <li>Kedua angka itu diambil langsung dari Neraca Anda, tidak perlu hitung manual.</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Kalau sebuah rasio terlihat aneh, periksa dulu Neraca dan Laba Rugi-nya.
+          Rasio hanya seakurat laporan yang jadi sumbernya.
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

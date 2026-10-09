@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+{% block title %}Database Customer - FinansialApp{% endblock %}
+{% block page_title %}Database Customer{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+<style>
+/* ── Medal rows ── */
+.row-gold td   { background:rgba(234,179,8,.10) !important; border-left:none !important; }
+.row-silver td { background:rgba(156,163,175,.10) !important; }
+.row-bronze td { background:rgba(180,120,60,.09) !important; }
+.row-gold   td:first-child { }
+.row-silver td:first-child { }
+.row-bronze td:first-child { }
+.rank-medal { display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:.72rem;font-weight:800;margin-right:6px;vertical-align:middle;flex-shrink:0; }
+.medal-gold   { background:linear-gradient(135deg,#fde68a,#ca8a04);color:#78350f;box-shadow:0 1px 4px rgba(202,138,4,.4); }
+.medal-silver { background:linear-gradient(135deg,#e5e7eb,#9ca3af);color:#374151;box-shadow:0 1px 4px rgba(156,163,175,.4); }
+.medal-bronze { background:linear-gradient(135deg,#fcd34d,#b45309);color:#451a03;box-shadow:0 1px 4px rgba(180,120,60,.4); }
+/* ── Date Range Picker (sama dengan dashboard) ── */
+.drp2-panel{position:fixed;z-index:9999;background:var(--card);border:1px solid var(--bdr-md);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);display:flex;overflow:hidden;width:700px;max-width:calc(100vw - 16px)}
+.drp2-sidebar{width:175px;flex-shrink:0;border-right:1px solid var(--bdr-md);overflow-y:auto;padding:.6rem 0;background:var(--card)}
+.drp2-stitle{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);padding:.25rem .85rem .5rem}
+.drp2-preset{padding:.38rem .85rem;font-size:.82rem;cursor:pointer;color:var(--tx2);border-left:2.5px solid transparent;transition:background .1s,color .1s;white-space:nowrap}
+.drp2-preset:hover{background:var(--bdr);color:var(--tx)}
+.drp2-preset.drp2-active{background:#f0fdf4;color:#15803d;border-left-color:#16a34a;font-weight:600}
+[data-theme=dark] .drp2-preset.drp2-active{background:rgba(20,83,45,.4);color:#4ade80}
+.drp2-right{flex:1;display:flex;flex-direction:column;min-width:0}
+.drp2-cals{display:flex;gap:1.25rem;padding:1rem 1rem .75rem}
+.drp2-month{flex:1}
+.drp2-mhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+.drp2-mnav{background:none;border:none;cursor:pointer;color:var(--tx2);font-size:1.15rem;line-height:1;padding:2px 8px;border-radius:5px;transition:background .1s}
+.drp2-mnav:hover{background:var(--bdr)}
+.drp2-mtitle{font-size:.85rem;font-weight:700;color:var(--tx)}
+.drp2-yr-sel{border:1px solid var(--bdr-md);border-radius:4px;background:var(--inp);color:var(--tx);font-size:.8rem;padding:1px 4px;margin-left:4px}
+.drp2-daynames{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:.25rem}
+.drp2-daynames div{text-align:center;font-size:.6rem;font-weight:600;color:var(--tx3);padding:.18rem 0}
+.drp2-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.drp2-day,.drp2-empty{text-align:center;font-size:.78rem;padding:.3rem .1rem;cursor:pointer;border-radius:5px;color:var(--tx);border:1.5px solid transparent;transition:background .1s;line-height:1.4;user-select:none}
+.drp2-empty{cursor:default}
+.drp2-day:hover{background:var(--bdr)}
+.drp2-today{font-weight:700;border-color:#16a34a!important;color:#15803d}
+.drp2-sel-s,.drp2-sel-e{background:#15803d!important;color:#fff!important;border-color:#16a34a!important;border-radius:5px!important;font-weight:700}
+.drp2-in-range{background:#dcfce7;color:#15803d;border-radius:0}
+.drp2-hover-range{background:#f0fdf4;color:#166534;border-radius:0}
+[data-theme=dark] .drp2-in-range{background:rgba(20,83,45,.5);color:#86efac}
+[data-theme=dark] .drp2-hover-range{background:rgba(20,83,45,.25);color:#86efac}
+.drp2-foot{padding:.65rem 1rem;border-top:1px solid var(--bdr-md);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.drp2-inp{background:var(--inp);color:var(--tx);border:1px solid var(--bdr-md);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;width:112px;font-family:inherit;outline:none;cursor:default}
+.drp2-inp:focus{border-color:#16a34a}
+.drp2-sep{color:var(--tx3);font-size:.9rem}
+@media(max-width:767.98px){
+  .drp2-panel{flex-direction:column}
+  .drp2-sidebar{width:100%!important;border-right:none!important;border-bottom:1px solid var(--bdr-md);max-height:90px;overflow-y:auto;display:flex;flex-wrap:wrap;padding:.35rem .5rem}
+  .drp2-stitle{display:none}
+  .drp2-preset{padding:.25rem .5rem;font-size:.75rem;border-left:none;border-radius:4px;border:1px solid var(--bdr-md);margin:.15rem}
+  .drp2-preset.drp2-active{border-color:#16a34a}
+  .drp2-cals{flex-direction:column;gap:.5rem;padding:.5rem}
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <span style="font-size:.78rem;font-weight:600;color:var(--tx2)">Urutkan:</span>
+    {% set sorts = [('abjad','Abjad A-Z','fa-arrow-down-a-z'),
+                    ('omzet','Omzet Tertinggi','fa-sack-dollar'),
+                    ('profit','Keuntungan Tertinggi','fa-coins'),
+                    ('jt','Piutang Jatuh Tempo','fa-clock')] %}
+    {% for key, lbl, ic in sorts %}
+    <a href="/database/customer?sort={{ key }}"
+       class="btn btn-sm {% if sort==key %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+       style="font-size:.76rem"><i class="fas {{ ic }} me-1"></i>{{ lbl }}</a>
+    {% endfor %}
+  </div>
+  {% if session.role in ('ADMIN','FINANCE') %}
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCust">
+    <i class="fas fa-user-plus me-1"></i>Tambah Customer</button>
+  {% endif %}
+</div>
+
+<!-- Filter Tanggal -->
+<div class="card mb-3">
+  <div class="card-body py-2 px-3">
+    <form method="GET" id="custFilterForm" class="d-flex flex-wrap align-items-center gap-2">
+      <input type="hidden" name="sort" value="{{ sort }}">
+      <input type="hidden" name="sd" id="fSd" value="{{ sd }}">
+      <input type="hidden" name="ed" id="fEd" value="{{ ed }}">
+      <span style="font-size:.8rem;font-weight:600;color:var(--tx2)">
+        <i class="fas fa-calendar-days me-1" style="color:#15803d"></i>Periode Omzet:
+      </span>
+      <button type="button" id="drp2Btn" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+              style="font-size:.82rem;min-width:220px;justify-content:flex-start">
+        <i class="fas fa-calendar-days" style="color:#15803d;font-size:.85rem;flex-shrink:0"></i>
+        <span id="drp2Lbl" style="flex:1;text-align:left">
+          {% if sd and ed %}{{ sd }}, {{ ed }}{% else %}Semua Waktu{% endif %}
+        </span>
+        <i class="fas fa-chevron-down" style="font-size:.65rem;opacity:.45;flex-shrink:0"></i>
+      </button>
+      {% if sd or ed %}
+      <a href="/database/customer?sort={{ sort }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-rotate-left me-1"></i>Reset</a>
+      <span class="badge bg-primary-subtle text-primary" style="font-size:.73rem">
+        <i class="fas fa-filter me-1"></i>Filter aktif: {{ sd }} s/d {{ ed }}
+      </span>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Nama</th>
+            <th>Kontak</th>
+            <th class="text-end">Omzet{% if sd or ed %} <i class="fas fa-filter text-primary" style="font-size:.65rem" title="Disaring sesuai periode terpilih"></i>{% endif %}</th>
+            <th class="text-end">Keuntungan{% if sd or ed %} <i class="fas fa-filter text-primary" style="font-size:.65rem" title="Disaring sesuai periode terpilih"></i>{% endif %}</th>
+            <th class="text-end" title="Piutang jatuh tempo per hari ini, tidak terpengaruh filter periode">Piutang J.T. <i class="fas fa-info-circle text-muted" style="font-size:.65rem"></i></th>
+            <th class="text-end pe-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in custs %}
+          {% set rank = c.medal_rank %}
+          {% if rank == 1 %}{% set row_cls = 'row-gold' %}
+          {% elif rank == 2 %}{% set row_cls = 'row-silver' %}
+          {% elif rank == 3 %}{% set row_cls = 'row-bronze' %}
+          {% else %}{% set row_cls = '' %}{% endif %}
+          <tr class="{{ row_cls }}" style="cursor:pointer" onclick="location.href='/database/customer/{{ c.id }}'">
+            <td class="ps-3 fw-semibold">
+              {% if rank == 1 %}
+                <span class="rank-medal medal-gold">1</span>🥇
+              {% elif rank == 2 %}
+                <span class="rank-medal medal-silver">2</span>🥈
+              {% elif rank == 3 %}
+                <span class="rank-medal medal-bronze">3</span>🥉
+              {% else %}
+                <i class="fas fa-user-group me-1 text-muted"></i>
+              {% endif %}
+              {{ c.nama }}
+            </td>
+            <td class="text-muted">{{ c.telepon or '-' }}</td>
+            <td class="text-end text-rp">{{ c.omzet|rp }}</td>
+            <td class="text-end text-rp {% if c.profit < 0 %}text-danger{% else %}text-success{% endif %}">{{ c.profit|rp }}</td>
+            <td class="text-end text-rp {% if c.piutang_jt > 0 %}text-danger fw-semibold{% else %}text-muted{% endif %}">{{ c.piutang_jt|rp }}</td>
+            <td class="text-end pe-3" onclick="event.stopPropagation()">
+              <a href="/database/customer/{{ c.id }}" class="btn btn-xs btn-outline-primary" title="Detail">
+                <i class="fas fa-eye"></i></a>
+              {% if session.role in ('ADMIN','FINANCE') %}
+              <form method="POST" action="/database/customer/{{ c.id }}/hapus" class="d-inline"
+                    onsubmit="return confirm('Hapus customer ini dari database? Data transaksi tetap utuh.')">
+                <button class="btn btn-xs btn-outline-danger" title="Hapus"><i class="fas fa-trash"></i></button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="text-center text-muted py-4">
+            <i class="fas fa-user-group fa-2x mb-2 d-block opacity-50"></i>
+            Belum ada customer. Centang "Simpan ke database customer" saat input penjualan,
+            atau klik "Tambah Customer".
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if session.role in ('ADMIN','FINANCE') %}
+<!-- Modal Tambah Customer -->
+<div class="modal fade" id="modalCust" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:440px">
+    <div class="modal-content">
+      <form method="POST" action="/database/customer/baru">
+        <div class="modal-header py-2">
+          <h6 class="modal-title"><i class="fas fa-user-plus text-success me-2"></i>Tambah Customer</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body py-3">
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">Nama <span class="text-danger">*</span></label>
+            <input type="text" name="nama" class="form-control form-control-sm" required placeholder="Nama customer">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">Kontak</label>
+            <input type="text" name="telepon" class="form-control form-control-sm" placeholder="No HP / WA / email / PIC">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small fw-semibold mb-1">Alamat</label>
+            <textarea name="alamat" class="form-control form-control-sm" rows="2"></textarea>
+          </div>
+          <div class="mb-1">
+            <label class="form-label small fw-semibold mb-1">Keterangan</label>
+            <textarea name="catatan" class="form-control form-control-sm" rows="2"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-save me-1"></i>Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+(function(){
+  const BLN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const HRN=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  let _s=null,_e=null,_h=null,_sel=false,_ly,_lm,_panel=null;
+
+  function z(n){return String(n).padStart(2,'0');}
+  function ymd(d){return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
+  function fromYMD(s){if(!s)return null;const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);}
+  function disp(d){if(!d)return'';return d.getDate()+' '+BLN[d.getMonth()].slice(0,3)+' '+d.getFullYear();}
+
+  function mkPresets(){
+    const t=new Date();t.setHours(0,0,0,0);
+    function ago(n){const d=new Date(t);d.setDate(d.getDate()-n);return d;}
+    function som(d){return new Date(d.getFullYear(),d.getMonth(),1);}
+    function eom(d){return new Date(d.getFullYear(),d.getMonth()+1,0);}
+    const lms=new Date(t.getFullYear(),t.getMonth()-1,1);
+    const earliest=new Date('{{ earliest_date }}T00:00:00');
+    return[
+      {l:'7 Hari Terakhir',s:ago(6),e:t},
+      {l:'30 Hari Terakhir',s:ago(29),e:t},
+      {l:'Bulan Ini',s:som(t),e:t},
+      {l:'Bulan Lalu',s:lms,e:eom(lms)},
+      {l:'Kuartal Ini',s:new Date(t.getFullYear(),Math.floor(t.getMonth()/3)*3,1),e:t},
+      {l:'Tahun Ini',s:new Date(t.getFullYear(),0,1),e:t},
+      {l:'Tahun Lalu',s:new Date(t.getFullYear()-1,0,1),e:new Date(t.getFullYear()-1,11,31)},
+      {l:'★ Semua Data',s:earliest,e:t},
+    ];
+  }
+  const PS=mkPresets();
+
+  function activePI(){
+    if(!_s||!_e)return-1;
+    return PS.findIndex(p=>ymd(p.s)===ymd(_s)&&ymd(p.e)===ymd(_e));
+  }
+
+  function calCells(y,m){
+    const first=new Date(y,m,1).getDay();
+    const total=new Date(y,m+1,0).getDate();
+    const cells=[];
+    for(let i=0;i<first;i++)cells.push(null);
+    for(let d=1;d<=total;d++)cells.push(new Date(y,m,d));
+    return cells;
+  }
+
+  function dayClass(d){
+    const today=new Date();today.setHours(0,0,0,0);
+    let cls='drp2-day';
+    if(d.getTime()===today.getTime())cls+=' drp2-today';
+    if(_s&&ymd(d)===ymd(_s))cls+=' drp2-sel-s';
+    if(_e&&ymd(d)===ymd(_e))cls+=' drp2-sel-e';
+    if(_s&&_e){const lo=_s<_e?_s:_e,hi=_s<_e?_e:_s;if(d>lo&&d<hi)cls+=' drp2-in-range';}
+    if(_sel&&_s&&!_e&&_h){
+      const lo=_s<_h?_s:_h,hi=_s<_h?_h:_s;
+      if(d>=lo&&d<=hi){
+        if(ymd(d)===ymd(_s))cls=(cls+' drp2-sel-s').replace(' drp2-in-range','').replace(' drp2-hover-range','');
+        else if(ymd(d)===ymd(_h))cls+=' drp2-sel-e';
+        else cls+=' drp2-hover-range';
+      }
+    }
+    return cls;
+  }
+
+  function renderMo(y,m,isLeft){
+    const cells=calCells(y,m);
+    const MIN_YR=new Date().getFullYear()-10,MAX_YR=new Date().getFullYear()+2;
+    const yrOpts=Array.from({length:MAX_YR-MIN_YR+1},(_,i)=>{
+      const yr=MIN_YR+i;return`<option value="${yr}"${yr===y?' selected':''} >${yr}</option>`;
+    }).join('');
+    return`<div class="drp2-month">
+      <div class="drp2-mhdr">
+        ${isLeft?`<button class="drp2-mnav" id="drp2Prev">&#8249;</button>`:'<span></span>'}
+        <div class="drp2-mtitle">${BLN[m]} <select class="drp2-yr-sel" id="${isLeft?'drp2YrL':'drp2YrR'}">${yrOpts}</select></div>
+        ${isLeft?`<button class="drp2-mnav" id="drp2Next">&#8250;</button>`:'<span></span>'}
+      </div>
+      <div class="drp2-daynames">${HRN.map(h=>`<div>${h}</div>`).join('')}</div>
+      <div class="drp2-grid">${cells.map(d=>d
+        ?`<div class="${dayClass(d)}" data-dt="${ymd(d)}">${d.getDate()}</div>`
+        :'<div class="drp2-empty"></div>'
+      ).join('')}</div>
+    </div>`;
+  }
+
+  function renderPanel(){
+    const ap=activePI();
+    const rm=_lm===11?0:_lm+1,ry=_lm===11?_ly+1:_ly;
+    const canUpdate=_s&&_e;
+    return`<div class="drp2-sidebar">
+        <div class="drp2-stitle">Pilih Cepat</div>
+        ${PS.map((p,i)=>`<div class="drp2-preset${i===ap?' drp2-active':''}" data-pi="${i}">${p.l}</div>`).join('')}
+      </div>
+      <div class="drp2-right">
+        <div class="drp2-cals">${renderMo(_ly,_lm,true)}${renderMo(ry,rm,false)}</div>
+        <div class="drp2-foot">
+          <div class="d-flex align-items-center gap-2">
+            <input id="drp2InS" class="drp2-inp" value="${disp(_s)}" placeholder="Tanggal awal" readonly>
+            <span class="drp2-sep">→</span>
+            <input id="drp2InE" class="drp2-inp" value="${disp(_e)}" placeholder="Tanggal akhir" readonly>
+          </div>
+          <div class="ms-auto d-flex gap-2">
+            <button id="drp2Cancel" class="btn btn-sm btn-outline-secondary">Batal</button>
+            <button id="drp2Update" class="btn btn-sm btn-success"${canUpdate?'':' disabled'}>Terapkan</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function refresh(){if(!_panel)return;_panel.innerHTML=renderPanel();bindEvts();}
+
+  function updateDays(){
+    if(!_panel)return;
+    _panel.querySelectorAll('[data-dt]').forEach(el=>{el.className=dayClass(fromYMD(el.dataset.dt));});
+    const is=_panel.querySelector('#drp2InS'),ie=_panel.querySelector('#drp2InE');
+    if(is)is.value=disp(_s);
+    if(_sel&&_h&&_s&&!_e){if(ie)ie.value=disp(_h<_s?_s:_h);}else{if(ie)ie.value=disp(_e);}
+    const ub=_panel.querySelector('#drp2Update');if(ub)ub.disabled=!(_s&&_e);
+  }
+
+  function bindEvts(){
+    _panel.querySelectorAll('.drp2-preset').forEach(el=>{
+      el.addEventListener('click',()=>{
+        const p=PS[+el.dataset.pi];_s=new Date(p.s);_e=new Date(p.e);_sel=false;_h=null;
+        _ly=_s.getFullYear();_lm=_s.getMonth();refresh();updateTrigger();
+      });
+    });
+    _panel.querySelectorAll('[data-dt]').forEach(el=>{
+      el.addEventListener('click',()=>{
+        const d=fromYMD(el.dataset.dt);
+        if(!_sel||!_s){_s=d;_e=null;_sel=true;_h=null;}
+        else{if(d<_s){_e=new Date(_s);_s=d;}else{_e=d;}_sel=false;_h=null;}
+        refresh();updateTrigger();
+      });
+      el.addEventListener('mouseenter',()=>{if(!_sel)return;_h=fromYMD(el.dataset.dt);updateDays();});
+      el.addEventListener('mouseleave',()=>{if(!_sel)return;_h=null;updateDays();});
+    });
+    const prev=_panel.querySelector('#drp2Prev'),next=_panel.querySelector('#drp2Next');
+    if(prev)prev.addEventListener('click',()=>{_lm--;if(_lm<0){_lm=11;_ly--;}refresh();});
+    if(next)next.addEventListener('click',()=>{_lm++;if(_lm>11){_lm=0;_ly++;}refresh();});
+    const yrL=_panel.querySelector('#drp2YrL'),yrR=_panel.querySelector('#drp2YrR');
+    if(yrL)yrL.addEventListener('change',()=>{_ly=parseInt(yrL.value);refresh();});
+    if(yrR)yrR.addEventListener('change',()=>{_ly=parseInt(yrR.value)-(_lm===11?1:0);refresh();});
+    const cancel=_panel.querySelector('#drp2Cancel');
+    if(cancel)cancel.addEventListener('click',closePanel);
+    const upd=_panel.querySelector('#drp2Update');
+    if(upd)upd.addEventListener('click',()=>{
+      if(_s&&_e){
+        document.getElementById('fSd').value=ymd(_s);
+        document.getElementById('fEd').value=ymd(_e);
+        closePanel();document.getElementById('custFilterForm').submit();
+      }
+    });
+  }
+
+  function posPanel(){
+    const btn=document.getElementById('drp2Btn');if(!btn||!_panel)return;
+    const rect=btn.getBoundingClientRect();
+    const pw=_panel.offsetWidth||700,ph=_panel.offsetHeight||380;
+    let top=rect.bottom+6,left=rect.left;
+    if(left+pw>window.innerWidth-8)left=Math.max(8,window.innerWidth-pw-8);
+    if(top+ph>window.innerHeight-8)top=Math.max(8,rect.top-ph-6);
+    _panel.style.top=top+'px';_panel.style.left=left+'px';
+  }
+
+  function openPanel(){
+    if(_panel){closePanel();return;}
+    _panel=document.createElement('div');_panel.className='drp2-panel';
+    _panel.innerHTML=renderPanel();document.body.appendChild(_panel);
+    posPanel();bindEvts();
+    setTimeout(()=>document.addEventListener('mousedown',outerClick),0);
+  }
+
+  function closePanel(){
+    if(_panel){_panel.remove();_panel=null;}
+    document.removeEventListener('mousedown',outerClick);_sel=false;_h=null;
+  }
+
+  function outerClick(e){
+    const btn=document.getElementById('drp2Btn');
+    if(_panel&&!_panel.contains(e.target)&&btn&&!btn.contains(e.target))closePanel();
+  }
+
+  function updateTrigger(){
+    const lbl=document.getElementById('drp2Lbl');if(!lbl)return;
+    lbl.textContent=(_s&&_e)?disp(_s)+', '+disp(_e):'Semua Waktu';
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    _s=fromYMD('{{ sd }}');_e=fromYMD('{{ ed }}');
+    const base=_s||new Date();_ly=base.getFullYear();_lm=base.getMonth();
+    updateTrigger();
+    const btn=document.getElementById('drp2Btn');if(btn)btn.addEventListener('click',openPanel);
+  });
+})();
+</script>
+{{ pagination(pg) }}
+{% endblock %}

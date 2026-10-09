@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Log Aktivitas - FinansialApp{% endblock %}
+{% block page_title %}Log Aktivitas{% endblock %}
+{% block content %}
+
+<style>
+/* Category pill */
+.kat-pill{display:inline-flex;align-items:center;gap:.3rem;padding:.15rem .6rem;border-radius:20px;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.kat-INPUT   {background:#dcfce7;color:#14532d;border:1px solid #86efac}
+.kat-MODAL   {background:#ede9fe;color:#4c1d95;border:1px solid #c4b5fd}
+.kat-ADMIN   {background:#dbeafe;color:#1e3a8a;border:1px solid #93c5fd}
+.kat-PASSWORD{background:#fef9c3;color:#713f12;border:1px solid #fde047}
+.kat-LAINNYA {background:#f1f5f9;color:#475569;border:1px solid #cbd5e1}
+/* Aksi badge */
+.aksi-badge{display:inline-block;padding:.12rem .5rem;border-radius:5px;font-size:.73rem;font-weight:600;white-space:nowrap}
+
+/* ── Stats row count: dark-mode aware ── */
+/* Angka stat di card menggunakan warna gelap (mis. #5b21b6 ungu, #15803d hijau);
+   pada dark mode ini lenyap di BG gelap. Pakai data attribute untuk override. */
+[data-theme="dark"] .stat-count[data-kat="INPUT"]   {color:#4ade80!important}
+[data-theme="dark"] .stat-count[data-kat="MODAL"]   {color:#a78bfa!important}
+[data-theme="dark"] .stat-count[data-kat="ADMIN"]   {color:#60a5fa!important}
+[data-theme="dark"] .stat-count[data-kat="PASSWORD"]{color:#fbbf24!important}
+/* Pill background di dark mode: bg lebih gelap agar tidak menyilaukan, text terang */
+[data-theme="dark"] .kat-INPUT   {background:rgba(34,197,94,.18);color:#86efac;border-color:rgba(34,197,94,.4)}
+[data-theme="dark"] .kat-MODAL   {background:rgba(139,92,246,.20);color:#c4b5fd;border-color:rgba(139,92,246,.4)}
+[data-theme="dark"] .kat-ADMIN   {background:rgba(59,130,246,.18);color:#93c5fd;border-color:rgba(59,130,246,.4)}
+[data-theme="dark"] .kat-PASSWORD{background:rgba(245,158,11,.18);color:#fde047;border-color:rgba(245,158,11,.4)}
+[data-theme="dark"] .kat-LAINNYA {background:rgba(148,163,184,.18);color:#cbd5e1;border-color:rgba(148,163,184,.4)}
+/* Icon box di stats row: di dark mode, BG terang jadi tetap visible */
+[data-theme="dark"] .stat-icon-box{filter:brightness(.78)}
+</style>
+
+<!-- Stats row -->
+<div class="d-flex gap-3 mb-3 flex-wrap">
+  {% for kat, icon, color, bg in [
+      ('INPUT','fas fa-pen-to-square','#15803d','#dcfce7'),
+      ('MODAL','fas fa-coins','#5b21b6','#ede9fe'),
+      ('ADMIN','fas fa-shield-halved','#1d4ed8','#dbeafe'),
+      ('PASSWORD','fas fa-key','#92400e','#fef9c3'),
+  ] %}
+  <a href="?kategori={{ kat }}" class="card text-decoration-none flex-fill" style="min-width:130px;}}">
+    <div class="card-body py-2 px-3 d-flex align-items-center gap-2">
+      <div class="stat-icon-box" style="width:32px;height:32px;border-radius:8px;background:{{ bg }};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="{{ icon }}" style="color:{{ color }};font-size:.85rem"></i>
+      </div>
+      <div>
+        <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--tx3)">{{ kat }}</div>
+        <div class="stat-count" data-kat="{{ kat }}" style="font-size:1rem;font-weight:800;color:{{ color }}">{{ counts.get(kat, 0) }}</div>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Filter bar -->
+<div class="card mb-3">
+  <div class="card-body py-2 px-3">
+    <form method="GET" class="d-flex flex-wrap align-items-center gap-2">
+      <i class="fas fa-filter text-muted" style="font-size:.8rem"></i>
+      <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+             placeholder="Cari detail / user..." style="width:200px">
+      <div class="d-flex gap-1 flex-wrap">
+        <a href="/log" class="btn btn-sm {% if not kategori %}btn-secondary{% else %}btn-outline-secondary{% endif %}" style="font-size:.75rem">Semua</a>
+        {% for kat, clr in [('INPUT','success'),('MODAL','primary'),('ADMIN','info'),('PASSWORD','warning')] %}
+        <a href="?kategori={{ kat }}{% if q %}&q={{ q }}{% endif %}"
+           class="btn btn-sm {% if kategori==kat %}btn-{{ clr }}{% else %}btn-outline-{{ clr }}{% endif %}"
+           style="font-size:.75rem">{{ kat }}</a>
+        {% endfor %}
+      </div>
+      {% if q %}
+      <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-search me-1"></i>Cari</button>
+      <a href="/log{% if kategori %}?kategori={{ kategori }}{% endif %}" class="btn btn-outline-secondary btn-sm">Reset</a>
+      {% endif %}
+      <span class="ms-auto text-muted" style="font-size:.78rem">
+        <i class="fas fa-list-check me-1"></i>{{ total }} entri
+      </span>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <span class="section-title">
+      <i class="fas fa-clock-rotate-left me-2 text-primary"></i>Riwayat Aktivitas
+      {% if kategori %}<span class="kat-pill kat-{{ kategori }} ms-2">{{ kategori }}</span>{% endif %}
+    </span>
+    <span class="text-muted" style="font-size:.75rem">Hal. {{ page }} / {{ total_pages }}</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3" style="width:145px">Waktu</th>
+            <th style="width:90px">Kategori</th>
+            <th style="width:200px">Aksi</th>
+            <th style="width:120px">User / Role</th>
+            <th>Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for log in logs %}
+          <tr>
+            <td class="ps-3" style="font-size:.75rem;color:var(--tx3);white-space:nowrap">
+              <i class="fas fa-clock me-1 opacity-40" style="font-size:.62rem"></i>
+              {{ log.waktu|jam or '-' }}
+            </td>
+            <td>
+              {% set kat = log.kategori or 'LAINNYA' %}
+              <span class="kat-pill kat-{{ kat }}">
+                {% if kat == 'INPUT' %}<i class="fas fa-pen-to-square me-1"></i>
+                {% elif kat == 'MODAL' %}<i class="fas fa-coins me-1"></i>
+                {% elif kat == 'ADMIN' %}<i class="fas fa-shield-halved me-1"></i>
+                {% elif kat == 'PASSWORD' %}<i class="fas fa-key me-1"></i>
+                {% else %}<i class="fas fa-circle me-1"></i>{% endif %}
+                {{ kat }}
+              </span>
+            </td>
+            <td style="font-size:.8rem;font-weight:600;color:var(--tx)">{{ log.aksi }}</td>
+            <td style="font-size:.75rem;color:var(--tx2)">
+              <i class="fas fa-user me-1 opacity-50" style="font-size:.62rem"></i>{{ log.username or '-' }}
+              {% if log.role %}<span class="badge bg-secondary ms-1" style="font-size:.56rem;font-weight:700;vertical-align:middle">{{ log.role }}</span>{% endif %}
+            </td>
+            <td style="font-size:.78rem;color:var(--tx2)">{{ log.detail or '-' }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5" class="text-center py-5">
+              <i class="fas fa-inbox fa-2x d-block mb-2 opacity-25"></i>
+              <div class="text-muted" style="font-size:.85rem">
+                {% if kategori or q %}Tidak ada log untuk filter ini{% else %}Belum ada log aktivitas{% endif %}
+              </div>
+              {% if kategori or q %}
+              <a href="/log" class="btn btn-outline-secondary btn-sm mt-2">Tampilkan semua</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if total_pages > 1 %}
+  <div class="card-footer d-flex justify-content-between align-items-center py-2">
+    <div class="text-muted" style="font-size:.78rem">{{ total }} entri · {{ total_pages }} halaman</div>
+    <nav>
+      <ul class="pagination pagination-sm mb-0">
+        {% if page > 1 %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page-1 }}&q={{ q }}&kategori={{ kategori }}">
+            <i class="fas fa-chevron-left"></i></a></li>
+        {% endif %}
+        {% for p in range([1, page-2]|max, [total_pages+1, page+3]|min) %}
+        <li class="page-item {% if p==page %}active{% endif %}">
+          <a class="page-link" href="?page={{ p }}&q={{ q }}&kategori={{ kategori }}">{{ p }}</a></li>
+        {% endfor %}
+        {% if page < total_pages %}
+        <li class="page-item">
+          <a class="page-link" href="?page={{ page+1 }}&q={{ q }}&kategori={{ kategori }}">
+            <i class="fas fa-chevron-right"></i></a></li>
+        {% endif %}
+      </ul>
+    </nav>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

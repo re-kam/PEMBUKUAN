@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% block title %}Tracker Piutang - FinansialApp{% endblock %}
+{% block page_title %}Tracker Piutang{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/piutang" class="btn btn-sm {% if not sf %}btn-primary{% else %}btn-outline-secondary{% endif %}">Semua</a>
+    <a href="/piutang?status=BELUM LUNAS" class="btn btn-sm {% if sf=='BELUM LUNAS' %}btn-danger{% else %}btn-outline-danger{% endif %}">Belum Lunas</a>
+    <a href="/piutang?status=SEBAGIAN" class="btn btn-sm {% if sf=='SEBAGIAN' %}btn-warning{% else %}btn-outline-warning{% endif %}">Sebagian</a>
+    <a href="/piutang?status=LUNAS" class="btn btn-sm {% if sf=='LUNAS' %}btn-success{% else %}btn-outline-success{% endif %}">Lunas</a>
+    <form class="d-flex gap-1" method="GET">
+      {% if sf %}<input type="hidden" name="status" value="{{ sf }}">{% endif %}
+      <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Cari pelanggan..." style="width:180px">
+      <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-search"></i></button>
+    </form>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/export/piutang" class="btn btn-outline-success btn-sm">
+      <i class="fas fa-file-excel me-1"></i>Export</a>
+    <span class="text-muted small" style="font-size:.78rem">
+      <i class="fas fa-info-circle me-1"></i>Piutang otomatis tercatat saat input Pemasukan
+    </span>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="row g-2 mb-3">
+  <div class="col-md-4">
+    <div class="card kpi yel p-3">
+      <div class="kpi-lbl">Total Piutang Aktif</div>
+      <div class="kpi-val text-warning text-rp">{{ total|rp }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi red p-3">
+      <div class="kpi-lbl">Lewat Jatuh Tempo</div>
+      <div class="kpi-val text-danger">
+        {{ n_overdue }} tagihan
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi yel p-3">
+      <div class="kpi-lbl">Mendekati Jatuh Tempo (7 hari)</div>
+      <div class="kpi-val text-warning">
+        {{ n_duesoon }} tagihan
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Tanggal</th>
+            <th>Pelanggan</th>
+            <th>Keterangan</th>
+            <th class="text-end">Jumlah</th>
+            <th class="text-end">Terbayar</th>
+            <th class="text-end">Sisa</th>
+            <th>Jatuh Tempo</th>
+            <th>Status</th>
+            <th class="text-end pe-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row, lbl, cls in rows %}
+          <tr>
+            <td class="ps-3 text-muted">{{ row.tanggal|tgl }}</td>
+            <td class="fw-semibold">{{ row.pelanggan }}</td>
+            <td class="text-muted">{{ row.keterangan or '-' }}
+              {% if row.inv_nomor %}<a href="/invoice/{{ row.invoice_id }}" class="badge bg-info text-decoration-none ms-1" title="Buka invoice"><i class="fas fa-file-invoice me-1"></i>{{ row.inv_nomor }}</a>
+              {% elif row.tx_nomor %}<a href="/daftar-transaksi?tab=semua&amp;q={{ row.tx_nomor }}" class="badge bg-light text-dark border text-decoration-none ms-1" title="Transaksi asal">{{ row.tx_nomor }}</a>{% endif %}
+              {% if row.dari_saldo_awal %}<span class="badge bg-warning text-dark ms-1" title="Piutang bawaan dari Setup Saldo Awal, bukan dari penjualan"><i class="fas fa-flag-checkered me-1"></i>SALDO AWAL</span>{% endif %}
+            </td>
+            <td class="text-end text-rp">{{ row.jumlah|rp }}</td>
+            <td class="text-end text-success text-rp">{{ row.terbayar|rp }}</td>
+            <td class="text-end fw-bold text-rp {% if (row.jumlah - row.terbayar) > 0 %}text-danger{% else %}text-muted{% endif %}">
+              {{ (row.jumlah - row.terbayar)|rp }}</td>
+            <td class="{% if row.jatuh_tempo and row.status != 'LUNAS' and lbl == 'LEWAT JATUH TEMPO' %}text-danger fw-bold{% endif %}">
+              {{ row.jatuh_tempo|tgl }}</td>
+            <td>
+              {% if lbl == 'LUNAS' %}<span class="badge badge-lunas">Lunas</span>
+              {% elif lbl == 'LEWAT JATUH TEMPO' %}<span class="badge badge-lewat">Lewat JT</span>
+              {% elif lbl == 'MENDEKATI JATUH TEMPO' %}<span class="badge badge-mendekati">Mendekati JT</span>
+              {% elif lbl == 'TANGGAL TIDAK VALID' %}<span class="badge bg-danger">Tanggal Tidak Valid</span>
+              {% elif lbl == 'DIHAPUS / WRITE OFF' %}<span class="badge bg-dark">Write Off</span>
+              {% elif row.status == 'SEBAGIAN' %}<span class="badge badge-sebagian">Sebagian</span>
+              {% else %}<span class="badge badge-belumjt">Belum Lunas</span>{% endif %}
+              {% if row.writeoff_jumlah %}
+              <div class="text-muted" style="font-size:.68rem">{{ row.writeoff_jumlah|rp }}</div>
+              {% endif %}
+            </td>
+            <td class="text-end pe-3">
+              <div class="d-flex gap-1 justify-content-end">
+                {% if session.role in ('ADMIN','OPERATOR') %}
+                <a href="/piutang/{{ row.id }}/edit" class="btn btn-xs btn-outline-primary" title="Edit">
+                  <i class="fas fa-edit"></i></a>
+                {% if row.status != 'LUNAS' %}
+                <button class="btn btn-xs btn-outline-success"
+                        onclick="bayarPiutang({{ row.id }}, {{ (row.jumlah-row.terbayar)|tojson }})"
+                        title="Catat Pembayaran">
+                  <i class="fas fa-money-bill-wave"></i></button>
+                {% endif %}
+                {% endif %}
+                <a href="/piutang/{{ row.id }}/riwayat" class="btn btn-xs btn-outline-secondary" title="Riwayat">
+                  <i class="fas fa-history"></i></a>
+                {% if row.invoice_id %}
+                <a href="/invoice/{{ row.invoice_id }}/cetak" target="_blank"
+                   class="btn btn-xs btn-outline-primary" title="Cetak Invoice">
+                  <i class="fas fa-print"></i></a>
+                {% endif %}
+                {% if session.role in ('ADMIN','FINANCE') %}
+                {% if row.status != 'LUNAS' %}
+                <button class="btn btn-xs btn-outline-dark"
+                        onclick="writeoffPiutang({{ row.id }}, {{ (row.jumlah-row.terbayar)|tojson }})"
+                        title="Write Off Piutang">
+                  <i class="fas fa-ban"></i></button>
+                {% endif %}
+                <form method="POST" action="/piutang/{{ row.id }}/hapus" style="display:inline"
+                      onsubmit="return confirm('Hapus piutang ini?')">
+                  <button class="btn btn-xs btn-outline-danger" title="Hapus"><i class="fas fa-trash"></i></button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="text-center text-muted py-4">Tidak ada data piutang</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{ pagination(pg) }}
+
+{% if session.role in ('ADMIN','OPERATOR') %}
+<!-- Modal Bayar -->
+<div class="modal fade" id="modalBayar" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-money-bill-wave me-2 text-success"></i>Bayar Piutang</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="formBayar">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small">Tanggal</label>
+            <input type="date" name="tanggal" class="form-control form-control-sm"
+                   value="{{ today.strftime('%Y-%m-%d') }}" max="{{ today.strftime('%Y-%m-%d') }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Diterima ke Akun</label>
+            <select name="akun_kas" class="form-select form-select-sm">
+              {% for ak in akun_kas %}
+              <option value="{{ ak.kode }}">{{ ak.kode }} – {{ ak.nama }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Jumlah Pembayaran</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="jumlah" id="bayarJumlah" class="form-control" min="0.01" step="0.01" required>
+            </div>
+          </div>
+          <div class="mb-0">
+            <label class="form-label small">Catatan</label>
+            <input type="text" name="catatan" class="form-control form-control-sm">
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-success btn-sm">Catat Pembayaran</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if session.role in ('ADMIN','FINANCE') %}
+<!-- Modal Write Off -->
+<div class="modal fade" id="modalWriteoff" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-ban me-2 text-danger"></i>Write Off Piutang</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="formWriteoff">
+        <div class="modal-body">
+          <div class="alert alert-warning py-2" style="font-size:.82rem">
+            Write-off akan menghapus sisa Piutang Usaha dari neraca dan mencatat dampaknya ke jurnal.
+          </div>
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small">Tanggal</label>
+              <input type="date" name="tanggal" class="form-control form-control-sm"
+                     value="{{ today.strftime('%Y-%m-%d') }}" max="{{ today.strftime('%Y-%m-%d') }}">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Metode</label>
+              <select name="metode" class="form-select form-select-sm">
+                <option value="LANGSUNG">Langsung ke Beban Kerugian Piutang</option>
+                <option value="CADANGAN">Pakai Cadangan Kerugian Piutang</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Jumlah Write Off</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Rp</span>
+                <input type="number" name="jumlah" id="writeoffJumlah" class="form-control" min="0.01" step="0.01" required>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Alasan</label>
+              <input type="text" name="alasan" class="form-control form-control-sm"
+                     placeholder="Bangkrut, tidak tertagih, dll.">
+            </div>
+          </div>
+          <div class="mt-3 rounded-3 p-2" style="background:var(--card-h);border:1px solid var(--bdr-md);font-size:.78rem">
+            <div class="fw-semibold mb-1">Jurnal default</div>
+            <div>Dr 6190 Beban Kerugian Piutang</div>
+            <div>Cr 1120 Piutang Usaha</div>
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-dark btn-sm">Catat Write Off</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<script>
+{% if session.role in ('ADMIN','OPERATOR') %}
+function bayarPiutang(id, sisa) {
+  document.getElementById('formBayar').action = '/piutang/' + id + '/bayar';
+  const jumlah = document.getElementById('bayarJumlah');
+  if (window.numFmtSet) window.numFmtSet(jumlah, sisa);
+  else jumlah.value = window.rpPlainFmt ? window.rpPlainFmt(sisa || 0) : Number(sisa || 0).toLocaleString('id-ID');
+  new bootstrap.Modal(document.getElementById('modalBayar')).show();
+}
+{% endif %}
+{% if session.role in ('ADMIN','FINANCE') %}
+function writeoffPiutang(id, sisa) {
+  document.getElementById('formWriteoff').action = '/piutang/' + id + '/writeoff';
+  const jumlah = document.getElementById('writeoffJumlah');
+  if (window.numFmtSet) window.numFmtSet(jumlah, sisa);
+  else jumlah.value = window.rpPlainFmt ? window.rpPlainFmt(sisa || 0) : Number(sisa || 0).toLocaleString('id-ID');
+  new bootstrap.Modal(document.getElementById('modalWriteoff')).show();
+}
+{% endif %}
+</script>
+{% endblock %}

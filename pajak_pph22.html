@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}Rekap PPh 22 - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-landmark text-info me-2"></i>Rekap PPh 22 (Pemungutan Instansi){% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
+  <a href="/pajak" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Hub Pajak</a>
+  <form method="GET" class="d-flex gap-1 align-items-center ms-auto">
+    <label class="small text-muted me-1">Periode:</label>
+    <select name="bulan" class="form-select form-select-sm" style="width:120px">
+      {% for i in range(1,13) %}
+      {% set names = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+      <option value="{{ i }}" {% if i == bulan %}selected{% endif %}>{{ names[i-1] }}</option>
+      {% endfor %}
+    </select>
+    <select name="tahun" class="form-select form-select-sm" style="width:90px">
+      {% for y in range(today.year-2, today.year+1) %}
+      <option value="{{ y }}" {% if y == tahun %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-sm btn-primary">Filter</button>
+    <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary"><i class="fas fa-print me-1"></i>Cetak</button>
+  </form>
+</div>
+
+<!-- Header laporan -->
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <h5 class="mb-1 fw-bold">Rekap PPh 22 Dibayar Dimuka - {{ bulan_nama }} {{ tahun }}</h5>
+    <div class="text-muted small">Periode: {{ from_d }} s/d {{ to_d }} &middot; Akun 1183 (Aset/Aset Lancar)</div>
+    <div class="form-text mt-2" style="font-size:.75rem">
+      PPh 22 adalah pemotongan yang dilakukan oleh instansi pemerintah/bendaharawan/BUMN tertentu
+      saat membayar Anda sebagai penjual. Nilai ini = <strong>kredit pajak</strong> yang dapat
+      di-claim di SPT Tahunan PPh Badan.
+    </div>
+  </div>
+</div>
+
+<!-- Ringkasan periode -->
+<div class="row g-2 mb-3">
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div class="text-muted" style="font-size:.7rem">DIPOTONG BULAN INI</div>
+        <div class="fw-bold fs-5 text-rp text-success mt-1">{{ pph22_dipotong|rp }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div class="text-muted" style="font-size:.7rem">PEMBALIKAN (Retur)</div>
+        <div class="fw-bold fs-5 text-rp text-danger mt-1">{{ pph22_dibalik|rp }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div class="text-muted" style="font-size:.7rem">NETTO BULAN INI</div>
+        <div class="fw-bold fs-5 text-rp text-info mt-1">{{ pph22_netto|rp }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body py-3">
+        <div class="text-muted" style="font-size:.7rem">SALDO AKUMULATIF</div>
+        <div class="fw-bold fs-5 text-rp" style="color:#7c3aed" data-bs-toggle="tooltip"
+             title="Total kredit pajak yang tersedia di akun 1183 saat ini (akumulasi)">{{ saldo_akumulatif|rp }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Rincian pemotongan -->
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-list-check text-success"></i>
+    <span class="section-title">Rincian Pemotongan PPh 22 Bulan Ini</span>
+    <span class="badge bg-secondary ms-1" style="font-size:.65rem">{{ rincian|length }}</span>
+  </div>
+  <div class="card-body p-0">
+    {% if rincian %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0" style="font-size:.82rem">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Tanggal</th>
+            <th>No</th>
+            <th>Keterangan</th>
+            <th>Instansi / Pemotong</th>
+            <th class="text-end pe-3">PPh 22 Dipotong</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rincian %}
+          <tr>
+            <td class="ps-3 text-muted">{{ r.tanggal|tgl }}</td>
+            <td><a href="/transaksi/{{ r.id }}" class="text-decoration-none">{{ r.nomor_tx or ('#' ~ r.id) }}</a></td>
+            <td>{{ r.keterangan }}</td>
+            <td class="text-muted">{{ r.pihak or '-' }}</td>
+            <td class="text-end pe-3 text-success text-rp fw-semibold">{{ r.nominal|rp }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:2px solid #cbd5e1">
+            <td colspan="4" class="text-end pe-2 fw-bold">Total Pemotongan</td>
+            <td class="text-end pe-3 fw-bold text-success text-rp">{{ pph22_dipotong|rp }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-4" style="font-size:.85rem">
+      Belum ada pemotongan PPh 22 bulan ini. Pemotongan akan tercatat otomatis saat
+      Anda input <strong>Pemasukan</strong> ke instansi dan isi field <em>PPh 22 (%)</em>.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Pembalikan -->
+{% if rincian_balik %}
+<div class="card mb-3">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-rotate-left text-danger"></i>
+    <span class="section-title">Pembalikan PPh 22 Bulan Ini</span>
+    <span class="badge bg-secondary ms-1" style="font-size:.65rem">{{ rincian_balik|length }}</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0" style="font-size:.82rem">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Tanggal</th>
+            <th>No</th>
+            <th>Keterangan</th>
+            <th>Instansi / Pemotong</th>
+            <th class="text-end pe-3">PPh 22 Dibalik</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rincian_balik %}
+          <tr>
+            <td class="ps-3 text-muted">{{ r.tanggal|tgl }}</td>
+            <td><a href="/transaksi/{{ r.id }}" class="text-decoration-none">{{ r.nomor_tx or ('#' ~ r.id) }}</a></td>
+            <td>{{ r.keterangan }}</td>
+            <td class="text-muted">{{ r.pihak or '-' }}</td>
+            <td class="text-end pe-3 text-danger text-rp fw-semibold">- {{ r.nominal|rp }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="form-text" style="font-size:.78rem">
+  <i class="fas fa-circle-info me-1"></i>
+  <strong>Tips lapor SPT Tahunan:</strong> kumpulkan semua Bukti Pungut PPh 22 (dari instansi).
+  Saldo akumulatif {{ saldo_akumulatif|rp }} pada akun 1183 adalah jumlah yang dapat dikreditkan
+  untuk mengurangi PPh Badan terutang. Klik nomor transaksi untuk melihat detail jurnal.
+</div>
+
+{% endblock %}

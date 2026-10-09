@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% from '_pagination.html' import pagination with context %}
+{% block title %}Jadwal Shift Kasir - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-calendar-day me-2"></i>Jadwal Shift Kasir{% endblock %}
+{% block content %}
+
+<style>
+  .sh-pill{display:inline-flex;align-items:center;gap:.3rem;padding:.15rem .55rem;border-radius:20px;
+           font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+  .sh-open{background:#dcfce7;color:#166534;border:1px solid #86efac}
+  .sh-closed{background:var(--card-h);color:var(--tx2);border:1px solid var(--bdr)}
+  [data-theme="dark"] .sh-open{background:rgba(34,197,94,.18);color:#86efac;border-color:rgba(34,197,94,.4)}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <a href="{{ url_for('pos_master') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="fas fa-arrow-left me-1"></i>Kembali ke POS Master</a>
+</div>
+
+<!-- Ringkasan (dihitung dari seluruh hasil filter, bukan halaman ini saja) -->
+<div class="row g-2 mb-3">
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="text-muted" style="font-size:.7rem">SEDANG OPEN</div>
+      <div class="fw-bold" style="font-size:1.1rem">{{ open_cnt }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="text-muted" style="font-size:.7rem">SHIFT (HASIL FILTER)</div>
+      <div class="fw-bold" style="font-size:1.1rem">{{ tot_shift }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="text-muted" style="font-size:.7rem">TOTAL TRANSAKSI</div>
+      <div class="fw-bold" style="font-size:1.1rem">{{ tot_trx }}</div>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="text-muted" style="font-size:.7rem">TOTAL OMZET</div>
+      <div class="fw-bold text-rp" style="font-size:1.1rem">{{ tot_omzet|rp }}</div>
+    </div></div>
+  </div>
+</div>
+
+<!-- Filter -->
+<div class="card mb-3">
+  <div class="card-body py-2 px-3">
+    <form method="GET" class="row g-2 align-items-end">
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1">Status</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Semua</option>
+          <option value="OPEN"   {% if status=='OPEN' %}selected{% endif %}>Open</option>
+          <option value="CLOSED" {% if status=='CLOSED' %}selected{% endif %}>Closed</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1">Kasir</label>
+        <select name="kasir" class="form-select form-select-sm">
+          <option value="">Semua kasir</option>
+          {% for k in kasir_list %}
+          <option value="{{ k }}" {% if kasir==k %}selected{% endif %}>{{ k }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1">Dari tanggal</label>
+        <input type="date" name="dari" value="{{ dari }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-6 col-md-2">
+        <label class="form-label small mb-1">Sampai tanggal</label>
+        <input type="date" name="sampai" value="{{ sampai }}" class="form-control form-control-sm">
+      </div>
+      <div class="col-12 col-md-3 d-flex gap-2">
+        <button class="btn btn-sm btn-dark flex-grow-1"><i class="fas fa-filter me-1"></i>Terapkan</button>
+        <a href="{{ url_for('pos_master_shift') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Status</th>
+            <th>Kasir</th>
+            <th>Dibuka</th>
+            <th>Ditutup</th>
+            <th class="text-end">Trx</th>
+            <th class="text-end">Omzet</th>
+            <th class="text-end pe-3">Selisih Kas</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for s in shifts %}
+          <tr>
+            <td class="ps-3">
+              {% if s.status == 'OPEN' %}
+                <span class="sh-pill sh-open"><i class="fas fa-circle" style="font-size:.45rem"></i>Open</span>
+              {% else %}
+                <span class="sh-pill sh-closed">Closed</span>
+              {% endif %}
+            </td>
+            <td class="fw-semibold">{{ s.kasir_nama }}</td>
+            <td class="text-muted" style="font-size:.78rem">{{ s.dibuka|jam }}</td>
+            <td class="text-muted" style="font-size:.78rem">{{ s.ditutup|jam or '-' }}</td>
+            <td class="text-end">{{ s.jml_trx }}</td>
+            <td class="text-end text-rp">{{ s.omzet|rp }}</td>
+            <td class="text-end pe-3 {% if s.selisih and s.selisih|float < 0 %}text-danger{% elif s.selisih and s.selisih|float > 0 %}text-success{% else %}text-muted{% endif %}">
+              {% if s.status == 'OPEN' %}<span class="text-muted">-</span>
+              {% else %}{{ s.selisih|rp }}{% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-4">
+            Tidak ada shift yang cocok dengan filter.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{ pagination(pg) }}
+
+{% endblock %}

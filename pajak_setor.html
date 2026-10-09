@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% block title %}Setor Pajak & Gaji - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-money-bill-transfer text-success me-2"></i>Setor Pajak & Gaji{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3">
+  <a href="/pajak" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Kembali ke Hub Pajak</a>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header py-2 fw-semibold" style="font-size:.88rem">
+        <i class="fas fa-receipt me-2 text-success"></i>Form Pembayaran Hutang Pajak, BPJS, dan Gaji
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label small">Tanggal Bayar <span class="text-danger">*</span></label>
+              <input type="date" name="tanggal" class="form-control form-control-sm" value="{{ today }}" max="{{ today }}" required>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label small">Akun Hutang yang Dibayar <span class="text-danger">*</span></label>
+              <select name="akun_hutang" id="akunHutangSel" class="form-select form-select-sm" required>
+                <option value="">-- Pilih akun hutang --</option>
+                {% for a in akun_hutang %}
+                <option value="{{ a.kode }}" data-saldo="{{ a.saldo }}" data-kode="{{ a.kode }}"
+                        {% if prefill_akun and prefill_akun == a.kode %}selected{% endif %}>
+                  {{ a.kode }} - {{ a.nama }}
+                </option>
+                {% endfor %}
+              </select>
+              <!-- Saldo dinamis + warning gaji -->
+              <div id="saldoInfo" class="mt-1" style="display:none">
+                <span class="badge" id="saldoBadge" style="font-size:.75rem"></span>
+              </div>
+              <div id="gajiWarning" class="alert alert-warning py-2 mt-2 mb-0" style="display:none;font-size:.78rem">
+                <i class="fas fa-triangle-exclamation me-1"></i>
+                Saldo Hutang Gaji = 0. Pastikan sudah memproses gaji di
+                <a href="/gaji/proses" class="alert-link">Modul Gaji → Proses Payroll</a>
+                sebelum mencatat pembayaran di sini.
+              </div>
+              <!-- Info khusus PPh Badan (2110): akrual otomatis -->
+              <div id="pphBdInfo" class="alert alert-info py-2 mt-2 mb-0" style="display:none;font-size:.78rem">
+                <i class="fas fa-circle-info me-1"></i>
+                <strong>PPh Badan:</strong> Bila nominal melebihi saldo hutang yang sudah dicatat,
+                sistem otomatis membuat jurnal akrual <code>Dr 6170 / Cr 2110</code> sebesar selisihnya —
+                jadi Beban Pajak tetap masuk ke Laba Rugi periode ini.
+              </div>
+              <!-- Info auto-offset PPN Masukan (2111) -->
+              <div id="ppnOffsetBox" class="alert py-2 mt-2 mb-0" style="display:none;font-size:.78rem;background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46">
+                <div class="d-flex align-items-start gap-2">
+                  <i class="fas fa-shuffle mt-1"></i>
+                  <div class="flex-grow-1">
+                    <div class="fw-semibold mb-1">PPN Masukan tersedia untuk dikreditkan</div>
+                    <div>Saldo PPN Masukan (1180): <strong>Rp <span id="saldo1180Disp">{{ '{:,.0f}'.format(saldo_ppn_masukan).replace(',', '.') }}</span></strong></div>
+                    <div>Akan dikreditkan: <strong>Rp <span id="offsetPreview">0</span></strong> &nbsp;<span class="text-muted">(menutup sisa hutang setelah kas dibayar)</span></div>
+                    <div class="form-check mt-2">
+                      <input class="form-check-input" type="checkbox" id="kreditkanMasukan" name="kreditkan_masukan" value="1" checked>
+                      <label class="form-check-label" for="kreditkanMasukan">
+                        Kreditkan PPN Masukan otomatis (disarankan — sesuai PSAK)
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="form-text" style="font-size:.72rem">Pilih hutang pajak, BPJS, atau gaji yang sudah terbentuk dari transaksi/proses payroll.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Nominal Pembayaran ke Kas (Rp) <span class="text-danger">*</span></label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Rp</span>
+                <input type="number" name="nominal" id="nominalInp" class="form-control" min="0" step="1" placeholder="0" required
+                       {% if prefill_nomi %}value="{{ prefill_nomi }}"{% endif %}>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="bayarSemuaBtn"
+                        style="display:none" title="Isi nominal penuh">Bayar Semua</button>
+              </div>
+              <div class="form-text" style="font-size:.72rem">Jumlah kas yang benar-benar keluar. Untuk PPN, sisa hutang yang ditutup PPN Masukan tidak dihitung di sini.</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">Dari Rekening / Kas <span class="text-danger">*</span></label>
+              <select name="akun_kas" class="form-select form-select-sm" required>
+                {% for k in akun_kas %}
+                <option value="{{ k.kode }}">{{ k.kode }} - {{ k.nama }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <hr class="my-3">
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-paper-plane me-1"></i>Catat Pembayaran &amp; Buat Jurnal
+            </button>
+            <a href="/pajak" class="btn btn-outline-secondary">Batal</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body" style="font-size:.82rem">
+        <div class="fw-bold mb-2"><i class="fas fa-circle-info me-1 text-success"></i>Jurnal Otomatis</div>
+        <div class="text-muted mb-2">Saat Anda klik <strong>Catat Pembayaran</strong>, sistem akan otomatis buat jurnal:</div>
+        <div class="p-2" style="background:var(--card-h);border-radius:6px;font-family:monospace;font-size:.78rem">
+          Dr  Hutang Terutang XXX<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;Cr  Bank/Kas        XXX
+        </div>
+        <hr class="my-2">
+        <div class="fw-semibold mb-1">Akibatnya:</div>
+        <ul class="mb-0 ps-3" style="font-size:.78rem">
+          <li>Saldo Hutang Pajak/Gaji <strong>berkurang</strong></li>
+          <li>Saldo Bank/Kas <strong>berkurang</strong></li>
+          <li>Otomatis tercatat di Buku Besar &amp; Laba Rugi tetap balance</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const sel         = document.getElementById('akunHutangSel');
+  const nomInp      = document.getElementById('nominalInp');
+  const saldoInfo   = document.getElementById('saldoInfo');
+  const saldoBadge  = document.getElementById('saldoBadge');
+  const gajiWarn    = document.getElementById('gajiWarning');
+  const pphBdInfo   = document.getElementById('pphBdInfo');
+  const ppnOffsetBox= document.getElementById('ppnOffsetBox');
+  const offsetPrev  = document.getElementById('offsetPreview');
+  const kreditChk   = document.getElementById('kreditkanMasukan');
+  const bayarBtn    = document.getElementById('bayarSemuaBtn');
+  const saldo1180   = parseFloat({{ saldo_ppn_masukan|tojson }}) || 0;
+
+  function rp(v){ return Math.round(v).toLocaleString('id-ID'); }
+  function rpFull(v){ return 'Rp ' + rp(v); }
+
+  function refresh(){
+    const opt  = sel.options[sel.selectedIndex];
+    if(!opt){ return; }
+    const sal  = parseFloat(opt.dataset.saldo) || 0;
+    const kode = opt.dataset.kode || '';
+    const nom  = window.numVal(nomInp);
+
+    if(!kode){
+      saldoInfo.style.display='none';
+      gajiWarn.style.display='none';
+      pphBdInfo.style.display='none';
+      ppnOffsetBox.style.display='none';
+      bayarBtn.style.display='none';
+      return;
+    }
+
+    // Saldo badge
+    saldoInfo.style.display = 'block';
+    if(sal > 0){
+      saldoBadge.textContent = 'Saldo terutang: ' + rpFull(sal);
+      saldoBadge.style.background = '#dcfce7'; saldoBadge.style.color = '#166534';
+    } else {
+      saldoBadge.textContent = 'Saldo: Rp 0 — tidak ada hutang tercatat';
+      saldoBadge.style.background = '#fef9c3'; saldoBadge.style.color = '#854d0e';
+    }
+
+    // Warning Hutang Gaji (2120) saldo 0
+    gajiWarn.style.display = (kode === '2120' && sal <= 0) ? 'block' : 'none';
+
+    // Info akrual PPh Badan (2110)
+    pphBdInfo.style.display = (kode === '2110') ? 'block' : 'none';
+
+    // Auto-offset PPN Masukan saat akun = 2111 dan saldo 1180 > 0
+    if(kode === '2111' && saldo1180 > 0){
+      ppnOffsetBox.style.display = 'block';
+      const sisaHutang = Math.max(0, sal - nom);
+      const offset = kreditChk.checked ? Math.round(Math.min(saldo1180, sisaHutang)) : 0;
+      offsetPrev.textContent = rp(offset);
+    } else {
+      ppnOffsetBox.style.display = 'none';
+    }
+
+    // Max nominal: kalau ada offset, max kas = sal - offset_potensi (boleh sampai sal)
+    // Untuk PPh Badan, izinkan melebihi saldo (akan diakrual otomatis di backend)
+    if(kode === '2110'){
+      nomInp.removeAttribute('max');
+    } else {
+      nomInp.max = sal;
+    }
+
+    // Tombol "Bayar Semua"
+    if(sal > 0){
+      bayarBtn.style.display = 'inline-block';
+      bayarBtn.onclick = function(){
+        // Untuk PPN, "Bayar Semua" = sal - saldo_1180 (sisa setelah dikreditkan)
+        if(kode === '2111' && kreditChk && kreditChk.checked){
+          nomInp.value = Math.max(0, Math.round(sal - saldo1180));
+        } else {
+          nomInp.value = Math.round(sal);
+        }
+        refresh();
+      };
+    } else {
+      bayarBtn.style.display = 'none';
+    }
+  }
+
+  sel.addEventListener('change', refresh);
+  nomInp.addEventListener('input', refresh);
+  if(kreditChk) kreditChk.addEventListener('change', refresh);
+  // Trigger sekali saat load (untuk handle prefill dari SPT Masa)
+  if(sel.value) refresh();
+})();
+</script>
+
+{% endblock %}

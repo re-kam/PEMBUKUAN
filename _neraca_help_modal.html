@@ -1,0 +1,59 @@
+{# Modal petunjuk Neraca. Di-include di neraca.html; dipicu tombol [data-bs-target="#modalNeracaHelp"]. #}
+<div class="modal fade" id="modalNeracaHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Neraca</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Neraca memotret posisi keuangan usaha pada satu tanggal. Dia menjawab tiga hal:
+          apa yang Anda punya, berapa hutang Anda, dan berapa sisanya yang jadi hak pemilik.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>Neraca selalu seimbang: Aset = Kewajiban + Ekuitas.</strong>
+            Setiap transaksi dicatat dobel (debit dan kredit yang sama besar), jadi kedua sisi
+            otomatis ikut bergerak. Kalau pernah tidak seimbang, berarti ada jurnal yang timpang.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-table-list me-1" style="color:var(--ink)"></i>Tiga kelompok isinya</div>
+        <ul class="ps-3 mb-3" style="font-size:.82rem">
+          <li class="mb-1"><strong>Aset</strong>: kas, piutang, persediaan, peralatan, dan aset tetap lain.</li>
+          <li class="mb-1"><strong>Kewajiban</strong>: hutang usaha, hutang pajak, dan pinjaman.</li>
+          <li><strong>Ekuitas</strong>: modal yang disetor, laba ditahan, dan laba tahun berjalan.</li>
+        </ul>
+
+        <div class="fw-bold mb-1"><i class="fas fa-link me-1" style="color:var(--ink)"></i>Kaitan dengan Laba Rugi</div>
+        <p class="mb-3" style="font-size:.82rem">
+          Laba bersih dari Laporan Laba Rugi muncul di Neraca sebagai bagian dari Ekuitas
+          (laba tahun berjalan). Di sinilah dua laporan itu bertemu. Kalau usaha untung,
+          ekuitas di Neraca naik sebesar laba bersih tadi.
+        </p>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Anda mulai usaha dengan setor modal Rp10.000.000 tunai.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Aset (Kas) Rp10.000.000 = Ekuitas (Modal) Rp10.000.000. Seimbang.</li>
+            <li>Lalu jual jasa tunai Rp3.000.000. Kas jadi Rp13.000.000.</li>
+            <li>Ekuitas jadi Rp13.000.000 juga (Modal Rp10.000.000 + Laba Rp3.000.000). Tetap seimbang.</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Neraca menunjukkan posisi pada satu titik waktu (foto),
+          sedangkan Laba Rugi dan Arus Kas menunjukkan pergerakan selama satu periode (video).
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

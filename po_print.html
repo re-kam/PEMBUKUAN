@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PO {{ po.nomor }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #1e293b; background: #f8fafc; }
+  .page { max-width: 820px; margin: 0 auto; background: #fff; padding: 36px 40px 40px; }
+
+  /* Header */
+  .hd { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 28px; }
+  .hd-logo img { height: 56px; max-width: 140px; object-fit: contain; margin-right: 14px; }
+  .hd-co { }
+  .hd-co .co-name { font-size: 1.35rem; font-weight: 900; color: #2563eb; }
+  .hd-co .co-tag  { font-size: .75rem; font-weight: 600; color: #2563eb; margin-bottom: 2px; }
+  .hd-co .co-info { font-size: .8rem; color: #64748b; line-height: 1.5; }
+  .hd-title { text-align: right; }
+  .hd-title .doc-type { font-size: 1.8rem; font-weight: 900; letter-spacing: -.03em; color: #1e293b; }
+  .hd-title .doc-no { font-family: monospace; font-size: 1rem; font-weight: 700; color: #2563eb; }
+  .hd-title .doc-status { margin-top: 4px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .badge-draft    { background: #e2e8f0; color: #475569; }
+  .badge-dikirim  { background: #dbeafe; color: #1d4ed8; }
+  .badge-diterima { background: #dcfce7; color: #15803d; }
+  .badge-batal    { background: #fee2e2; color: #b91c1c; }
+
+  /* Meta */
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+  .meta-box { background: #f8fafc; border-radius: 8px; padding: 12px 14px; border: 1px solid #e2e8f0; }
+  .meta-box .lbl { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; margin-bottom: 5px; }
+  .meta-box .val { font-weight: 700; font-size: .9rem; }
+  .meta-box .sub { font-size: .78rem; color: #64748b; line-height: 1.4; margin-top: 2px; }
+  .meta-tbl td { font-size: .82rem; padding: 2px 0; }
+  .meta-tbl td:first-child { color: #64748b; padding-right: 14px; width: 42%; }
+  .meta-tbl td:last-child { font-weight: 600; }
+  .text-danger { color: #dc2626 !important; }
+
+  /* Items table */
+  .tbl-items { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: .83rem; }
+  .tbl-items thead tr { background: #1e293b; color: #fff; }
+  .tbl-items thead th { padding: 8px 10px; font-weight: 700; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
+  .tbl-items thead th:first-child { border-radius: 6px 0 0 0; }
+  .tbl-items thead th:last-child  { border-radius: 0 6px 0 0; text-align: right; padding-right: 14px; }
+  .tbl-items tbody tr { border-bottom: 1px solid #e2e8f0; }
+  .tbl-items tbody td { padding: 7px 10px; vertical-align: top; }
+  .tbl-items tbody td.desc { font-weight: 600; }
+  .tbl-items .tr { text-align: right; }
+  .tbl-items .pe { padding-right: 14px; }
+  .tbl-items .muted { color: #64748b; }
+
+  /* Total */
+  .total-wrap { display: flex; justify-content: flex-end; margin-bottom: 24px; }
+  .total-tbl { min-width: 280px; font-size: .88rem; }
+  .total-tbl td { padding: 4px 0; }
+  .total-tbl td:first-child { color: #64748b; padding-right: 24px; }
+  .total-tbl td:last-child { text-align: right; font-weight: 600; }
+  .total-tbl .total-row td { font-size: 1.1rem; font-weight: 900; padding-top: 6px; color: #2563eb; }
+  hr.thin { border: none; border-top: 1px solid #e2e8f0; margin: 6px 0; }
+
+  /* Footer */
+  .footer-catatan { font-size: .8rem; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 10px; margin-bottom: 12px; }
+  .footer-terms { font-size: .72rem; color: #94a3b8; border-top: 1px dashed #e2e8f0; padding-top: 10px; white-space: pre-line; line-height: 1.6; }
+  .footer-terms .lbl { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #94a3b8; margin-bottom: 4px; }
+
+  /* Sign box */
+  .sign-area { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 32px; }
+  .sign-box { text-align: center; }
+  .sign-box .sign-lbl { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 4px; }
+  .sign-box .sign-name { font-size: .8rem; font-weight: 600; margin-top: 4px; }
+  .sign-line { border-bottom: 1px solid #1e293b; margin: 48px 16px 4px; }
+
+  /* Print */
+  @media print {
+    body { background: #fff; }
+    .page { max-width: 100%; padding: 16px 20px; box-shadow: none; }
+    .no-print { display: none !important; }
+  }
+  @media screen {
+    body { padding: 20px; }
+    .page { box-shadow: 0 4px 24px rgba(0,0,0,.08); border-radius: 8px; }
+    .btn-print { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px;
+                 background: #2563eb; color: #fff; border: none; border-radius: 6px;
+                 font-size: .88rem; font-weight: 600; cursor: pointer; text-decoration: none; }
+    .btn-back  { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+                 background: #f1f5f9; color: #475569; border: none; border-radius: 6px;
+                 font-size: .88rem; cursor: pointer; text-decoration: none; }
+    .topbar { display: flex; gap: 10px; max-width: 820px; margin: 0 auto 12px; }
+    {% if preview %}.page { border: 3px dashed #f59e0b; } {% endif %}
+  }
+</style>
+</head>
+<body>
+{% if not autoprint %}
+<div class="topbar no-print">
+  <a href="/po/{{ po.id if po.id is defined else '#' }}" class="btn-back">← Kembali</a>
+  <button onclick="window.print()" class="btn-print">🖨 Cetak / Simpan PDF</button>
+  {% if preview %}<span style="color:#d97706;font-weight:700;font-size:.82rem;align-self:center">⚠ Mode Preview</span>{% endif %}
+</div>
+{% endif %}
+
+<div class="page">
+
+  <!-- Header -->
+  <div class="hd">
+    <div style="display:flex;align-items:flex-start;gap:14px">
+      {% if po_s.po_logo %}
+      <div class="hd-logo"><img src="/static/uploads/{{ po_s.po_logo }}" alt="logo"></div>
+      {% endif %}
+      <div class="hd-co">
+        <div class="co-name">{{ po_s.po_nama }}</div>
+        {% if po_s.po_tagline %}<div class="co-tag">{{ po_s.po_tagline }}</div>{% endif %}
+        <div class="co-info">
+          {% if po_s.po_alamat %}{{ po_s.po_alamat }}<br>{% endif %}
+          {% if po_s.po_telepon %}☎ {{ po_s.po_telepon }}{% if po_s.po_email %} &nbsp;|&nbsp; {% endif %}{% endif %}
+          {% if po_s.po_email %}✉ {{ po_s.po_email }}{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="hd-title">
+      <div class="doc-type">PURCHASE ORDER</div>
+      <div class="doc-no">{{ po.nomor }}</div>
+      <div class="doc-status">
+        {% if po.status == 'DRAFT' %}<span class="badge badge-draft">Draft</span>
+        {% elif po.status == 'DIKIRIM' %}<span class="badge badge-dikirim">Dikirim</span>
+        {% elif po.status == 'DITERIMA' %}<span class="badge badge-diterima">Diterima</span>
+        {% elif po.status == 'DIBATALKAN' %}<span class="badge badge-batal">Dibatalkan</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Meta -->
+  {% set today_str = today.strftime('%Y-%m-%d') if today is defined else '' %}
+  <div class="meta">
+    <div class="meta-box">
+      <div class="lbl">Kepada Vendor</div>
+      <div class="val">{{ po.vendor }}</div>
+      {% if po.alamat_vendor %}<div class="sub">{{ po.alamat_vendor }}</div>{% endif %}
+      {% if po.telepon_vendor %}<div class="sub">☎ {{ po.telepon_vendor }}</div>{% endif %}
+    </div>
+    <div class="meta-box">
+      <table class="meta-tbl" style="width:100%">
+        <tr><td>Tanggal PO</td><td>{{ po.tanggal|tgl }}</td></tr>
+        <tr><td>Estimasi Terima</td>
+            <td {% if po.expected_date and today_str and po.status not in ('DITERIMA','DIBATALKAN') and po.expected_date < today_str %}class="text-danger"{% endif %}>
+              {{ po.expected_date|tgl if po.expected_date else '-' }}
+            </td></tr>
+        <tr><td>Hal</td><td>Pemesanan Barang / Jasa</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- Items -->
+  <table class="tbl-items">
+    <thead>
+      <tr>
+        <th style="width:30px">#</th>
+        <th>Deskripsi / Item</th>
+        <th class="tr" style="width:60px">Qty</th>
+        <th style="width:60px">Satuan</th>
+        <th class="tr" style="width:110px">Harga Satuan</th>
+        <th class="tr" style="width:90px">Diskon</th>
+        <th class="tr pe" style="width:110px">Subtotal</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for it in items %}
+      <tr>
+        <td class="muted">{{ loop.index }}</td>
+        <td class="desc">{{ it.deskripsi }}</td>
+        <td class="tr">{{ it.qty|qty }}</td>
+        <td class="muted">{{ it.satuan }}</td>
+        <td class="tr">{{ it.harga_satuan|rp }}</td>
+        <td class="tr muted">{% if it.diskon_item %}{{ it.diskon_item|rp }}{% else %}-{% endif %}</td>
+        <td class="tr pe" style="font-weight:700">{{ it.subtotal|rp }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Total -->
+  <div class="total-wrap">
+    <table class="total-tbl">
+      <tr><td>Subtotal</td><td>{{ subtotal|rp }}</td></tr>
+      {% if po.diskon %}<tr><td>Diskon</td><td>- {{ po.diskon|rp }}</td></tr>{% endif %}
+      {% if po.ongkir %}<tr><td>Ongkos Kirim</td><td>{{ po.ongkir|rp }}</td></tr>{% endif %}
+      {% if po.biaya_lain %}<tr><td>Biaya Lain</td><td>{{ po.biaya_lain|rp }}</td></tr>{% endif %}
+      <tr><td colspan="2"><hr class="thin"></td></tr>
+      <tr class="total-row"><td>TOTAL</td><td>{{ total|rp }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Catatan -->
+  {% if po.catatan %}
+  <div class="footer-catatan">
+    <strong>Catatan:</strong> {{ po.catatan }}
+  </div>
+  {% endif %}
+
+  <!-- Terms -->
+  {% if po_s.po_terms %}
+  <div class="footer-terms">
+    <div class="lbl">Syarat &amp; Ketentuan</div>
+    {{ po_s.po_terms }}
+  </div>
+  {% endif %}
+
+  <!-- Tanda Tangan -->
+  <div class="sign-area">
+    <div class="sign-box">
+      <div class="sign-lbl">Disiapkan oleh</div>
+      <div class="sign-line"></div>
+      <div class="sign-name">{{ po_s.po_nama }}</div>
+      <div style="font-size:.72rem;color:#94a3b8">Purchasing / Finance</div>
+    </div>
+    <div class="sign-box">
+      <div class="sign-lbl">Disetujui oleh Vendor</div>
+      <div class="sign-line"></div>
+      <div class="sign-name">{{ po.vendor }}</div>
+      <div style="font-size:.72rem;color:#94a3b8">Stempel &amp; Tanda Tangan</div>
+    </div>
+  </div>
+
+</div>
+
+{% if autoprint %}
+<script>window.onload = function(){ window.print(); }</script>
+{% endif %}
+</body>
+</html>

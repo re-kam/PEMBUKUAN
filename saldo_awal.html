@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+{% block title %}Setup Saldo Awal - FinansialApp{% endblock %}
+{% block page_title %}Setup Saldo Awal Akun{% endblock %}
+{% block content %}
+
+<style>
+  .sa-section { background:var(--card); border:1px solid var(--bdr); border-radius:12px; padding:1rem 1.15rem; margin-bottom:1rem; }
+  .sa-section-title { font-size:.95rem; font-weight:800; color:var(--tx); margin-bottom:.65rem; display:flex; align-items:center; gap:.5rem; letter-spacing:-.01em; }
+  .sa-section-title .sa-ico { width:32px; height:32px; border-radius:9px; color:#fff; display:inline-flex; align-items:center; justify-content:center; font-size:.95rem; flex-shrink:0; }
+  .sa-row { display:grid; grid-template-columns: 90px 1fr 200px 150px; gap:.5rem; align-items:center; padding:.35rem 0; border-bottom:1px dashed var(--bdr); }
+  .sa-row:last-child { border-bottom:none; }
+  .sa-row .sa-kode { font-family:monospace; color:var(--tx3); font-size:.78rem; }
+  .sa-row .sa-now  { font-size:.72rem; color:var(--tx3); text-align:right; }
+  @media (max-width:768px){ .sa-row { grid-template-columns: 70px 1fr 130px; } .sa-row .sa-now { display:none; } }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <span class="text-muted" style="font-size:.85rem;max-width:680px;line-height:1.55">
+    Wizard ini untuk meng-input <strong>saldo migrasi</strong> dari pencatatan lama (akuntan/Excel/buku tulis) ke aplikasi.
+    Sistem otomatis menyusun jurnal pembukaan: <em>Dr Aset / Cr Liabilitas, Modal Pemilik</em> ke akun
+    <strong>3100 Modal Pemilik</strong> sebagai <strong>auto-balance</strong>.
+  </span>
+</div>
+
+{# Penjelas badge REKENING. Tanpa ini user melihat badge/centang tanpa tahu asalnya
+   dan tak tahu harus ke mana untuk menambah rekening baru. #}
+<div class="rounded-3 px-3 py-2 mb-3 d-flex flex-wrap align-items-center gap-2"
+     style="background:var(--card-h);border:1px dashed var(--bdr-md)">
+  <i class="fas fa-wallet text-success"></i>
+  <span style="font-size:.82rem;color:var(--tx2);line-height:1.55;flex:1;min-width:260px">
+    Akun bertanda
+    <span class="badge bg-success-subtle text-success border border-success-subtle"
+          style="font-size:.62rem;font-weight:700">REKENING</span>
+    adalah kas atau rekening bank Anda, jadi bisa dipilih saat terima dan bayar uang.
+    Mau menambah rekening baru, atau menandai akun yang sudah ada sebagai rekening? Aturnya di Bagan Akun.
+  </span>
+  <a href="{{ url_for('akun_list') }}" class="btn btn-sm btn-outline-success">
+    <i class="fas fa-list-ul me-1"></i>Buka Bagan Akun
+  </a>
+</div>
+
+{% if sudah_ada %}
+<div class="alert alert-warning py-2 px-3 mb-3" style="font-size:.83rem">
+  <i class="fas fa-triangle-exclamation me-1"></i>
+  Sudah ada <strong>{{ sudah_ada }} jurnal saldo awal akun</strong> sebelumnya.
+  Mengisi form ini akan <strong>menambah</strong> entri saldo awal baru (bukan mengganti).
+  Lebih baik cek <a href="/transaksi?tipe_tx=SALDO_AWAL_AKUN" class="alert-link">Daftar Jurnal</a> dulu untuk menghindari double-input.
+</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('saldo_awal_simpan') }}" onsubmit="return confirmSimpan()">
+  <div class="row g-2 mb-3">
+    <div class="col-md-4">
+      <label class="form-label small fw-semibold">Tanggal Pembukuan Saldo Awal</label>
+      <input type="date" name="tanggal" value="{{ default_tgl }}" class="form-control form-control-sm" required>
+      <div class="form-text" style="font-size:.7rem">
+        Idealnya = <strong>1 hari sebelum</strong> tanggal transaksi pertama Anda di app ini.
+      </div>
+    </div>
+    <div class="col-md-8 d-flex align-items-end">
+      <div class="rounded-3 px-3 py-2 w-100" style="background:var(--card-h);border:1px dashed var(--bdr-md);font-size:.78rem;color:var(--tx2)">
+        <i class="fas fa-lightbulb me-1 text-warning"></i>
+        Yang TIDAK perlu diisi di sini: <strong>Persediaan/Stok</strong> (input via Inventory → Tambah Produk dengan Stok Awal),
+        dan akun <strong>Persediaan Non-SKU</strong> (input via Stok → tombol Non-SKU).
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ASET LANCAR (Kas/Bank/Piutang/dsb) ── -->
+  <div class="sa-section">
+    <div class="sa-section-title">
+      <span class="sa-ico" style="background:linear-gradient(135deg,#22c55e,#16a34a)"><i class="fas fa-wallet"></i></span>
+      Aset Lancar (Kas, Bank, Piutang, dst.)
+    </div>
+    <div style="font-size:.78rem;color:var(--tx2);margin-bottom:.5rem;line-height:1.5">
+      Isi <strong>saldo Debit</strong> per akun pada tanggal pembukuan. Yang tidak ada saldo, biarkan kosong.
+    </div>
+    {% for r in aset_rows %}
+    <div class="sa-row">
+      <div class="sa-kode">{{ r.kode }}</div>
+      <div>
+        <input type="hidden" name="aset_kode[]" value="{{ r.kode }}">
+        <strong>{{ r.nama }}</strong>
+        {% if r.is_rekening %}
+        <span class="badge bg-success-subtle text-success border border-success-subtle ms-1"
+              style="font-size:.6rem;font-weight:700"
+              title="Sudah bisa dipilih saat terima atau bayar uang">
+          <i class="fas fa-wallet me-1"></i>REKENING</span>
+        {% endif %}
+        <div class="text-muted" style="font-size:.7rem">{{ r.subtipe or '' }}</div>
+        {% if not r.is_rekening and boleh_jadi_rekening(r.kode, r.tipe, r.saldo_normal) %}
+        {# Akun kas/bank yang belum aktif: tanpa ini saldo awalnya tercatat di Neraca tapi
+           akunnya tak pernah muncul di pilihan pembayaran. Centang di sini supaya user tak
+           perlu pergi ke halaman lain. #}
+        <div class="form-check mt-1">
+          <input class="form-check-input" type="checkbox" name="aktifkan_rekening[]"
+                 value="{{ r.kode }}" id="rek_{{ r.kode }}">
+          <label class="form-check-label text-muted" for="rek_{{ r.kode }}" style="font-size:.7rem">
+            Ini rekening kas/bank saya
+            <span class="d-block" style="font-size:.66rem">centang agar bisa dipilih saat terima atau bayar uang</span>
+          </label>
+        </div>
+        {% endif %}
+      </div>
+      <div>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text">Rp</span>
+          <input type="number" name="aset_nilai[]" class="form-control sa-num" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+      <div class="sa-now">
+        Saldo sekarang:<br><strong>{{ saldo_now.get(r.kode, 0)|rp }}</strong>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ── ASET TETAP ── -->
+  <div class="sa-section">
+    <div class="sa-section-title">
+      <span class="sa-ico" style="background:linear-gradient(135deg,#3b82f6,#2563eb)"><i class="fas fa-building"></i></span>
+      Aset Tetap (Peralatan, Kendaraan, Gedung)
+    </div>
+    <div style="font-size:.78rem;color:var(--tx2);margin-bottom:.5rem;line-height:1.5">
+      Tambahkan aset tetap yang sudah dimiliki. Isi <strong>harga perolehan</strong> dan
+      <strong>akumulasi penyusutan</strong> sampai tanggal pembukuan.
+      Penyusutan bulan berikutnya akan otomatis dijalankan app.
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-2" style="font-size:.82rem">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width:160px">Nama Aset</th>
+            <th style="width:130px">Kategori</th>
+            <th style="width:140px">Harga Perolehan</th>
+            <th style="width:135px">Tanggal Beli</th>
+            <th style="width:95px">Masa Pakai (bln)</th>
+            <th style="width:140px">Akumulasi Peny.</th>
+            <th style="width:38px"></th>
+          </tr>
+        </thead>
+        <tbody id="atBody"></tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addAt()">
+      <i class="fas fa-plus me-1"></i>Tambah Aset Tetap</button>
+  </div>
+
+  <!-- ── LIABILITAS ── -->
+  <div class="sa-section">
+    <div class="sa-section-title">
+      <span class="sa-ico" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><i class="fas fa-file-invoice-dollar"></i></span>
+      Liabilitas / Hutang
+    </div>
+    <div style="font-size:.78rem;color:var(--tx2);margin-bottom:.5rem;line-height:1.5">
+      Isi <strong>saldo Kredit</strong> per akun pada tanggal pembukuan.
+    </div>
+    {% for r in liab_rows %}
+    <div class="sa-row">
+      <div class="sa-kode">{{ r.kode }}</div>
+      <div>
+        <input type="hidden" name="liab_kode[]" value="{{ r.kode }}">
+        <strong>{{ r.nama }}</strong>
+        <div class="text-muted" style="font-size:.7rem">{{ r.subtipe or '' }}</div>
+      </div>
+      <div>
+        <div class="input-group input-group-sm">
+          <span class="input-group-text">Rp</span>
+          <input type="number" name="liab_nilai[]" class="form-control sa-num" min="0" step="1" placeholder="0">
+        </div>
+      </div>
+      <div class="sa-now">
+        Saldo sekarang:<br><strong>{{ saldo_now.get(r.kode, 0)|rp }}</strong>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ── RINCIAN HUTANG PER PEMASOK ── -->
+  <div class="sa-section">
+    <div class="sa-section-title">
+      <span class="sa-ico" style="background:linear-gradient(135deg,#f97316,#ea580c)"><i class="fas fa-hand-holding-dollar"></i></span>
+      Rincian Hutang per Pemasok <span class="badge bg-secondary ms-2" style="font-size:.62rem">Opsional</span>
+    </div>
+    <div style="font-size:.78rem;color:var(--tx2);margin-bottom:.5rem;line-height:1.5">
+      Rinci hutang lama Anda per pemasok supaya bisa dilunasi satu per satu lewat menu
+      <strong>Pelunasan</strong>. Jumlah rincian harus sama dengan nominal akun hutangnya di atas.
+      Kalau nominal akun di atas dikosongkan, angkanya diambil dari jumlah rincian ini.
+      Dilewati saja juga tidak apa-apa: hutangnya tetap bisa dilunasi, hanya saja tercatat
+      sebagai satu tagihan gabungan.
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-2" style="font-size:.82rem">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width:170px">Nama Pemasok / Kreditur</th>
+            <th style="width:160px">Nominal</th>
+            <th style="width:150px">Jatuh Tempo</th>
+            <th style="width:200px">Dicatat sebagai akun</th>
+            <th style="width:38px"></th>
+          </tr>
+        </thead>
+        <tbody id="rhBody"></tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addRh()">
+      <i class="fas fa-plus me-1"></i>Tambah Pemasok</button>
+  </div>
+
+  <!-- ── RINCIAN PIUTANG PER PELANGGAN ── -->
+  <div class="sa-section">
+    <div class="sa-section-title">
+      <span class="sa-ico" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="fas fa-file-invoice"></i></span>
+      Rincian Piutang per Pelanggan <span class="badge bg-secondary ms-2" style="font-size:.62rem">Opsional</span>
+    </div>
+    <div style="font-size:.78rem;color:var(--tx2);margin-bottom:.5rem;line-height:1.5">
+      Rinci tagihan yang belum tertagih per pelanggan supaya bisa diterima pembayarannya satu per
+      satu lewat menu <strong>Pelunasan</strong>. Jumlahnya harus sama dengan nominal akun
+      <strong>1120 Piutang Usaha</strong> di bagian Aset.
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-2" style="font-size:.82rem">
+        <thead class="table-light">
+          <tr>
+            <th style="min-width:170px">Nama Pelanggan</th>
+            <th style="width:160px">Nominal</th>
+            <th style="width:150px">Jatuh Tempo</th>
+            <th style="width:38px"></th>
+          </tr>
+        </thead>
+        <tbody id="rpBody"></tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-outline-primary btn-sm" onclick="addRp()">
+      <i class="fas fa-plus me-1"></i>Tambah Pelanggan</button>
+  </div>
+
+  <!-- Peringatan hidup kalau jumlah rincian tidak sama dgn nominal akunnya -->
+  <div id="rinciWarn" class="alert alert-warning py-2 px-3 mb-3"
+       style="display:none;font-size:.8rem;line-height:1.5"></div>
+
+  <!-- ── PREVIEW ── -->
+  <div class="card mb-3" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:0;color:#78350f">
+    <div class="card-body py-3 px-3">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
+            Auto-balance ke 3100 Modal Pemilik
+          </div>
+          <div style="font-size:1.4rem;font-weight:800" id="previewModal">Rp 0</div>
+          <div style="font-size:.72rem" id="previewKet">Total Aset − Total Liabilitas</div>
+        </div>
+        <div class="text-end">
+          <div style="font-size:.72rem;font-weight:600">Total Aset (Debit): <strong id="previewAset">Rp 0</strong></div>
+          <div style="font-size:.72rem;font-weight:600">Total Liabilitas (Kredit): <strong id="previewLiab">Rp 0</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 justify-content-end mb-4">
+    <a href="{{ url_for('neraca') }}" class="btn btn-outline-secondary">Batal</a>
+    <button type="submit" class="btn btn-primary">
+      <i class="fas fa-save me-1"></i>Simpan Saldo Awal</button>
+  </div>
+</form>
+
+<script>
+const KATEGORI_AT = {{ ['Peralatan','Kendaraan','Gedung']|tojson }};
+const DEFAULT_TGL = {{ default_tgl|tojson }};
+
+function addAt(){
+  const body = document.getElementById('atBody');
+  const tr = document.createElement('tr');
+  const katOpts = KATEGORI_AT.map(k => `<option value="${k}">${k}</option>`).join('');
+  tr.innerHTML = `
+    <td><input type="text" name="at_nama[]" class="form-control form-control-sm" placeholder="Mis: Laptop Acer"></td>
+    <td><select name="at_kat[]" class="form-select form-select-sm">${katOpts}</select></td>
+    <td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span>
+        <input type="number" name="at_harga[]" class="form-control sa-num" min="0" step="1" placeholder="0"></div></td>
+    <td><input type="date" name="at_tgl[]" class="form-control form-control-sm" value="${DEFAULT_TGL}"></td>
+    <td><input type="number" name="at_masa[]" class="form-control form-control-sm text-center" min="1" step="1" value="48"></td>
+    <td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span>
+        <input type="number" name="at_akum[]" class="form-control sa-num" min="0" step="1" placeholder="0"></div></td>
+    <td class="text-center"><button type="button" class="btn btn-xs btn-outline-danger del-at"><i class="fas fa-times"></i></button></td>`;
+  body.appendChild(tr);
+  if (window.numFmtInitAll) window.numFmtInitAll();
+  tr.querySelectorAll('input').forEach(i => i.addEventListener('input', refreshPreview));
+}
+
+document.getElementById('atBody').addEventListener('click', function(e){
+  const btn = e.target.closest('.del-at');
+  if (!btn) return;
+  btn.closest('tr').remove();
+  refreshPreview();
+});
+
+// ── Rincian hutang per pemasok & piutang per pelanggan (opsional) ──
+// Baris di sini yang membuat saldo awal bisa dilunasi lewat menu Pelunasan.
+// Nominalnya WAJIB memakai numFmt (sa-num + numFmtInitAll) supaya format ribuan
+// dan desimalnya dibaca sama seperti field lain di form ini.
+const AKUN_HUTANG_OPT = [
+  {% for r in liab_rows %}{kode: {{ r.kode|tojson }}, nama: {{ r.nama|tojson }}},
+  {% endfor %}
+];
+
+function addRh(){
+  const body = document.getElementById('rhBody');
+  const tr = document.createElement('tr');
+  const opts = AKUN_HUTANG_OPT.map(a =>
+    `<option value="${a.kode}"${a.kode === '2100' ? ' selected' : ''}>${a.kode} - ${a.nama}</option>`).join('');
+  tr.innerHTML = `
+    <td><input type="text" name="rh_nama[]" class="form-control form-control-sm" placeholder="Mis: CV Sumber Rejeki"></td>
+    <td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span>
+        <input type="number" name="rh_nilai[]" class="form-control sa-num" min="0" step="1" placeholder="0"></div></td>
+    <td><input type="date" name="rh_jt[]" class="form-control form-control-sm"></td>
+    <td><select name="rh_akun[]" class="form-select form-select-sm">${opts}</select></td>
+    <td class="text-center"><button type="button" class="btn btn-xs btn-outline-danger del-rinci"><i class="fas fa-times"></i></button></td>`;
+  body.appendChild(tr);
+  if (window.numFmtInitAll) window.numFmtInitAll();
+  tr.querySelectorAll('input').forEach(i => i.addEventListener('input', refreshPreview));
+}
+
+function addRp(){
+  const body = document.getElementById('rpBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text" name="rp_nama[]" class="form-control form-control-sm" placeholder="Mis: PT Maju Jaya"></td>
+    <td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span>
+        <input type="number" name="rp_nilai[]" class="form-control sa-num" min="0" step="1" placeholder="0"></div></td>
+    <td><input type="date" name="rp_jt[]" class="form-control form-control-sm"></td>
+    <td class="text-center"><button type="button" class="btn btn-xs btn-outline-danger del-rinci"><i class="fas fa-times"></i></button></td>`;
+  body.appendChild(tr);
+  if (window.numFmtInitAll) window.numFmtInitAll();
+  tr.querySelectorAll('input').forEach(i => i.addEventListener('input', refreshPreview));
+}
+
+['rhBody','rpBody'].forEach(function(id){
+  document.getElementById(id).addEventListener('click', function(e){
+    const btn = e.target.closest('.del-rinci');
+    if (!btn) return;
+    btn.closest('tr').remove();
+    refreshPreview();
+  });
+});
+
+function rp(n){ return window.rpFmt ? window.rpFmt(n) : 'Rp ' + Math.round(n||0).toLocaleString('id-ID'); }
+function readNum(el){ return window.numVal ? window.numVal(el) : (parseFloat(el.value)||0); }
+
+// Jumlah rincian per kode akun. Dipakai dua hal: (1) mengisi nominal akun di
+// preview kalau kolom akunnya sengaja dikosongkan, (2) memperingatkan kalau
+// jumlah rincian tidak sama dengan nominal akun, supaya ketahuan SEBELUM submit
+// (server juga menolak, ini cuma biar tidak bolak-balik).
+function rinciPerAkun(){
+  const peta = {};
+  document.querySelectorAll('#rhBody tr').forEach(tr => {
+    const el = tr.querySelector('input[name="rh_nilai[]"]');
+    const sel = tr.querySelector('select[name="rh_akun[]"]');
+    if (!el || !sel) return;
+    peta[sel.value] = (peta[sel.value] || 0) + readNum(el);
+  });
+  document.querySelectorAll('#rpBody input[name="rp_nilai[]"]').forEach(el => {
+    peta['1120'] = (peta['1120'] || 0) + readNum(el);
+  });
+  return peta;
+}
+
+function cekCocokRincian(){
+  const peta = rinciPerAkun();
+  const pesan = [];
+  document.querySelectorAll('input[name="aset_nilai[]"], input[name="liab_nilai[]"]').forEach(el => {
+    const row = el.closest('.sa-row');
+    const hid = row && row.querySelector('input[name="aset_kode[]"], input[name="liab_kode[]"]');
+    if (!hid) return;
+    const kode = hid.value;
+    if (!(kode in peta)) return;
+    const nAkun = readNum(el);
+    if (nAkun > 0 && Math.abs(nAkun - peta[kode]) > 0.01) {
+      pesan.push(`Akun ${kode}: nominal ${rp(nAkun)} vs jumlah rincian ${rp(peta[kode])}`);
+    }
+  });
+  const box = document.getElementById('rinciWarn');
+  if (box) {
+    box.style.display = pesan.length ? '' : 'none';
+    box.innerHTML = pesan.length
+      ? '<strong>Jumlah rincian belum cocok:</strong><br>' + pesan.join('<br>') +
+        '<br><span style="font-size:.74rem">Samakan angkanya, atau kosongkan nominal akun supaya diambil dari rincian.</span>'
+      : '';
+  }
+  return pesan.length === 0;
+}
+
+function refreshPreview(){
+  let totAset = 0, totLiab = 0;
+  const peta = rinciPerAkun();
+  document.querySelectorAll('input[name="aset_nilai[]"]').forEach(el => {
+    const row = el.closest('.sa-row');
+    const hid = row && row.querySelector('input[name="aset_kode[]"]');
+    const kode = hid ? hid.value : null;
+    let n = readNum(el);
+    // Nominal akun kosong tapi ada rinciannya -> pakai jumlah rincian (sama spt server)
+    if (kode && (kode in peta) && n <= 0) { n = peta[kode]; }
+    totAset += n;
+  });
+  document.querySelectorAll('input[name="liab_nilai[]"]').forEach(el => {
+    const row = el.closest('.sa-row');
+    const hid = row && row.querySelector('input[name="liab_kode[]"]');
+    const kode = hid ? hid.value : null;
+    let n = readNum(el);
+    if (kode && (kode in peta) && n <= 0) { n = peta[kode]; }
+    totLiab += n;
+  });
+  cekCocokRincian();
+  // Aset tetap (harga - akumulasi → net masuk Aset, akumulasi sebenarnya kontra Aset)
+  document.querySelectorAll('input[name="at_harga[]"]').forEach(el => totAset += readNum(el));
+  document.querySelectorAll('input[name="at_akum[]"]').forEach(el => totLiab += readNum(el)); // kontra-aset = kredit
+  const modal = totAset - totLiab;
+  document.getElementById('previewAset').textContent = rp(totAset);
+  document.getElementById('previewLiab').textContent = rp(totLiab);
+  document.getElementById('previewModal').textContent = rp(Math.abs(modal));
+  document.getElementById('previewKet').textContent =
+    modal >= 0 ? 'Modal Pemilik akan dikredit ' + rp(modal)
+               : 'PERHATIAN: Liabilitas > Aset → defisit modal ' + rp(-modal);
+}
+
+document.querySelectorAll('input[name="aset_nilai[]"], input[name="liab_nilai[]"]').forEach(el => {
+  el.addEventListener('input', refreshPreview);
+});
+
+function confirmSimpan(){
+  if (!cekCocokRincian()) {
+    alert('Jumlah rincian per pihak belum sama dengan nominal akunnya. '
+        + 'Periksa kotak peringatan kuning di atas tombol Simpan.');
+    return false;
+  }
+  const nRinci = document.querySelectorAll('#rhBody tr, #rpBody tr').length;
+  const tambahan = nRinci
+    ? `\n\n${nRinci} rincian hutang/piutang akan ikut tercatat dan langsung bisa dilunasi lewat menu Pelunasan.`
+    : '';
+  return confirm('Simpan saldo awal? Sistem akan membuat 1 jurnal pembukaan dan '
+               + 'meng-isi sisanya otomatis ke akun 3100 Modal Pemilik.' + tambahan);
+}
+
+document.addEventListener('DOMContentLoaded', refreshPreview);
+</script>
+{% endblock %}

@@ -1,0 +1,1840 @@
+{% extends "base.html" %}
+{% block title %}Input Penjualan - FinansialApp{% endblock %}
+{% block page_title %}Input Penjualan{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+<div class="col-lg-9">
+
+{% if inventory_value_alert and can.show_hpp_margin %}
+<div class="modal fade" id="inventoryValueAlertModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content">
+      <div class="modal-header border-danger-subtle">
+        <h6 class="modal-title text-danger fw-bold">
+          <i class="fas fa-triangle-exclamation me-2"></i>Nilai Persediaan Menjadi Minus
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">
+          Nilai HPP yang dicatat lebih besar daripada nilai persediaan yang tersedia, sehingga nilai persediaan menjadi minus.
+          Silakan periksa kembali dan tambahkan transaksi pembelian bahan baku / produk yang belum tercatat.
+        </p>
+        <div class="rounded-3 p-3" style="background:var(--card-h);border:1px solid var(--bdr-md)">
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">HPP yang dicatat</span>
+            <strong class="text-danger">{{ inventory_value_alert.required|rp }}</strong>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span class="text-muted">Nilai persediaan sebelum transaksi</span>
+            <strong>{{ inventory_value_alert.available|rp }}</strong>
+          </div>
+          <div class="d-flex justify-content-between pt-2" style="border-top:1px solid var(--bdr-md)">
+            <span class="fw-semibold">Nilai persediaan saat ini</span>
+            <strong class="text-danger">{{ inventory_value_alert.resulting|rp }}</strong>
+          </div>
+          <div class="d-flex justify-content-between pt-2">
+            <span class="fw-semibold">Kekurangan nilai persediaan</span>
+            <strong class="text-danger">{{ inventory_value_alert.shortage|rp }}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between flex-nowrap gap-2">
+        {% if inventory_value_alert.jid and session.role in ('ADMIN','FINANCE') %}
+        <form method="POST" action="/transaksi/{{ inventory_value_alert.jid }}/hapus" class="m-0">
+          <input type="hidden" name="next" value="pemasukan">
+          <button type="submit" class="btn btn-outline-danger">
+            <i class="fas fa-rotate-left me-1"></i>Batalkan Transaksi</button>
+        </form>
+        {% else %}<span></span>{% endif %}
+        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Saya Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Tab mode dihapus: Penjualan Umum kini bisa jual produk stok + jasa + item bebas dalam satu
+     dokumen (kotak "Item"), jadi tak perlu tab "Per Produk" terpisah. Form produk lama tetap ada
+     (tersembunyi, tak terjangkau UI) untuk kompatibilitas; handler server mode=produk dipertahankan. -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FORM PENJUALAN UMUM
+═══════════════════════════════════════════════════════════════ -->
+<div id="form-umum">
+<div class="card">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-arrow-trend-up text-success"></i>
+    <span class="section-title">Penjualan Barang &amp; Jasa</span>
+  </div>
+  <div class="card-body">
+  <form method="POST">
+    <input type="hidden" name="mode" value="umum">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
+        <input type="date" name="tanggal" class="form-control" value="{{ today }}" max="{{ today }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold"><i class="fas fa-vault text-success me-1"></i>Masuk ke Rekening</label>
+        <select name="akun_kas" class="form-select">
+          {% for a in akun_kas %}
+          <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if app_pref and app_pref.custom_coa_aktif %}
+      <!-- Akun Pendapatan COA (opsional, gated by setting Input Custom COA) -->
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">
+          <i class="fas fa-book text-success me-1"></i>Akun Pendapatan (COA)
+          <small class="text-muted fw-normal">(opsional, default 4100 atau 4200)</small>
+        </label>
+        <select name="akun_pendapatan_kode" class="form-select">
+          <option value="">-- Auto (Pendapatan Penjualan / Jasa) --</option>
+          {% for a in akun_pendapatan_list %}
+          <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Pilih akun pendapatan COA kustom. Biarkan kosong untuk otomatis.</div>
+      </div>
+      {% endif %}
+      <div class="col-md-8">
+        <label class="form-label fw-semibold">Keterangan <span class="text-danger">*</span></label>
+        <input type="text" name="keterangan" class="form-control" placeholder="Misal: Penjualan produk A, Invoice #001" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold">Nama Pelanggan</label>
+        <div class="pcombo">
+          <input type="text" name="pelanggan" id="pelangganUmum" class="form-control pcombo-input"
+                 placeholder="Cari / ketik nama pelanggan" autocomplete="off">
+        </div>
+        <div class="form-check mt-1">
+          <input class="form-check-input" type="checkbox" name="simpan_customer" id="simpanCustUmum" value="1">
+          <label class="form-check-label" for="simpanCustUmum" style="font-size:.74rem">
+            <i class="fas fa-user-plus me-1 text-success"></i>Simpan ke database customer</label>
+        </div>
+      </div>
+      {% if proyek_aktif %}
+      <div class="col-md-4">
+        <label class="form-label fw-semibold"><i class="fas fa-diagram-project me-1" style="color:#7c3aed"></i>Proyek <small class="text-muted fw-normal">(opsional)</small></label>
+        <select name="proyek_id" class="form-select">
+          <option value="">-- Tanpa proyek --</option>
+          {% for pr in proyek_aktif %}
+          <option value="{{ pr.id }}">{{ pr.kode }} · {{ pr.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <!-- Rincian Penjualan (multi-baris: bebas / dari Master HPP) -->
+      <div class="col-12">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">
+            <i class="fas fa-list me-1"></i>Rincian Penjualan
+            <span id="u_item_count" class="badge bg-secondary ms-1" style="font-size:.65rem">1</span>
+          </span>
+          <button type="button" id="btnTambahUmum" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-plus me-1"></i>Tambah Baris</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered mb-0" style="font-size:.83rem">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width:250px">Item <span class="text-danger">*</span> <span class="text-muted fw-normal" style="font-size:.7rem">(ketik bebas{% if produk_list or can.show_hpp_margin %} atau cari{% endif %})</span></th>
+                <th style="width:82px" class="text-center">Qty</th>
+                <th style="width:135px">Harga / Unit</th>
+                {% if can.show_hpp_margin %}<th style="width:130px">HPP / Modal <span class="text-muted fw-normal" style="font-size:.66rem">/unit</span></th>{% endif %}
+                <th style="width:115px">Diskon</th>
+                <th style="width:120px" class="text-end">Subtotal</th>
+                <th style="width:34px"></th>
+              </tr>
+            </thead>
+            <tbody id="u_item_body"></tbody>
+          </table>
+        </div>
+        <div class="form-text">Ketik nama item apa saja di kolom <strong>Item</strong>{% if produk_list or can.show_hpp_margin %}, atau mulai mengetik untuk mencari lalu pilih dari daftar: {% if produk_list %}<strong>Produk stok</strong> (otomatis potong stok &amp; catat HPP){% endif %}{% if can.show_hpp_margin %}{% if produk_list %}, {% endif %}<strong>Master HPP</strong> (kalkulator biaya){% if resep_templates %}, atau <strong>Resep</strong> (potong stok bahan){% endif %}{% endif %}{% endif %}. Total penjualan = jumlah semua subtotal.</div>
+        <input type="hidden" id="u_nominal">
+      </div>
+
+      <!-- Uang Masuk + HPP -->
+      <div class="col-md-6">
+        <label class="form-label fw-semibold d-flex justify-content-between align-items-center">
+          <span>Uang Masuk (Dibayar Sekarang)</span>
+          <button type="button" onclick="setBayarPenuh()"
+                  class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:.7rem">
+            <i class="fas fa-bolt me-1"></i>Bayar Penuh</button>
+        </label>
+        <div class="input-group">
+          <span class="input-group-text">Rp</span>
+          <input type="number" name="uang_masuk" id="u_masuk" class="form-control" min="0" step="1"
+                 oninput="calcUmum()" placeholder="0">
+        </div>
+        <div class="form-text">Kosongkan jika belum ada pembayaran</div>
+      </div>
+      {% if can.show_hpp_margin %}
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Valuasi Persediaan <small class="text-muted fw-normal">(stok saat ini)</small></label>
+        <div class="form-text" style="color:var(--tx2);font-weight:600">
+          <strong id="u_saldo_persediaan" style="color:var(--tx)">{{ saldo_persediaan|rp }}</strong>
+          <span id="u_hpp_warning" class="text-danger ms-1" style="display:none">
+            <i class="fas fa-exclamation-triangle fa-xs"></i> Melebihi saldo persediaan
+          </span>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Piutang (auto) -->
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Piutang <small class="text-muted fw-normal">(Auto)</small></label>
+        <div class="input-group">
+          <span class="input-group-text">Rp</span>
+          <input type="text" id="u_piutang_display" class="form-control" readonly
+                 style="background:var(--card-h);color:var(--tx2)" value="0">
+        </div>
+        <div class="form-text">= Total &minus; Uang Masuk</div>
+      </div>
+
+      <!-- Row 3: Diskon / Ongkir / Biaya Transaksi (optional) -->
+      <div class="col-12">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">
+            <i class="fas fa-sliders me-1"></i>Penyesuaian (Opsional)
+          </span>
+          <hr class="flex-fill my-0">
+        </div>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Diskon</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="diskon" id="u_diskon" class="form-control" min="0" step="1"
+                     oninput="calcUmum()" placeholder="0">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Ongkir</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="ongkir" id="u_ongkir" class="form-control" min="0" step="1"
+                     oninput="calcUmum()" placeholder="0">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Biaya Transaksi
+              <button type="button" class="btn btn-link p-0 align-baseline border-0" style="font-size:.72rem;text-decoration:none;vertical-align:baseline" data-bs-toggle="modal" data-bs-target="#modalBedaBiaya" title="Apa bedanya dengan Potongan Marketplace?"><i class="fas fa-circle-question text-muted"></i></button></label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="biaya_lain" id="u_biaya" class="form-control" min="0" step="1"
+                     oninput="calcUmum()" placeholder="0">
+            </div>
+          </div>
+        </div>
+        <div class="row g-2 mt-1">
+          <div class="col-md-6">
+            <label class="form-label small fw-semibold">Biaya / Potongan Marketplace
+              <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size:.55rem">BEBAN</span>
+              <button type="button" class="btn btn-link p-0 align-baseline border-0" style="font-size:.72rem;text-decoration:none;vertical-align:baseline" data-bs-toggle="modal" data-bs-target="#modalBedaBiaya" title="Apa bedanya dengan Biaya Transaksi?"><i class="fas fa-circle-question text-muted"></i></button></label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="biaya_mp" id="u_biaya_mp" class="form-control" min="0" step="1"
+                     oninput="calcUmum()" placeholder="0">
+            </div>
+            <div class="form-text" style="font-size:.68rem">Admin/komisi marketplace yang dipotong dari pencairan. Kas yang cair = penjualan &minus; biaya ini. Dicatat sebagai <strong>Beban Administrasi (6150)</strong>, pendapatan tetap kotor.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kotak dialog: beda "Biaya Transaksi" vs "Potongan Marketplace" (dibuka dari ikon ? di label) -->
+      <div class="modal fade" id="modalBedaBiaya" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header py-2">
+              <h6 class="modal-title" style="font-size:.95rem"><i class="fas fa-circle-question me-2 text-primary"></i>Biaya Transaksi vs Potongan Marketplace</h6>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+            </div>
+            <div class="modal-body" style="font-size:.85rem">
+              <div class="mb-3">
+                <div class="fw-semibold mb-1" style="color:#0369a1"><i class="fas fa-plus-circle me-1"></i>Biaya Transaksi</div>
+                <div class="text-muted" style="line-height:1.5">Biaya yang kamu <strong>tagihkan ke pembeli</strong> (mis. biaya packing / admin). <strong>Menambah</strong> total penjualan &amp; uang yang diterima. Masuk ke <strong>Pendapatan</strong>.</div>
+              </div>
+              <div class="mb-3">
+                <div class="fw-semibold mb-1" style="color:#dc2626"><i class="fas fa-minus-circle me-1"></i>Potongan / Biaya Marketplace <span class="badge bg-warning-subtle text-warning border border-warning-subtle" style="font-size:.55rem">BEBAN</span></div>
+                <div class="text-muted" style="line-height:1.5">Biaya yang <strong>dipotong dari uangmu</strong> oleh marketplace (admin / komisi). <strong>Mengurangi</strong> kas yang cair. Masuk ke <strong>Beban Administrasi (6150)</strong>; pendapatan tetap kotor.</div>
+              </div>
+              <div class="rounded-3 p-2" style="background:var(--pg);border:1px solid var(--pgb);font-size:.8rem;line-height:1.6">
+                <div class="fw-semibold mb-1">Contoh: jual Rp 100.000</div>
+                <div>+ <strong>Biaya Transaksi</strong> Rp 5.000 &rarr; pembeli bayar <strong>Rp 105.000</strong>, pendapatan Rp 105.000.</div>
+                <div>&minus; <strong>Potongan Marketplace</strong> Rp 15.000 &rarr; kas cair <strong>Rp 85.000</strong>, pendapatan tetap Rp 100.000, beban Rp 15.000.</div>
+              </div>
+            </div>
+            <div class="modal-footer py-2">
+              <button type="button" class="btn btn-primary btn-sm" data-bs-dismiss="modal">Mengerti</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if modul_aktif and modul_aktif.PAJAK_OTOMATIS %}
+      <!-- ── Pajak PPN/PPh (PRO) ── -->
+      <div class="col-12">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#b45309">
+            <i class="fas fa-puzzle-piece me-1"></i>Pajak
+          </span>
+          <hr class="flex-fill my-0">
+        </div>
+        <div class="form-text mb-2" style="font-size:.72rem">
+          <i class="fas fa-circle-check me-1" style="color:#15803d"></i>
+          Modul Pajak &amp; Payroll aktif: PPN/PPh di sini otomatis tercatat ke jurnal, kas, neraca, dan laba rugi.
+        </div>
+        <div class="form-check form-switch mb-2">
+          <input class="form-check-input" type="checkbox" id="u_togglePajak" onchange="toggleUmumPajak()">
+          <label class="form-check-label small fw-semibold" for="u_togglePajak">
+            Tambahkan Fitur Pajak (PPN / PPh 22 / PPh 23)
+          </label>
+          <div class="form-text" style="font-size:.72rem">
+            Aktifkan kalau penjualan ini kena PPN, dipotong PPh 22 (instansi), atau PPh 23 (customer pemotong).
+          </div>
+        </div>
+        <div id="u_pajakBox" style="display:none">
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Tarif PPN (%)</label>
+              <div class="input-group input-group-sm">
+                <input type="number" name="ppn_persen" id="u_ppn_pct" class="form-control" min="0" max="100" step="0.01" value="11" oninput="calcUmum()" disabled>
+                <span class="input-group-text">%</span>
+              </div>
+              <div class="form-text" style="font-size:.7rem">Default 11%. Set 0 jika tidak kena PPN.</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Dipotong PPh 22 (%)</label>
+              <div class="input-group input-group-sm">
+                <input type="number" name="pph22_persen" id="u_pph22_pct" class="form-control" min="0" max="100" step="0.01" value="0" oninput="calcUmum()" disabled>
+                <span class="input-group-text">%</span>
+              </div>
+              <div class="form-text" style="font-size:.7rem">Isi 1,5% kalau customer = instansi/bendaharawan pemerintah.</div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Dipotong PPh 23 (%)</label>
+              <div class="input-group input-group-sm">
+                <input type="number" name="pph23_persen" id="u_pph_pct" class="form-control" min="0" max="100" step="0.01" value="0" oninput="calcUmum()" disabled>
+                <span class="input-group-text">%</span>
+              </div>
+              <div class="form-text" style="font-size:.7rem">Isi 2% kalau customer adalah pemotong (badan/jasa).</div>
+            </div>
+          </div>
+
+          <!-- Ringkasan Pajak -->
+          <div class="rounded-3 p-3 mt-2" style="background:#fef3c7;border:1px solid #fcd34d">
+            <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#92400e;margin-bottom:.65rem">
+              <i class="fas fa-calculator me-1"></i>Ringkasan Pajak (Auto-Calc)
+            </div>
+            <div class="row g-0 text-center" style="font-size:.85rem">
+              <div class="col-6 col-md" style="border-right:1px solid #fcd34d;padding:.4rem .25rem">
+                <div style="font-size:.62rem;color:#92400e;font-weight:600">DPP</div>
+                <div style="font-weight:700;color:#78350f" id="u_pjk_dpp">Rp 0</div>
+              </div>
+              <div class="col-6 col-md" style="border-right:1px solid #fcd34d;padding:.4rem .25rem">
+                <div style="font-size:.62rem;color:#15803d;font-weight:600">+ PPN Keluaran</div>
+                <div style="font-weight:700;color:#15803d" id="u_pjk_ppn">Rp 0</div>
+              </div>
+              <div class="col-6 col-md" style="border-right:1px solid #fcd34d;padding:.4rem .25rem">
+                <div style="font-size:.62rem;color:#dc2626;font-weight:600">− PPh 22 Dimuka</div>
+                <div style="font-weight:700;color:#dc2626" id="u_pjk_pph22">Rp 0</div>
+              </div>
+              <div class="col-6 col-md" style="border-right:1px solid #fcd34d;padding:.4rem .25rem">
+                <div style="font-size:.62rem;color:#dc2626;font-weight:600">− PPh 23 Dimuka</div>
+                <div style="font-weight:700;color:#dc2626" id="u_pjk_pph">Rp 0</div>
+              </div>
+              <div class="col-6 col-md" style="padding:.4rem .25rem">
+                <div style="font-size:.62rem;color:#78350f;font-weight:600">Diterima Bersih</div>
+                <div style="font-weight:800;color:#78350f" id="u_pjk_terima">Rp 0</div>
+              </div>
+            </div>
+            <div style="font-size:.7rem;color:#78350f;margin-top:.4rem;text-align:center">
+              <i class="fas fa-bolt me-1"></i>Hutang PPN +<span id="u_inf_ppn">0</span>,
+              PPh 22 Dimuka +<span id="u_inf_pph22">0</span>,
+              PPh 23 Dimuka +<span id="u_inf_pph">0</span> akan otomatis tercatat ke jurnal.
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Summary panel -->
+      <div class="col-12" id="u_laba_panel">
+        <div class="rounded-3 p-3" style="background:var(--pg);border:1px solid var(--pgb)">
+          <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--pgt);margin-bottom:.65rem">
+            <i class="fas fa-chart-simple me-1"></i>Ringkasan Transaksi (Auto)
+          </div>
+          <div class="row g-0 text-center">
+            <div class="{% if can.show_hpp_margin %}col-6 col-md-3{% else %}col-12{% endif %}" style="{% if can.show_hpp_margin %}border-right:1px solid var(--pgb);{% endif %}padding:.5rem .5rem .5rem .25rem">
+              <div style="font-size:.63rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Total Bersih</div>
+              <div style="font-size:.95rem;font-weight:700;color:#0369a1" id="u_total_val">-</div>
+              <div style="font-size:.62rem;color:var(--tx3)">setelah penyesuaian</div>
+            </div>
+            {% if can.show_hpp_margin %}
+            <div class="col-6 col-md-3" style="padding:.5rem .25rem .5rem .5rem">
+              <div style="font-size:.63rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em">HPP</div>
+              <div style="font-size:.95rem;font-weight:700;color:#ef4444" id="u_hpp_val">-</div>
+              <div style="font-size:.62rem;color:var(--tx3)">harga pokok</div>
+            </div>
+            <div class="col-6 col-md-3" style="border-top:1px solid var(--pgb);border-right:1px solid var(--pgb);padding:.5rem .5rem .5rem .25rem" id="u_laba_col">
+              <div style="font-size:.63rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Laba Kotor</div>
+              <div style="font-size:.95rem;font-weight:700" id="u_laba_val">-</div>
+              <div style="font-size:.62rem;color:var(--tx3)">Total − HPP</div>
+            </div>
+            <div class="col-6 col-md-3" style="border-top:1px solid var(--pgb);padding:.5rem .25rem .5rem .5rem">
+              <div style="font-size:.63rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Gross Profit Margin</div>
+              <div style="font-size:1.1rem;font-weight:800" id="u_gpm_val">-</div>
+              <div style="font-size:.62rem;color:var(--tx3)">Laba ÷ Total × 100%</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="journal-preview-wrap rounded-3 p-3">
+          <div class="preview-title" style="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.65rem">
+            <i class="fas fa-scale-balanced me-1"></i>Preview Jurnal Otomatis
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm mb-2" style="font-size:.82rem">
+              <thead>
+                <tr>
+                  <th>Akun</th>
+                  <th class="text-end">Debit</th>
+                  <th class="text-end">Kredit</th>
+                  <th>Dampak</th>
+                </tr>
+              </thead>
+              <tbody id="u_journal_preview"></tbody>
+            </table>
+          </div>
+          <div id="u_journal_note" style="font-size:.76rem"></div>
+        </div>
+      </div>
+
+      <!-- Piutang detail -->
+      <div class="col-12" id="piutang_detail" style="display:none">
+        <div class="card border-warning">
+          <div class="card-body py-2 px-3">
+            <div class="fw-semibold text-warning mb-2">
+              <i class="fas fa-file-invoice-dollar me-1"></i>Detail Piutang
+            </div>
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label small">Jatuh Tempo</label>
+                <input type="date" name="jatuh_tempo" class="form-control form-control-sm">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toggle Invoice (umum) -->
+      <div class="col-12">
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" name="buat_invoice" id="inv_toggle_u" value="on">
+          <label class="form-check-label small fw-semibold" for="inv_toggle_u">
+            <i class="fas fa-file-invoice text-primary me-1"></i>Buat &amp; buka Invoice sekarang
+          </label>
+          <div class="form-text">Tanpa dicentang pun invoice dapat dicetak nanti dari detail transaksi.</div>
+        </div>
+        <div id="inv_detail_u" style="display:none;margin-top:.6rem">
+          <div class="card border-primary">
+            <div class="card-body py-2 px-3">
+              <div class="fw-semibold text-primary mb-2" style="font-size:.83rem"><i class="fas fa-file-invoice me-1"></i>Detail Invoice</div>
+              <div class="row g-2">
+                <div class="col-md-3">
+                  <label class="form-label small d-flex justify-content-between align-items-center">
+                    <span>Nama Pelanggan <span class="text-danger">*</span></span>
+                    <button type="button" onclick="samakanPelanggan('u')"
+                            class="btn btn-outline-secondary py-0 px-1" style="font-size:.68rem;line-height:1.4">
+                      <i class="fas fa-copy me-1"></i>Samakan dengan transaksi</button>
+                  </label>
+                  <input type="text" name="inv_pelanggan" id="inv_pelanggan_u" class="form-control form-control-sm" placeholder="Nama customer">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">No. Invoice</label>
+                  <input type="text" name="inv_nomor" class="form-control form-control-sm" placeholder="Otomatis jika kosong">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">Telepon Pelanggan</label>
+                  <input type="text" name="inv_telepon_pelanggan" class="form-control form-control-sm" placeholder="08xx...">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">Alamat Pelanggan</label>
+                  <input type="text" name="inv_alamat_pelanggan" class="form-control form-control-sm" placeholder="Alamat singkat">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">Jatuh Tempo</label>
+                  <input type="date" name="inv_jatuh_tempo" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">Catatan Invoice</label>
+                  <input type="text" name="inv_catatan_custom" class="form-control form-control-sm" placeholder="Opsional">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 d-flex gap-2 justify-content-end">
+        <a href="/" class="btn btn-outline-secondary">Batal</a>
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-save me-1"></i>Simpan Penjualan</button>
+      </div>
+    </div>
+  </form>
+  </div>
+</div>
+</div><!-- /form-umum -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FORM PENJUALAN PER PRODUK
+═══════════════════════════════════════════════════════════════ -->
+<div id="form-produk" style="display:none">
+<div class="card">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-boxes-stacked text-primary"></i>
+    <span class="section-title">Penjualan per Produk</span>
+  </div>
+  <div class="card-body">
+  <form method="POST" id="formProduk">
+    <input type="hidden" name="mode" value="produk">
+    <div class="row g-3">
+      <!-- Header fields -->
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
+        <input type="date" name="tanggal" class="form-control" value="{{ today }}" max="{{ today }}" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold"><i class="fas fa-vault text-success me-1"></i>Masuk ke Rekening</label>
+        <select name="akun_kas" class="form-select">
+          {% for a in akun_kas %}
+          <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Pelanggan</label>
+        <div class="pcombo">
+          <input type="text" name="pelanggan" id="pelangganProduk" class="form-control pcombo-input"
+                 placeholder="Cari / ketik nama" autocomplete="off">
+        </div>
+        <div class="form-check mt-1">
+          <input class="form-check-input" type="checkbox" name="simpan_customer" id="simpanCustProduk" value="1">
+          <label class="form-check-label" for="simpanCustProduk" style="font-size:.72rem">
+            <i class="fas fa-user-plus me-1 text-success"></i>Simpan ke database</label>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label fw-semibold">Keterangan</label>
+        <input type="text" name="keterangan" class="form-control" placeholder="Keterangan tambahan">
+      </div>
+      {% if proyek_aktif %}
+      <div class="col-md-3">
+        <label class="form-label fw-semibold"><i class="fas fa-diagram-project me-1" style="color:#7c3aed"></i>Proyek <small class="text-muted fw-normal">(opsional)</small></label>
+        <select name="proyek_id" class="form-select">
+          <option value="">-- Tanpa proyek --</option>
+          {% for pr in proyek_aktif %}
+          <option value="{{ pr.id }}">{{ pr.kode }} · {{ pr.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <!-- Product table -->
+      <div class="col-12">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">
+            <i class="fas fa-list me-1"></i>Daftar Produk
+            <span id="p_item_count" class="badge bg-secondary ms-1" style="font-size:.65rem">1</span>
+          </span>
+          <div class="d-flex align-items-center gap-3">
+            {% if can.show_hpp_margin %}
+            <span class="text-muted" style="font-size:.72rem;font-weight:700">
+              VALUASI PERSEDIAAN / STOK SEKARANG <strong>{{ saldo_persediaan|rp }}</strong>
+            </span>
+            {% endif %}
+            <button type="button" id="btnTambahItem" class="btn btn-outline-primary btn-sm">
+              <i class="fas fa-plus me-1"></i>Tambah Produk
+            </button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered table-sticky-actions mb-0" style="font-size:.83rem">
+            <thead class="table-light">
+              <tr>
+                <th style="min-width:200px">Produk</th>
+                <th style="width:90px" class="text-center">Qty</th>
+                <th style="width:60px" class="text-center">Satuan</th>
+                <th style="width:140px">Harga / Unit</th>
+                <th style="width:120px">Diskon Item</th>
+                <th style="width:120px" class="text-end">Subtotal</th>
+                <th style="width:36px"></th>
+              </tr>
+            </thead>
+            <tbody id="p_item_body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Biaya Jasa Non-SKU (mode gabungan) -->
+      <div class="col-12">
+        <div class="rounded-3 p-2 px-3" style="background:#eff6ff;border:1px solid #bfdbfe">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="jasa_toggle" onchange="toggleJasa()">
+            <label class="form-check-label small fw-semibold" for="jasa_toggle">
+              <i class="fas fa-screwdriver-wrench text-primary me-1"></i>Tambah Biaya Jasa / Non-SKU
+              <span class="text-muted fw-normal">(mis. jasa sablon, pasang, desain, gabung dengan produk)</span>
+            </label>
+          </div>
+          <div id="jasa_fields" class="row g-2 mt-1" style="display:none">
+            <div class="col-md-7">
+              <label class="form-label small fw-semibold mb-1">Keterangan Jasa</label>
+              <input type="text" name="jasa_ket" class="form-control form-control-sm" placeholder="Mis: Jasa sablon 50 pcs">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small fw-semibold mb-1">Biaya Jasa</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Rp</span>
+                <input type="number" name="biaya_jasa" id="p_jasa" class="form-control" min="0" step="1"
+                       value="0" oninput="calcGrandTotal()" placeholder="0">
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="form-text" style="font-size:.7rem;margin-top:0">
+                <i class="fas fa-circle-info me-1"></i>Dicatat sebagai <strong>Pendapatan Jasa (4200)</strong>, terpisah dari penjualan barang (4100). Tidak ada HPP, murni margin jasa.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared adjustments -->
+      <div class="col-12">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">
+            <i class="fas fa-sliders me-1"></i>Penyesuaian Invoice (Opsional)
+          </span>
+          <hr class="flex-fill my-0">
+        </div>
+        <div class="row g-2">
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Ongkir</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="ongkir" id="p_ongkir" class="form-control" min="0" step="1"
+                     value="0" oninput="calcGrandTotal()" placeholder="0">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold">Biaya Transaksi</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="biaya_lain" id="p_biaya" class="form-control" min="0" step="1"
+                     value="0" oninput="calcGrandTotal()" placeholder="0">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label small fw-semibold d-flex justify-content-between align-items-center">
+              <span>Uang Masuk (Dibayar)</span>
+              <button type="button" onclick="setPBayarPenuh()"
+                      class="btn btn-outline-secondary btn-xs py-0 px-1" style="font-size:.68rem">
+                <i class="fas fa-bolt me-1"></i>Penuh</button>
+            </label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="uang_masuk" id="p_masuk" class="form-control" min="0" step="1"
+                     oninput="calcGrandTotal()" placeholder="0">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {% if modul_aktif and modul_aktif.PAJAK_OTOMATIS %}
+      <div class="col-12">
+        <div class="rounded-3 p-2 px-3" style="background:#fff7ed;border:1px solid #fed7aa">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="p_togglePajak" onchange="toggleProdukPajak()">
+            <label class="form-check-label small fw-semibold" for="p_togglePajak">
+              <i class="fas fa-calculator text-warning me-1"></i>Tambahkan Pajak Produk (PPN / PPh 22 / PPh 23)
+            </label>
+          </div>
+          <div id="p_pajakBox" class="mt-2" style="display:none">
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold mb-1">Tarif PPN (%)</label>
+                <div class="input-group input-group-sm">
+                  <input type="number" name="ppn_persen" id="p_ppn_pct" class="form-control" min="0" max="100" step="0.01" value="11" oninput="calcGrandTotal()" disabled>
+                  <span class="input-group-text">%</span>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold mb-1">Dipotong PPh 22 (%)</label>
+                <div class="input-group input-group-sm">
+                  <input type="number" name="pph22_persen" id="p_pph22_pct" class="form-control" min="0" max="100" step="0.01" value="0" oninput="calcGrandTotal()" disabled>
+                  <span class="input-group-text">%</span>
+                </div>
+                <div class="form-text" style="font-size:.66rem">1,5% kalau customer = instansi/bendaharawan.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold mb-1">Dipotong PPh 23 (%)</label>
+                <div class="input-group input-group-sm">
+                  <input type="number" name="pph23_persen" id="p_pph_pct" class="form-control" min="0" max="100" step="0.01" value="0" oninput="calcGrandTotal()" disabled>
+                  <span class="input-group-text">%</span>
+                </div>
+              </div>
+            </div>
+            <div class="row g-0 text-center mt-2 rounded-3 overflow-hidden" style="border:1px solid #fed7aa;background:#fffbeb;font-size:.82rem">
+              <div class="col-6 col-md" style="padding:.45rem .25rem;border-right:1px solid #fed7aa">
+                <div style="font-size:.62rem;color:#92400e;font-weight:700">DPP</div>
+                <div id="p_pjk_dpp" style="font-weight:800;color:#78350f">Rp 0</div>
+              </div>
+              <div class="col-6 col-md" style="padding:.45rem .25rem;border-right:1px solid #fed7aa">
+                <div style="font-size:.62rem;color:#15803d;font-weight:700">+ PPN</div>
+                <div id="p_pjk_ppn" style="font-weight:800;color:#15803d">Rp 0</div>
+              </div>
+              <div class="col-6 col-md" style="padding:.45rem .25rem;border-right:1px solid #fed7aa">
+                <div style="font-size:.62rem;color:#dc2626;font-weight:700">- PPh 22</div>
+                <div id="p_pjk_pph22" style="font-weight:800;color:#dc2626">Rp 0</div>
+              </div>
+              <div class="col-6 col-md" style="padding:.45rem .25rem;border-right:1px solid #fed7aa">
+                <div style="font-size:.62rem;color:#dc2626;font-weight:700">- PPh 23</div>
+                <div id="p_pjk_pph" style="font-weight:800;color:#dc2626">Rp 0</div>
+              </div>
+              <div class="col-6 col-md" style="padding:.45rem .25rem">
+                <div style="font-size:.62rem;color:#78350f;font-weight:700">Total Ditagih</div>
+                <div id="p_pjk_total" style="font-weight:900;color:#78350f">Rp 0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Summary -->
+      <div class="col-12">
+        <div class="rounded-3 p-3" style="background:var(--pg);border:1px solid var(--pgb)">
+          <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--pgt);margin-bottom:.65rem">
+            <i class="fas fa-chart-simple me-1"></i>Ringkasan Invoice (Auto)
+          </div>
+          <div class="row g-0 text-center">
+            <div class="{% if can.show_hpp_margin %}col-6 col-md-3{% else %}col-6{% endif %}" style="border-right:1px solid var(--pgb);padding:.5rem .5rem .5rem .25rem">
+              <div style="font-size:.63rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Total Invoice</div>
+              <div style="font-size:.95rem;font-weight:700;color:#0369a1" id="p_grand_total_disp">Rp 0</div>
+              <div style="font-size:.62rem;color:var(--tx3)">subtotal + adj.</div>
+            </div>
+            {% if can.show_hpp_margin %}
+            <div class="col-6 col-md-3" style="padding:.5rem .25rem .5rem .5rem">
+              <div style="font-size:.63rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em">HPP Total</div>
+              <div style="font-size:.95rem;font-weight:700;color:#ef4444" id="p_hpp_total_disp">Rp 0</div>
+              <div style="font-size:.62rem;color:var(--tx3)">akumulasi semua item</div>
+            </div>
+            <div class="col-6 col-md-3" style="border-top:1px solid var(--pgb);border-right:1px solid var(--pgb);padding:.5rem .5rem .5rem .25rem">
+              <div style="font-size:.63rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Laba Kotor</div>
+              <div style="font-size:.95rem;font-weight:700" id="p_laba_disp">-</div>
+              <div style="font-size:.62rem;color:var(--tx3)" id="p_margin_disp">-</div>
+            </div>
+            {% endif %}
+            <div class="{% if can.show_hpp_margin %}col-6 col-md-3{% else %}col-6{% endif %}" style="{% if can.show_hpp_margin %}border-top:1px solid var(--pgb);{% endif %}padding:.5rem .25rem .5rem .5rem">
+              <div style="font-size:.63rem;color:var(--tx3);font-weight:600;text-transform:uppercase;letter-spacing:.04em">Piutang</div>
+              <div style="font-size:.95rem;font-weight:700;color:#f59e0b" id="p_piutang_disp">Rp 0</div>
+              <div style="font-size:.62rem;color:var(--tx3)">Invoice − Uang Masuk</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="journal-preview-wrap rounded-3 p-3">
+          <div class="preview-title" style="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.65rem">
+            <i class="fas fa-scale-balanced me-1"></i>Preview Jurnal Otomatis
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm mb-2" style="font-size:.82rem">
+              <thead>
+                <tr>
+                  <th>Akun</th>
+                  <th class="text-end">Debit</th>
+                  <th class="text-end">Kredit</th>
+                  <th>Dampak</th>
+                </tr>
+              </thead>
+              <tbody id="p_journal_preview"></tbody>
+            </table>
+          </div>
+          <div id="p_journal_note" style="font-size:.76rem"></div>
+        </div>
+      </div>
+
+      <!-- Piutang detail -->
+      <div class="col-12" id="p_piutang_detail" style="display:none">
+        <div class="card border-warning">
+          <div class="card-body py-2 px-3">
+            <div class="fw-semibold text-warning mb-2">
+              <i class="fas fa-file-invoice-dollar me-1"></i>Detail Piutang
+            </div>
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label small">Jatuh Tempo</label>
+                <input type="date" name="jatuh_tempo" class="form-control form-control-sm">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toggle Invoice (produk) -->
+      <div class="col-12">
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input" type="checkbox" name="buat_invoice" id="inv_toggle_p" value="on">
+          <label class="form-check-label small fw-semibold" for="inv_toggle_p">
+            <i class="fas fa-file-invoice text-primary me-1"></i>Buat &amp; buka Invoice sekarang
+          </label>
+          <div class="form-text">Tanpa dicentang pun invoice dapat dicetak nanti dari detail transaksi.</div>
+        </div>
+        <div id="inv_detail_p" style="display:none;margin-top:.6rem">
+          <div class="card border-primary">
+            <div class="card-body py-2 px-3">
+              <div class="fw-semibold text-primary mb-2" style="font-size:.83rem"><i class="fas fa-file-invoice me-1"></i>Detail Invoice</div>
+              <div class="row g-2">
+                <div class="col-md-3">
+                  <label class="form-label small d-flex justify-content-between align-items-center">
+                    <span>Nama Pelanggan <span class="text-danger">*</span></span>
+                    <button type="button" onclick="samakanPelanggan('p')"
+                            class="btn btn-outline-secondary py-0 px-1" style="font-size:.68rem;line-height:1.4">
+                      <i class="fas fa-copy me-1"></i>Samakan dengan transaksi</button>
+                  </label>
+                  <input type="text" name="inv_pelanggan" id="inv_pelanggan_p" class="form-control form-control-sm" placeholder="Nama customer">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">No. Invoice</label>
+                  <input type="text" name="inv_nomor" class="form-control form-control-sm" placeholder="Otomatis jika kosong">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">Telepon Pelanggan</label>
+                  <input type="text" name="inv_telepon_pelanggan" class="form-control form-control-sm" placeholder="08xx...">
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small">Alamat Pelanggan</label>
+                  <input type="text" name="inv_alamat_pelanggan" class="form-control form-control-sm" placeholder="Alamat singkat">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">Jatuh Tempo Invoice</label>
+                  <input type="date" name="inv_jatuh_tempo" class="form-control form-control-sm">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label small">Catatan Invoice</label>
+                  <input type="text" name="inv_catatan_custom" class="form-control form-control-sm" placeholder="Opsional">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 d-flex gap-2 justify-content-end">
+        <a href="/" class="btn btn-outline-secondary">Batal</a>
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-save me-1"></i>Simpan Penjualan</button>
+      </div>
+    </div>
+  </form>
+  </div>
+</div>
+</div><!-- /form-produk -->
+
+</div><!-- col -->
+</div><!-- row -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Combobox nama pelanggan (cari + ketik baru) ──────────────────────────────
+const CUSTOMER_NAMES = {{ customer_names|default([])|tojson }};
+const HPP_MASTER = {% if can.show_hpp_margin %}{{ hpp_master|default([])|tojson }}{% else %}[]{% endif %};
+const RESEP_TEMPLATES = {% if can.show_hpp_margin %}{{ resep_templates|default([])|tojson }}{% else %}[]{% endif %};
+const CAN_SHOW_HPP_MARGIN = {{ 'true' if can.show_hpp_margin else 'false' }};
+const HAS_RESEP_COL = CAN_SHOW_HPP_MARGIN && RESEP_TEMPLATES.length > 0;
+let umHppManual = false;   // true bila user mengedit HPP manual (jangan ditimpa auto Master HPP)
+let umHppPreview = null;   // {total, inventory, reclass}; inventory dipakai untuk warning saldo 1130
+document.addEventListener('DOMContentLoaded', function(){
+  // Tombol "Tambah Baris" + baris awal dipasang PALING DULU, sebelum inisialisasi lain,
+  // supaya kalau ada satu langkah yang gagal di browser tertentu, tombol tetap hidup.
+  var btnU = document.getElementById('btnTambahUmum');
+  if (btnU) btnU.addEventListener('click', function(){ addUmumRow(true); });
+  if (document.getElementById('u_item_body')) { addUmumRow(false); recalcUmumLines(); }
+  ['pelangganUmum','pelangganProduk'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el && window.initNamaCombo) window.initNamaCombo(el, CUSTOMER_NAMES);
+  });
+  document.querySelectorAll('select[name=akun_kas]').forEach(function(el){
+    el.addEventListener('change', function(){ calcUmum(); calcGrandTotal(); });
+  });
+  // Ringkasan Transaksi dipindah tepat di bawah Rincian Penjualan supaya Total/Laba langsung
+  // terlihat begitu item dipilih (tanpa harus scroll ke bawah form).
+  (function(){
+    var lp = document.getElementById('u_laba_panel');
+    var ib = document.getElementById('u_item_body');
+    var rc = ib ? ib.closest('.col-12') : null;
+    if (lp && rc && rc.parentNode) rc.parentNode.insertBefore(lp, rc.nextSibling);
+  })();
+  setTimeout(function(){ calcUmum(); calcGrandTotal(); }, 0);
+});
+
+// ── produk data for autocomplete ──────────────────────────────────────────────
+const produkData = {
+{% for p in produk_list %}
+  {{ p.id }}: {nama: {{ (p.nama + (' (' + p.varian + ')' if p.varian else ''))|tojson }},
+               hargaBeli: {% if can.show_hpp_margin %}{{ p.harga_beli }}{% else %}0{% endif %}, hargaJual: {{ p.harga_jual }},
+               satuan: {{ p.satuan|tojson }}, stok: {{ p.stok }}},
+{% endfor %}
+};
+
+const produkOptions = `<option value="">-- Pilih Produk --</option>{% for p in produk_list %}<option value="{{ p.id }}">{{ p.kode }} - {{ p.nama }}{% if p.varian %} ({{ p.varian }}){% endif %}</option>{% endfor %}`;
+
+// Daftar lengkap untuk combobox pencarian (kode + varian terpisah)
+const PRODUK_LIST = [
+{% for p in produk_list %}
+  {id:{{ p.id }}, kode:{{ p.kode|tojson }}, nama:{{ p.nama|tojson }}, varian:{{ (p.varian or '')|tojson }},
+   satuan:{{ p.satuan|tojson }}, stok:{{ p.stok }}, hargaJual:{{ p.harga_jual }}, hargaBeli:{% if can.show_hpp_margin %}{{ p.harga_beli }}{% else %}0{% endif %}},
+{% endfor %}
+];
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchMode(mode) {
+  document.getElementById('form-umum').style.display   = mode==='umum'    ? 'block' : 'none';
+  document.getElementById('form-produk').style.display = mode==='produk'  ? 'block' : 'none';
+  document.getElementById('tab-umum').classList.toggle('active', mode==='umum');
+  document.getElementById('tab-produk').classList.toggle('active', mode==='produk');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(n) { return window.rpAbsFmt ? window.rpAbsFmt(n) : 'Rp ' + Math.round(Math.abs(n)).toLocaleString('id-ID'); }
+function moneyCalc(n) { return Math.round((Number(n) || 0) * 100) / 100; }
+// Strip Indonesian thousand-separator dots before parsing (e.g. "2.250.000" → 2250000)
+function parseRp(v) { return parseFloat(String(v == null ? '' : v).replace(/\./g, '').replace(',', '.')) || 0; }
+// Baca dari ELEMEN lewat window.numVal supaya ikut penjagaan format terpusat di base.html
+// (field ter-manage numFmt tetap aturan lama; field yang belum ter-format tak salah baca
+// float mentah seperti "465283.3333333333"). parseRp di atas tetap utk string biasa.
+function nv(el) { return window.numVal ? window.numVal(el) : parseRp(((el||{}).value || '0')); }
+
+function selectedKasLabel(formSelector) {
+  const sel = document.querySelector(formSelector + ' select[name=akun_kas]');
+  if (!sel) return '1100 - Kas';
+  return sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent : sel.value;
+}
+
+function setMoneyInput(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (window.numFmtSet) window.numFmtSet(el, value || 0);
+  else el.value = window.moneyInputValue ? window.moneyInputValue(value || 0) : Math.round(value || 0);
+}
+
+function journalRowsHtml(rows) {
+  if (!rows.length) {
+    return '<tr><td colspan="4" class="text-muted text-center py-2">Isi nominal untuk melihat jurnal otomatis.</td></tr>';
+  }
+  return rows.map(r => `
+    <tr>
+      <td class="fw-semibold">${r.akun}</td>
+      <td class="text-end text-rp">${r.debit ? fmt(r.debit) : '-'}</td>
+      <td class="text-end text-rp">${r.kredit ? fmt(r.kredit) : '-'}</td>
+      <td class="text-muted">${r.dampak}</td>
+    </tr>`).join('');
+}
+
+function renderJournalPreview(tbodyId, noteId, rows, note) {
+  const body = document.getElementById(tbodyId);
+  if (body) body.innerHTML = journalRowsHtml(rows);
+  const noteEl = document.getElementById(noteId);
+  if (noteEl) noteEl.textContent = note || '';
+}
+
+function applyHppMaster() {
+  const select = document.getElementById('hppMasterSelect');
+  if (!select) { calcUmum(); return; }
+  const id = Number(select.value || 0);
+  const item = HPP_MASTER.find(x => Number(x.id) === id);
+  if (!item) { calcUmum(); return; }
+  const ket = document.querySelector('#form-umum input[name=keterangan]');
+  if (ket && (!ket.value.trim() || ket.value.trim() === 'Penjualan')) ket.value = item.nama;
+  setMoneyInput('u_nominal', item.harga_jual || 0);
+  setMoneyInput('u_hpp', item.total_hpp || 0);
+  recalcUmumLines();
+}
+
+// ── PENJUALAN UMUM ────────────────────────────────────────────────────────────
+function setBayarPenuh() {
+  const total = calcUmumTotal();
+  window.numFmtSet(document.getElementById('u_masuk'), total);
+  calcUmum();
+}
+
+function calcUmumTotal() {
+  const nominal = nv(document.getElementById('u_nominal'));
+  const diskon  = nv(document.getElementById('u_diskon'));
+  const ongkir  = nv(document.getElementById('u_ongkir'));
+  const biaya   = nv(document.getElementById('u_biaya'));
+  return Math.max(0, nominal - diskon + ongkir + biaya);
+}
+
+// ── Pajak PPN/PPh22/PPh23 (PRO) ──
+function calcUmumPajak() {
+  const tog = document.getElementById('u_togglePajak');
+  if (!tog || !tog.checked) return {ppn: 0, pph: 0, pph22: 0, dpp: 0, ppnPct: 0, pphPct: 0, pph22Pct: 0};
+  const dpp = calcUmumTotal();
+  const ppnPct = window.numVal(document.getElementById('u_ppn_pct'));
+  const pphPct = window.numVal(document.getElementById('u_pph_pct'));
+  const pph22Pct = window.numVal(document.getElementById('u_pph22_pct'));
+  const ppn = moneyCalc(dpp * ppnPct / 100);
+  const pph = moneyCalc(dpp * pphPct / 100);
+  const pph22 = moneyCalc(dpp * pph22Pct / 100);
+  return {ppn, pph, pph22, dpp, ppnPct, pphPct, pph22Pct};
+}
+function toggleUmumPajak() {
+  const tog = document.getElementById('u_togglePajak');
+  const box = document.getElementById('u_pajakBox');
+  if (!tog || !box) return;
+  box.style.display = tog.checked ? '' : 'none';
+  ['u_ppn_pct','u_pph_pct','u_pph22_pct'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !tog.checked;
+  });
+  calcUmum();
+}
+function calcProdukPajakForDpp(dpp) {
+  const tog = document.getElementById('p_togglePajak');
+  if (!tog || !tog.checked) return {ppn: 0, pph: 0, pph22: 0, dpp: dpp || 0, total: dpp || 0};
+  const ppnPct = window.numVal(document.getElementById('p_ppn_pct'));
+  const pphPct = window.numVal(document.getElementById('p_pph_pct'));
+  const pph22Pct = window.numVal(document.getElementById('p_pph22_pct'));
+  const ppn = moneyCalc((dpp || 0) * ppnPct / 100);
+  const pph = moneyCalc((dpp || 0) * pphPct / 100);
+  const pph22 = moneyCalc((dpp || 0) * pph22Pct / 100);
+  return {ppn, pph, pph22, dpp: dpp || 0, total: Math.max(0, (dpp || 0) + ppn - pph - pph22)};
+}
+function toggleProdukPajak() {
+  const tog = document.getElementById('p_togglePajak');
+  const box = document.getElementById('p_pajakBox');
+  if (!tog || !box) return;
+  box.style.display = tog.checked ? '' : 'none';
+  ['p_ppn_pct','p_pph_pct','p_pph22_pct'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !tog.checked;
+  });
+  calcGrandTotal();
+}
+function renderProdukPajakRingkasan(r) {
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = fmt(val); };
+  set('p_pjk_dpp', r.dpp || 0);
+  set('p_pjk_ppn', r.ppn || 0);
+  set('p_pjk_pph22', r.pph22 || 0);
+  set('p_pjk_pph', r.pph || 0);
+  set('p_pjk_total', r.total || 0);
+}
+function renderUmumPajakRingkasan() {
+  const r = calcUmumPajak();
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = fmt(val); };
+  const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set('u_pjk_dpp', r.dpp);
+  set('u_pjk_ppn', r.ppn);
+  set('u_pjk_pph22', r.pph22);
+  set('u_pjk_pph', r.pph);
+  set('u_pjk_terima', Math.max(0, r.dpp + r.ppn - r.pph - r.pph22));
+  setText('u_inf_ppn', fmt(r.ppn));
+  setText('u_inf_pph22', fmt(r.pph22));
+  setText('u_inf_pph', fmt(r.pph));
+}
+
+const SALDO_PERSEDIAAN = {% if can.show_hpp_margin %}{{ saldo_persediaan|int }}{% else %}0{% endif %};
+
+function addPreviewReclass(map, kode, nilai) {
+  nilai = Number(nilai || 0);
+  if (!kode || nilai <= 0) return;
+  map[kode] = (Number(map[kode] || 0) + nilai);
+}
+function currentUmumHppData() {
+  const hpp = nv(document.getElementById('u_hpp'));
+  if (CAN_SHOW_HPP_MARGIN && umHppPreview) return umHppPreview;
+  return {total: hpp, inventory: hpp, reclass: {}};
+}
+function hppReclassLabel(kode) {
+  const labels = {
+    '6100': '6100 - Beban Gaji',
+    '6140': '6140 - Beban Pemasaran',
+    '6180': '6180 - Beban Lainnya'
+  };
+  return labels[kode] || (kode + ' - Akun Beban');
+}
+
+function calcUmum() {
+  const nominal = nv(document.getElementById('u_nominal'));
+  const masuk   = nv(document.getElementById('u_masuk'));
+  const hppData = currentUmumHppData();
+  const hpp     = Number(hppData.total || 0);
+  const hppInventory = Number(hppData.inventory || 0);
+  const total   = calcUmumTotal();
+
+  // Validasi HPP vs saldo persediaan
+  const warnEl = document.getElementById('u_hpp_warning');
+  if (warnEl) warnEl.style.display = (CAN_SHOW_HPP_MARGIN && hppInventory > SALDO_PERSEDIAAN && hppInventory > 0) ? 'inline' : 'none';
+
+  // Piutang
+  const piutang = Math.max(0, total - masuk);
+  document.getElementById('u_piutang_display').value = piutang ? (window.rpPlainFmt ? window.rpPlainFmt(piutang) : Math.round(piutang).toLocaleString('id-ID')) : '0';
+  document.getElementById('piutang_detail').style.display = piutang > 0 ? 'block' : 'none';
+
+  // Summary
+  const totalEl = document.getElementById('u_total_val');
+  totalEl.textContent = total > 0 ? fmt(total) : '-';
+
+  if (CAN_SHOW_HPP_MARGIN) {
+    const hppEl = document.getElementById('u_hpp_val');
+    if (hppEl) hppEl.textContent = total > 0 ? fmt(hpp) : '-';
+
+    const laba = total - hpp;
+    const labaEl = document.getElementById('u_laba_val');
+    if (labaEl) {
+      if (total > 0) {
+        labaEl.textContent = (laba < 0 ? '-' : '') + fmt(Math.abs(laba));
+        labaEl.style.color = laba >= 0 ? 'var(--pgp)' : '#dc2626';
+      } else { labaEl.textContent = '-'; labaEl.style.color = ''; }
+    }
+
+    const gpmEl = document.getElementById('u_gpm_val');
+    if (gpmEl) {
+      if (total > 0) {
+        const gpm = laba / total * 100;
+        gpmEl.textContent = gpm.toFixed(1) + '%';
+        gpmEl.style.color = gpm >= 30 ? '#7c3aed' : gpm >= 0 ? '#d97706' : '#dc2626';
+      } else { gpmEl.textContent = '-'; gpmEl.style.color = ''; }
+    }
+  }
+}
+
+// ── PENJUALAN PER PRODUK, multi-item ────────────────────────────────────────
+function updateUmumJournalPreview(total, masuk, piutang, hppData) {
+  hppData = hppData || {total: 0, inventory: 0, reclass: {}};
+  const hpp = Number(hppData.total || 0);
+  const hppInventory = Number(hppData.inventory || 0);
+  const hppReclass = hppData.reclass || {};
+  const masterSelect = document.getElementById('hppMasterSelect');
+  const selectedMaster = masterSelect ? HPP_MASTER.find(x => Number(x.id) === Number(masterSelect.value || 0)) : null;
+  const pendapatanDefault = selectedMaster && selectedMaster.jenis === 'JASA'
+    ? '4200 - Pendapatan Jasa'
+    : '4100 - Pendapatan Penjualan';
+  const selPendapatan = document.querySelector('select[name="akun_pendapatan_kode"]');
+  const pendapatanAkun = (selPendapatan && selPendapatan.value && selPendapatan.options[selPendapatan.selectedIndex])
+    ? selPendapatan.options[selPendapatan.selectedIndex].textContent
+    : pendapatanDefault;
+  const rows = [];
+  if (total > 0) {
+    const pjk = calcUmumPajak();
+    // Potongan/biaya marketplace (beban 6150) dipotong dari yg cair → kas net + Dr 6150.
+    // Kas/piutang dialokasikan dari net settlement (mirror server); pendapatan tetap kotor.
+    const biayaMp = nv(document.getElementById('u_biaya_mp'));
+    const grossSettle = total + pjk.ppn - pjk.pph - (pjk.pph22||0);
+    const netSettle = Math.max(0, grossSettle - biayaMp);
+    const rasio = total > 0 ? Math.min(1, masuk / total) : 0;
+    const cash = Math.round(netSettle * rasio);
+    const piutangNet = Math.max(0, netSettle - cash);
+    if (cash > 0) rows.push({akun:selectedKasLabel('#form-umum'), debit:cash, kredit:0, dampak:'Kas/bank bertambah (net setelah potongan)'});
+    if (piutangNet > 0) rows.push({akun:'1120 - Piutang Usaha', debit:piutangNet, kredit:0, dampak:'Tagihan customer bertambah'});
+    if (biayaMp > 0) rows.push({akun:'6150 - Beban Administrasi', debit:biayaMp, kredit:0, dampak:'Potongan/biaya marketplace'});
+    if (pjk.pph22 > 0) {
+      rows.push({akun:'1183 - PPh 22 Dibayar Dimuka', debit:pjk.pph22, kredit:0, dampak:'Kredit pajak (dipotong instansi, klaim SPT Tahunan)'});
+    }
+    if (pjk.pph > 0) {
+      rows.push({akun:'1181 - PPh 23 Dibayar Dimuka', debit:pjk.pph, kredit:0, dampak:'Kredit pajak (klaim SPT Tahunan)'});
+    }
+    rows.push({akun:pendapatanAkun, debit:0, kredit:total, dampak:'Pendapatan bertambah'});
+    if (pjk.ppn > 0) {
+      rows.push({akun:'2111 - Hutang PPN', debit:0, kredit:pjk.ppn, dampak:'Wajib setor ke kas negara'});
+    }
+    if (CAN_SHOW_HPP_MARGIN && hpp > 0) {
+      rows.push({akun:'5100 - Harga Pokok Penjualan', debit:hpp, kredit:0, dampak:'HPP mengurangi laba kotor'});
+      if (hppInventory > 0) {
+        rows.push({akun:'1130 - Persediaan Barang', debit:0, kredit:hppInventory, dampak:'Nilai persediaan berkurang'});
+      }
+      Object.keys(hppReclass).sort().forEach(function(kode){
+        var nilai = Number(hppReclass[kode] || 0);
+        if (nilai > 0) rows.push({akun:hppReclassLabel(kode), debit:0, kredit:nilai, dampak:'Reclass biaya ke HPP'});
+      });
+    }
+  }
+  renderJournalPreview('u_journal_preview', 'u_journal_note', rows,
+    total > 0 ? 'Debit dan kredit harus sama. Preview ini mengikuti angka final saat transaksi disimpan.' : '');
+}
+
+const calcUmumBase = calcUmum;
+calcUmum = function() {
+  calcUmumBase();
+  renderUmumPajakRingkasan();
+  const total = calcUmumTotal();
+  const masuk = nv(document.getElementById('u_masuk'));
+  const hppData = currentUmumHppData();
+  const piutang = Math.max(0, total - masuk);
+  updateUmumJournalPreview(total, masuk, piutang, hppData);
+};
+
+// ── PENJUALAN UMUM: rincian multi-baris (bebas / dari Master HPP) ─────────────
+function umMasterOptions() {
+  var o = '<option value="">— bebas / ketik manual —</option>';
+  HPP_MASTER.forEach(function(m){
+    var lbl = ((m.nama || '') + ' · ' + (m.jenis || '').replace(/_/g, ' ')).replace(/</g, '&lt;');
+    o += '<option value="' + m.id + '">' + lbl + '</option>';
+  });
+  return o;
+}
+function umResepOptions() {
+  var o = '<option value="">— tidak pakai resep —</option>';
+  RESEP_TEMPLATES.forEach(function(t){
+    o += '<option value="' + t.id + '">' + (t.nama || '').replace(/</g, '&lt;') + '</option>';
+  });
+  return o;
+}
+// Daftar gabungan untuk kotak "Item" Penjualan Umum: produk stok + Master HPP + Resep.
+// Satu kotak cari, hasil dikelompokkan; ketik bebas (tanpa memilih) = baris bebas/jasa.
+function umBuildItems() {
+  var out = [];
+  (typeof PRODUK_LIST !== 'undefined' ? PRODUK_LIST : []).forEach(function(p){
+    out.push({type:'produk', id:p.id, nama:p.nama, kode:p.kode||'', varian:p.varian||'',
+              stok:p.stok, satuan:p.satuan||'', harga:p.hargaJual||0});
+  });
+  if (CAN_SHOW_HPP_MARGIN) {
+    (typeof HPP_MASTER !== 'undefined' ? HPP_MASTER : []).forEach(function(m){
+      out.push({type:'master', id:m.id, nama:m.nama, jenis:(m.jenis||'').replace(/_/g,' '), harga:m.harga_jual||0});
+    });
+    (typeof RESEP_TEMPLATES !== 'undefined' ? RESEP_TEMPLATES : []).forEach(function(t){
+      out.push({type:'resep', id:t.id, nama:t.nama, harga:t.harga_jual||0});
+    });
+  }
+  return out;
+}
+var UM_ITEMS = umBuildItems();
+var UM_GROUPS = [{type:'produk',label:'Produk stok'},{type:'master',label:'Master HPP'},{type:'resep',label:'Resep produksi'}];
+
+function initUmumItemCombo(tr) {
+  var root = tr.querySelector('.pcombo');
+  if (!root || root._uic) return;
+  root._uic = true;
+  var input = root.querySelector('.um-desc');
+  var hidProduk = tr.querySelector('.um-produk'),
+      hidMaster = tr.querySelector('.um-master'),
+      hidResep  = tr.querySelector('.um-resep');
+  function clearHidden(){ hidProduk.value=''; hidMaster.value=''; hidResep.value=''; }
+  // Ketik ulang selalu melepas ikatan item → baris jadi bebas; recalc supaya HPP preview ikut turun.
+  input.addEventListener('input', function(){ clearHidden(); recalcUmumLines(); });
+  if (!UM_ITEMS.length) return;   // tak ada apa pun utk dicari → cukup input teks biasa
+  var esc = function(s){ return String(s==null?'':s).replace(/</g,'&lt;'); };
+  var menu = document.createElement('div'); menu.className='pcombo-menu pcombo-menu-um'; document.body.appendChild(menu);
+  var shown = [], actIdx = -1, isOpen = false, activeCat = '';
+  // Kategori yg benar-benar ada isinya → chip pemilih jenis (agar user tahu pilihan sejak awal).
+  var catsPresent = UM_GROUPS.filter(function(g){ return UM_ITEMS.some(function(it){ return it.type===g.type; }); });
+  var showChips = catsPresent.length > 1;
+  // Struktur menu PERSISTEN: bar chip dibuat SEKALI (tak di-render ulang) + kontainer hasil yg diperbarui.
+  // Kalau chip ikut ganti innerHTML tiap filter, elemen chip yg diklik lepas dari DOM → handler mousedown
+  // document menganggap "di luar" & menutup menu. Dengan chip persisten, klik chip aman.
+  var chipsHtml = '';
+  if (showChips){
+    chipsHtml = '<div class="pcombo-chips"><span class="pcombo-chip active" data-cat="">Semua</span>';
+    catsPresent.forEach(function(g){ chipsHtml += '<span class="pcombo-chip" data-cat="'+g.type+'">'+g.label+'</span>'; });
+    chipsHtml += '</div>';
+  }
+  menu.innerHTML = chipsHtml + '<div class="pcombo-results"></div>';
+  var resultsEl = menu.querySelector('.pcombo-results');
+  function syncChips(){
+    if(!showChips) return;
+    [].forEach.call(menu.querySelectorAll('.pcombo-chip'), function(c){
+      c.classList.toggle('active', (c.getAttribute('data-cat')||'') === activeCat);
+    });
+  }
+  function render(filter){
+    var f = (filter||'').toLowerCase().trim();
+    shown = UM_ITEMS.filter(function(it){
+      if (activeCat && it.type !== activeCat) return false;
+      var hay = ((it.kode||'')+' '+it.nama+' '+(it.varian||'')+' '+(it.jenis||'')).toLowerCase();
+      return !f || hay.indexOf(f) !== -1;
+    }).slice(0, 80);
+    if (!shown.length){
+      resultsEl.innerHTML = '<div class="pcombo-empty">Tidak ada yang cocok — ketik bebas untuk item non-stok / jasa</div>';
+      actIdx = -1; return;
+    }
+    var html = '';
+    UM_GROUPS.forEach(function(g){
+      var rows = shown.filter(function(it){ return it.type===g.type; });
+      if (!rows.length) return;
+      if (!activeCat) html += '<div class="pcombo-group">'+g.label+'</div>';   // saat 1 kategori difilter, header tak perlu
+      rows.forEach(function(it){
+        var idx = shown.indexOf(it);
+        var meta = it.type==='produk'
+              ? (it.stok!=null ? '<span class="pc-stok">Stok: '+it.stok+' '+esc(it.satuan||'')+'</span>' : '')
+              : (it.type==='master' ? '<span class="pc-stok">'+esc(it.jenis||'HPP')+'</span>' : '<span class="pc-stok">resep</span>');
+        var tag = it.type==='produk' ? '' : '<span class="pc-kode">'+(it.type==='master'?'HPP':'RESEP')+'</span> ';
+        html += '<div class="pcombo-item" data-i="'+idx+'">'+meta+'<div>'+tag+esc(it.nama)+
+                (it.varian?' <span class="pc-kode">('+esc(it.varian)+')</span>':'')+'</div></div>';
+      });
+    });
+    resultsEl.innerHTML = html; actIdx = -1;
+  }
+  function position(){
+    var r = input.getBoundingClientRect();
+    menu.style.left=r.left+'px'; menu.style.width=Math.max(240,r.width)+'px';
+    menu.style.maxHeight=Math.max(160,Math.min(300,window.innerHeight-r.bottom-10))+'px';
+    menu.style.top=(r.bottom+2)+'px';
+  }
+  function open(all){ if(all){ activeCat=''; syncChips(); } render(all?'':input.value); position(); menu.classList.add('open'); isOpen=true; }
+  function close(){ menu.classList.remove('open'); isOpen=false; }
+  function pick(it){
+    if(!it) return;
+    clearHidden();
+    if(it.type==='produk') hidProduk.value=it.id;
+    else if(it.type==='master') hidMaster.value=it.id;
+    else if(it.type==='resep') hidResep.value=it.id;
+    input.value = it.nama + (it.varian ? ' ('+it.varian+')' : '');
+    // Memilih item katalog = pakai harga jualnya (konsisten dgn combo POS/per-produk). User boleh edit sesudahnya.
+    var h = tr.querySelector('.um-harga');
+    if(window.numFmtSet) window.numFmtSet(h, it.harga||0); else h.value=it.harga||0;
+    close(); umHppManual=false; recalcUmumLines();
+  }
+  input.addEventListener('focus', function(){ open(true); });
+  input.addEventListener('click', function(){ if(!isOpen) open(true); });
+  input.addEventListener('input', function(){ open(false); });   // clearHidden + recalc sudah di listener input di atas
+  input.addEventListener('keydown', function(e){
+    if(!isOpen){ if(e.key==='ArrowDown'){ open(true); } return; }
+    var items = menu.querySelectorAll('.pcombo-item');
+    if(e.key==='ArrowDown'){ e.preventDefault(); actIdx=Math.min(actIdx+1,items.length-1); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); actIdx=Math.max(actIdx-1,0); }
+    else if(e.key==='Enter'){ if(actIdx>=0 && items[actIdx]){ e.preventDefault(); pick(shown[+items[actIdx].dataset.i]); } return; }
+    else if(e.key==='Escape'){ close(); return; }
+    items.forEach(function(it,i){ it.classList.toggle('active', i===actIdx); });
+    if(items[actIdx]) items[actIdx].scrollIntoView({block:'nearest'});
+  });
+  menu.addEventListener('mousedown', function(e){
+    var chip = e.target.closest('.pcombo-chip');
+    if(chip){   // chip persisten (di luar resultsEl) → aman, tak menutup menu
+      e.preventDefault(); activeCat = chip.getAttribute('data-cat') || ''; syncChips(); render(input.value); position(); return;
+    }
+    var it = e.target.closest('.pcombo-item'); if(!it) return;
+    e.preventDefault(); pick(shown[+it.dataset.i]);
+  });
+  // Ikon caret di kotak Item = sinyal "bisa diklik utk memilih"; klik buka/tutup daftar berkelompok.
+  var caret = root.querySelector('.pcombo-caret');
+  if(caret) caret.addEventListener('mousedown', function(e){
+    e.preventDefault();
+    if(isOpen){ close(); } else { input.focus(); open(true); }
+  });
+  document.addEventListener('mousedown', function(e){
+    if(isOpen && !root.contains(e.target) && !menu.contains(e.target)) close();
+  });
+  window.addEventListener('scroll', function(e){ if(!isOpen) return; if(menu.contains(e.target)) return; position(); }, true);
+  window.addEventListener('resize', function(){ if(isOpen) position(); });
+}
+
+function addUmumRow(focus) {
+  var body = document.getElementById('u_item_body');
+  if (!body) return null;
+  var tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><div class="pcombo pcombo-um">'
+    + '<input type="text" name="item_deskripsi[]" class="form-control form-control-sm um-desc pcombo-input" placeholder="Ketik nama item, atau klik utk pilih produk / HPP / resep…" autocomplete="off">'
+    + (UM_ITEMS.length ? '<i class="fas fa-chevron-down pcombo-caret" title="Pilih produk / Master HPP / resep"></i>' : '')
+    + '<input type="hidden" name="item_produk_id[]" class="um-produk">'
+    + '<input type="hidden" name="item_hpp_master[]" class="um-master">'
+    + '<input type="hidden" name="item_resep_id[]" class="um-resep">'
+    + '</div></td>'
+    + '<td><input type="number" name="item_qty[]" class="form-control form-control-sm text-center um-qty" data-nf-mode="qty" min="0.01" step="any" value="1"></td>'
+    + '<td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span><input type="number" name="item_harga[]" class="form-control um-harga" min="0" step="1" value="0"></div></td>'
+    + (CAN_SHOW_HPP_MARGIN ? '<td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span><input type="number" name="item_hpp[]" class="form-control um-hpp" min="0" step="1" value="0" title="Modal/HPP per unit"></div></td>' : '')
+    + '<td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span><input type="number" name="item_diskon[]" class="form-control um-diskon" min="0" step="1" value="0"></div></td>'
+    + '<td class="text-end align-middle" style="white-space:nowrap"><span class="um-sub">Rp 0</span><div class="um-hint text-muted" style="font-size:.66rem;font-weight:600"></div></td>'
+    + '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger px-2 um-del" title="Hapus baris">&times;</button></td>';
+  body.appendChild(tr);
+  if (window.numFmtInitAll) window.numFmtInitAll();
+  tr.querySelector('.um-qty').addEventListener('input', recalcUmumLines);
+  tr.querySelector('.um-harga').addEventListener('input', recalcUmumLines);
+  tr.querySelector('.um-diskon').addEventListener('input', recalcUmumLines);
+  var _hppEl = tr.querySelector('.um-hpp'); if (_hppEl) _hppEl.addEventListener('input', recalcUmumLines);
+  initUmumItemCombo(tr);   // satu kotak "Item": ketik bebas atau cari produk / Master HPP / resep
+  tr.querySelector('.um-del').addEventListener('click', function(){
+    var rows = document.querySelectorAll('#u_item_body tr');
+    if (rows.length <= 1) {   // sisakan minimal 1 baris: reset saja
+      tr.querySelector('.um-desc').value = '';
+      tr.querySelector('.um-qty').value = '1';
+      var h0 = tr.querySelector('.um-harga'); if (window.numFmtSet) window.numFmtSet(h0, 0); else h0.value = '0';
+      var d0 = tr.querySelector('.um-diskon'); if (window.numFmtSet) window.numFmtSet(d0, 0); else d0.value = '0';
+      var hp0 = tr.querySelector('.um-hpp'); if (hp0) { hp0.readOnly = false; if (window.numFmtSet) window.numFmtSet(hp0, 0); else hp0.value = '0'; }
+      ['.um-produk','.um-master','.um-resep'].forEach(function(s){ var e=tr.querySelector(s); if(e) e.value=''; });
+    } else { tr.remove(); }
+    umHppManual = false; recalcUmumLines();
+  });
+  if (focus) tr.querySelector('.um-desc').focus();
+  return tr;
+}
+function recalcUmumLines() {
+  var total = 0, autoHpp = 0, autoInventory = 0, resepCogs = 0, resepInventory = 0;
+  var skuCogs = 0, skuInventory = 0, manualInventory = 0;
+  var autoReclass = {}, resepReclass = {}, n = 0;
+  function setLineHpp(tr, valUnit, ro){   // isi field HPP/unit baris; SKU/master/resep read-only, bebas editable
+    var e = tr.querySelector('.um-hpp'); if (!e) return;
+    e.readOnly = ro;
+    if (ro) { if (window.numFmtSet) window.numFmtSet(e, Math.round(valUnit||0)); else e.value = Math.round(valUnit||0); }
+  }
+  document.querySelectorAll('#u_item_body tr').forEach(function(tr){
+    n++;
+    var qty = window.numVal(tr.querySelector('.um-qty'));
+    var harga = nv(tr.querySelector('.um-harga'));
+    var diskon = nv(tr.querySelector('.um-diskon'));
+    var sub = Math.max(0, qty * harga - diskon);
+    var subEl = tr.querySelector('.um-sub'); if (subEl) subEl.textContent = fmt(sub);
+    total += sub;
+    var hint = tr.querySelector('.um-hint'); if (hint) hint.textContent = '';
+    var pdEl = tr.querySelector('.um-produk');
+    var pid = pdEl ? (Number(pdEl.value) || 0) : 0;
+    var rs = tr.querySelector('.um-resep');
+    var ms = tr.querySelector('.um-master');
+    var mid = ms ? ms.value : '';
+    if (pid) {   // produk ber-SKU → HPP/unit = harga_beli (read-only), COGS = qty × harga_beli ke Persediaan
+      var pp = (typeof PRODUK_LIST !== 'undefined' ? PRODUK_LIST : []).find(function(x){ return Number(x.id) === pid; });
+      if (pp) {
+        var hb = Number(pp.hargaBeli) || 0;
+        skuCogs += qty * hb; skuInventory += qty * hb;
+        setLineHpp(tr, hb, true);
+        if (hint && qty*hb > 0) hint.textContent = 'HPP produk ' + fmt(qty*hb);
+      }
+    } else if (rs && rs.value) {   // resep → HPP/unit auto dari resep (read-only)
+      var t = RESEP_TEMPLATES.find(function(x){ return Number(x.id) === Number(rs.value); });
+      if (t) {
+        var rcInv = qty * (Number(t.inventory_hpp_per_unit) || 0);
+        var rcReclass = qty * (Number(t.reclass_hpp_per_unit) || 0);
+        var rcU = Number(t.hpp_per_unit) || ((Number(t.inventory_hpp_per_unit)||0) + (Number(t.reclass_hpp_per_unit)||0));
+        resepCogs += qty * rcU;
+        resepInventory += rcInv;
+        if (rcReclass > 0) addPreviewReclass(resepReclass, '6180', rcReclass);
+        setLineHpp(tr, rcU, true);
+        if (hint) hint.textContent = rcReclass > 0 ? 'HPP bahan/biaya ' + fmt(qty*rcU) : 'HPP bahan ' + fmt(qty*rcU);
+      }
+    } else if (mid) {   // Master HPP → HPP/unit auto (read-only); bahan→1130, tenaga/overhead→reclass beban
+      var m = HPP_MASTER.find(function(x){ return Number(x.id) === Number(mid); });
+      if (m) {
+        autoHpp += qty * (Number(m.total_hpp) || 0);
+        autoInventory += qty * (Number(m.inventory_hpp) || 0);
+        Object.keys(m.reclass_accounts || {}).forEach(function(kode){
+          addPreviewReclass(autoReclass, kode, qty * Number(m.reclass_accounts[kode] || 0));
+        });
+        setLineHpp(tr, Number(m.total_hpp) || 0, true);
+      }
+    } else {   // baris BEBAS: HPP/unit diketik user (editable) → langsung Persediaan 1130
+      var eb = tr.querySelector('.um-hpp'); if (eb) eb.readOnly = false;
+      var hu = nv(eb);
+      manualInventory += qty * hu;
+      if (hint && qty*hu > 0) hint.textContent = 'HPP ' + fmt(qty*hu);
+    }
+  });
+  var cnt = document.getElementById('u_item_count'); if (cnt) cnt.textContent = n;
+  var nomEl = document.getElementById('u_nominal'); if (nomEl) nomEl.value = Math.round(total);
+  // HPP per baris TERISOLASI (tak ada scaling/override global): manual (bebas) + master auto → Persediaan 1130;
+  // porsi reklas master + resep → akun beban. Cocok dgn server (manual_hpp + auto_hpp_inventory).
+  var genericInventory = manualInventory + autoInventory;
+  var reclassAll = {};
+  Object.keys(autoReclass).forEach(function(kode){ addPreviewReclass(reclassAll, kode, autoReclass[kode]); });
+  Object.keys(resepReclass).forEach(function(kode){ addPreviewReclass(reclassAll, kode, resepReclass[kode]); });
+  umHppPreview = {
+    total: manualInventory + autoHpp + resepCogs + skuCogs,
+    inventory: genericInventory + resepInventory + skuInventory,
+    reclass: reclassAll
+  };
+  calcUmum();
+}
+
+let hppMap = {};  // produk_id → harga_beli
+
+function makeItemRow() {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <div class="pcombo">
+        <input type="text" class="form-control form-control-sm pcombo-input" placeholder="Cari produk..." autocomplete="off">
+        <input type="hidden" name="produk_id[]" class="pcombo-id">
+      </div>
+      <div class="form-text item-stok" style="font-size:.7rem"></div>
+    </td>
+    <td>
+      <input type="number" name="qty[]" class="form-control form-control-sm text-center item-qty"
+             data-nf-mode="qty" min="0.01" step="any" value="1" oninput="calcRowSubtotal(this.closest('tr'));calcGrandTotal()">
+    </td>
+    <td class="text-center align-middle item-satuan" style="font-size:.8rem;color:var(--tx3)">pcs</td>
+    <td>
+      <div class="input-group input-group-sm">
+        <span class="input-group-text px-1">Rp</span>
+        <input type="number" name="harga_jual[]" class="form-control item-harga"
+               min="0" step="1" value="0" oninput="calcRowSubtotal(this.closest('tr'));calcGrandTotal()">
+      </div>
+      {% if can.show_hpp_margin %}<div class="form-text item-hpp-info" style="font-size:.68rem"></div>{% endif %}
+    </td>
+    <td>
+      <div class="input-group input-group-sm">
+        <span class="input-group-text px-1">Rp</span>
+        <input type="number" name="diskon_item[]" class="form-control item-diskon"
+               min="0" step="1" value="0" oninput="calcRowSubtotal(this.closest('tr'));calcGrandTotal()">
+      </div>
+    </td>
+    <td class="text-end align-middle fw-semibold item-subtotal" style="color:#0369a1;font-size:.83rem">Rp 0</td>
+    <td class="text-center align-middle">
+      <button type="button" class="btn btn-xs btn-outline-danger del-item" title="Hapus">
+        <i class="fas fa-times"></i></button>
+    </td>`;
+  // Init combobox pencarian produk untuk baris ini
+  if (window.initProdukCombo) {
+    window.initProdukCombo(tr.querySelector('.pcombo'), PRODUK_LIST, function(p){ onProdukPick(tr, p); });
+  }
+  return tr;
+}
+
+// Dipanggil saat produk dipilih dari combobox
+function onProdukPick(tr, p) {
+  if (p) {
+    window.numFmtSet(tr.querySelector('.item-harga'), p.hargaJual);
+    tr.querySelector('.item-satuan').textContent = p.satuan || 'pcs';
+    tr.querySelector('.item-stok').textContent = 'Stok: ' + p.stok + ' ' + (p.satuan || '');
+    {% if can.show_hpp_margin %}
+    const hppInfo = tr.querySelector('.item-hpp-info');
+    if (hppInfo) hppInfo.textContent = 'HPP: ' + fmt(p.hargaBeli);
+    {% endif %}
+    hppMap[p.id] = p.hargaBeli;
+  }
+  calcRowSubtotal(tr);
+  calcGrandTotal();
+}
+
+function calcRowSubtotal(tr) {
+  const qty   = window.numVal(tr.querySelector('.item-qty'));
+  const harga = parseRp(tr.querySelector('.item-harga').value);
+  const dis   = parseRp(tr.querySelector('.item-diskon').value);
+  const sub   = Math.max(0, qty * harga - dis);
+  tr.querySelector('.item-subtotal').textContent = fmt(sub);
+}
+
+function calcGrandTotal() {
+  let totalSub = 0, totalHpp = 0;
+  document.querySelectorAll('#p_item_body tr').forEach(tr => {
+    const qty   = window.numVal(tr.querySelector('.item-qty'));
+    const harga = parseRp(tr.querySelector('.item-harga').value);
+    const dis   = parseRp(tr.querySelector('.item-diskon').value);
+    const pid   = parseInt(tr.querySelector('.pcombo-id').value) || 0;
+    totalSub += Math.max(0, qty * harga - dis);
+    totalHpp += qty * (hppMap[pid] || 0);
+  });
+
+  const ongkir = nv(document.getElementById('p_ongkir'));
+  const biaya  = nv(document.getElementById('p_biaya'));
+  const jasa   = nv(document.getElementById('p_jasa'));
+  const grand  = totalSub + ongkir + biaya + jasa;
+  const masuk  = nv(document.getElementById('p_masuk'));
+  const pjk = calcProdukPajakForDpp(grand);
+  const ratioBayar = grand > 0 ? Math.min(masuk, grand) / grand : 0;
+  const masukAdj = Math.min(pjk.total, moneyCalc(pjk.total * ratioBayar));
+  const piutang = Math.max(0, pjk.total - masukAdj);
+
+  document.getElementById('p_grand_total_disp').textContent = fmt(grand);
+  renderProdukPajakRingkasan(pjk);
+  if (CAN_SHOW_HPP_MARGIN) {
+    const hppTotalEl = document.getElementById('p_hpp_total_disp');
+    if (hppTotalEl) hppTotalEl.textContent = totalHpp > 0 ? fmt(totalHpp) : 'Rp 0';
+
+    const laba = grand - totalHpp;
+    const labaEl = document.getElementById('p_laba_disp');
+    const margEl = document.getElementById('p_margin_disp');
+    if (labaEl && margEl) {
+      if (grand > 0) {
+        labaEl.textContent = (laba < 0 ? '-' : '') + fmt(Math.abs(laba));
+        labaEl.style.color = laba >= 0 ? '#16a34a' : '#dc2626';
+        const gpm = laba / grand * 100;
+        margEl.textContent = 'GPM ' + gpm.toFixed(1) + '%';
+        margEl.style.color = gpm >= 30 ? '#7c3aed' : gpm >= 0 ? '#d97706' : '#dc2626';
+      } else { labaEl.textContent = '-'; labaEl.style.color = ''; margEl.textContent = '-'; margEl.style.color = ''; }
+    }
+  }
+
+  document.getElementById('p_piutang_disp').textContent = fmt(piutang);
+  document.getElementById('p_piutang_detail').style.display = piutang > 0 ? 'block' : 'none';
+
+  // hidden field for submission (grand total)
+  let hid = document.getElementById('p_grand_hidden');
+  if (!hid) { hid = document.createElement('input'); hid.type='hidden'; hid.id='p_grand_hidden'; hid.name='grand_total'; document.getElementById('formProduk').appendChild(hid); }
+  hid.value = grand;
+}
+
+function setPBayarPenuh() {
+  const grand = parseFloat((document.getElementById('p_grand_hidden')||{}).value) || 0;
+  window.numFmtSet(document.getElementById('p_masuk'), grand);
+  calcGrandTotal();
+}
+
+function updateProdukJournalPreview() {
+  let totalSub = 0, totalHpp = 0;
+  document.querySelectorAll('#p_item_body tr').forEach(tr => {
+    const qty   = window.numVal(tr.querySelector('.item-qty'));
+    const harga = parseRp(tr.querySelector('.item-harga').value);
+    const dis   = parseRp(tr.querySelector('.item-diskon').value);
+    const pid   = parseInt(tr.querySelector('.pcombo-id').value) || 0;
+    totalSub += Math.max(0, qty * harga - dis);
+    totalHpp += qty * (hppMap[pid] || 0);
+  });
+  const ongkir = nv(document.getElementById('p_ongkir'));
+  const biaya  = nv(document.getElementById('p_biaya'));
+  const jasa   = nv(document.getElementById('p_jasa'));
+  const grand  = totalSub + ongkir + biaya + jasa;
+  const masuk  = nv(document.getElementById('p_masuk'));
+  const pjk = calcProdukPajakForDpp(grand);
+  const ratioBayar = grand > 0 ? Math.min(masuk, grand) / grand : 0;
+  const cash = Math.min(pjk.total, moneyCalc(pjk.total * ratioBayar));
+  const piutang = Math.max(0, pjk.total - cash);
+  const rows = [];
+  if (grand > 0) {
+    if (cash > 0) rows.push({akun:selectedKasLabel('#form-produk'), debit:cash, kredit:0, dampak:'Kas/bank bertambah'});
+    if (piutang > 0) rows.push({akun:'1120 - Piutang Usaha', debit:piutang, kredit:0, dampak:'Tagihan customer bertambah'});
+    if (pjk.pph22 > 0) rows.push({akun:'1183 - PPh 22 Dibayar Dimuka', debit:pjk.pph22, kredit:0, dampak:'Kredit pajak (dipotong instansi) bertambah'});
+    if (pjk.pph > 0) rows.push({akun:'1181 - PPh 23 Dibayar Dimuka', debit:pjk.pph, kredit:0, dampak:'Kredit pajak bertambah'});
+    if (grand - jasa > 0) rows.push({akun:'4100 - Pendapatan Penjualan', debit:0, kredit:grand - jasa, dampak:'Pendapatan barang bertambah'});
+    if (jasa > 0) rows.push({akun:'4200 - Pendapatan Jasa', debit:0, kredit:jasa, dampak:'Pendapatan jasa bertambah'});
+    if (pjk.ppn > 0) rows.push({akun:'2111 - Hutang PPN', debit:0, kredit:pjk.ppn, dampak:'Wajib setor ke kas negara'});
+    if (CAN_SHOW_HPP_MARGIN && totalHpp > 0) {
+      rows.push({akun:'5100 - Harga Pokok Penjualan', debit:totalHpp, kredit:0, dampak:'HPP produk terjual'});
+      rows.push({akun:'1130 - Persediaan Barang', debit:0, kredit:totalHpp, dampak:'Stok/nilai persediaan berkurang'});
+    }
+  }
+  renderJournalPreview('p_journal_preview', 'p_journal_note', rows,
+    grand > 0 && CAN_SHOW_HPP_MARGIN ? 'Untuk produk SKU, HPP dihitung dari harga beli rata-rata produk yang dipilih.' : '');
+}
+
+const calcGrandTotalBase = calcGrandTotal;
+calcGrandTotal = function() {
+  calcGrandTotalBase();
+  updateProdukJournalPreview();
+};
+
+function toggleJasa() {
+  const on = document.getElementById('jasa_toggle').checked;
+  document.getElementById('jasa_fields').style.display = on ? 'flex' : 'none';
+  if (!on) { window.numFmtSet(document.getElementById('p_jasa'), 0); }
+  calcGrandTotal();
+}
+
+function updateItemCount() {
+  const n = document.querySelectorAll('#p_item_body tr').length;
+  document.getElementById('p_item_count').textContent = n;
+}
+
+// Event delegation for delete item
+document.getElementById('p_item_body').addEventListener('click', e => {
+  const btn = e.target.closest('.del-item');
+  if (!btn) return;
+  btn.closest('tr').remove();
+  // Baris terakhir tetap dihapus, lalu diganti satu baris kosong baru
+  // (tabel butuh minimal 1 baris) → tombol X selalu berfungsi.
+  if (!document.querySelector('#p_item_body tr')) {
+    document.getElementById('p_item_body').appendChild(makeItemRow());
+    if (window.numFmtInitAll) window.numFmtInitAll();
+  }
+  updateItemCount();
+  calcGrandTotal();
+});
+
+// Tambah Produk button
+document.getElementById('btnTambahItem').addEventListener('click', () => {
+  document.getElementById('p_item_body').appendChild(makeItemRow());
+  if(window.numFmtInitAll) window.numFmtInitAll();
+  updateItemCount();
+});
+
+document.getElementById('formProduk').addEventListener('submit', function(e) {
+  let message = '';
+  document.querySelectorAll('#p_item_body tr').forEach((tr, index) => {
+    if (message) return;
+    const pid    = tr.querySelector('.pcombo-id').value;
+    const qty    = window.numVal(tr.querySelector('.item-qty'));
+    const harga  = parseRp(tr.querySelector('.item-harga').value);
+    const diskon = parseRp(tr.querySelector('.item-diskon').value);
+    if (pid && qty <= 0) {
+      message = 'Qty produk baris ' + (index + 1) + ' harus lebih dari 0.';
+    } else if (pid && diskon > qty * harga) {
+      message = 'Diskon produk baris ' + (index + 1) + ' tidak boleh melebihi subtotal bruto.';
+    }
+  });
+  if (message) {
+    e.preventDefault();
+    alert(message);
+  }
+});
+
+// Init first row on load
+(function init() {
+  document.getElementById('p_item_body').appendChild(makeItemRow());
+  if(window.numFmtInitAll) window.numFmtInitAll();
+  updateItemCount();
+  calcGrandTotal();
+})();
+
+// ── Invoice toggle ──────────────────────────────────────────────────────────
+document.getElementById('inv_toggle_u').addEventListener('change', function() {
+  document.getElementById('inv_detail_u').style.display = this.checked ? 'block' : 'none';
+});
+document.getElementById('inv_toggle_p').addEventListener('change', function() {
+  document.getElementById('inv_detail_p').style.display = this.checked ? 'block' : 'none';
+});
+
+// ── Samakan nama pelanggan dari form utama ke detail invoice ─────────────────
+function samakanPelanggan(mode) {
+  const src = mode === 'u'
+    ? document.querySelector('#form-umum [name=pelanggan]')
+    : document.querySelector('#form-produk [name=pelanggan]');
+  const dst = document.getElementById('inv_pelanggan_' + mode);
+  if (src && dst && src.value.trim()) {
+    dst.value = src.value.trim();
+    dst.style.background = '#f0fdf4';
+    setTimeout(() => dst.style.background = '', 1200);
+  } else if (dst) {
+    dst.focus();
+  }
+}
+
+// ── Auto-open invoice di new tab jika baru saja disimpan ─────────────────────
+(function() {
+  const params  = new URLSearchParams(window.location.search);
+  const invId   = params.get('new_inv');
+  if (invId) {
+    window.open('/invoice/' + invId + '/cetak', '_blank');
+    history.replaceState({}, '', '/pemasukan');
+  }
+})();
+
+/* ── Draft pemasukan: jangan kosongkan form saat alert / batalkan transaksi ──
+   Snapshot isi form ke sessionStorage tiap submit; restore saat halaman
+   tampil dengan alert persediaan minus ATAU setelah "Batalkan Transaksi"
+   (redirect ?restore=1). Dibungkus try/catch — kalau gagal, form sekadar
+   kosong seperti biasa (tidak pernah merusak halaman). */
+(function(){
+  try {
+    var KEY = 'pemasukan_draft_v1';
+    var params = new URLSearchParams(window.location.search);
+    var HAS_ALERT = {{ 'true' if inventory_value_alert else 'false' }};
+    var WANT_RESTORE = params.get('restore') === '1' || HAS_ALERT;
+
+    function snapshot(form){
+      try {
+        var modeEl = form.querySelector('[name="mode"]');
+        var mode = modeEl ? modeEl.value : 'umum';
+        var data = { mode: mode, fields: {}, items: [] };
+        form.querySelectorAll('[name]').forEach(function(el){
+          if (el.name.slice(-2) === '[]') return;          // baris produk ditangani terpisah
+          if (el.type === 'checkbox') data.fields['cb:'+el.name] = el.checked;
+          else data.fields[el.name] = el.value;
+        });
+        if (mode === 'produk'){
+          document.querySelectorAll('#p_item_body tr').forEach(function(tr){
+            var idEl = tr.querySelector('.pcombo-id');
+            if (!idEl || !idEl.value) return;              // baris kosong, lewati
+            data.items.push({
+              pid:    idEl.value,
+              nama:   (tr.querySelector('.pcombo-input') || {}).value || '',
+              qty:    (tr.querySelector('.item-qty')     || {}).value || '',
+              harga:  (tr.querySelector('.item-harga')   || {}).value || '',
+              diskon: (tr.querySelector('.item-diskon')  || {}).value || ''
+            });
+          });
+        }
+        sessionStorage.setItem(KEY, JSON.stringify(data));
+      } catch(e){}
+    }
+
+    // Snapshot tiap kali salah satu form penjualan disubmit
+    document.querySelectorAll('#form-umum form, #form-produk form').forEach(function(f){
+      if (!f.querySelector('[name="mode"]')) return;       // hanya form penjualan utama
+      f.addEventListener('submit', function(){ snapshot(f); });
+    });
+
+    function applyFields(form, fields){
+      Object.keys(fields).forEach(function(k){
+        try {
+          if (k.indexOf('cb:') === 0){
+            var c = form.querySelector('[name="'+k.slice(3)+'"]');
+            if (c) c.checked = !!fields[k];
+          } else {
+            var el = form.querySelector('[name="'+k+'"]');
+            if (el && el.name.slice(-2) !== '[]') el.value = fields[k];
+          }
+        } catch(e){}
+      });
+    }
+
+    function restore(){
+      var data = null;
+      try { data = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch(e){ return; }
+      if (!data) return;
+      var produk = data.mode === 'produk';
+      if (produk && typeof switchMode === 'function') { try { switchMode('produk'); } catch(e){} }
+      var form = document.querySelector(produk ? '#form-produk form' : '#form-umum form');
+      if (!form) return;
+      applyFields(form, data.fields || {});
+
+      if (produk && Array.isArray(data.items) && data.items.length && typeof makeItemRow === 'function'){
+        var body = document.getElementById('p_item_body');
+        if (body){
+          body.innerHTML = '';
+          data.items.forEach(function(it){
+            try {
+              var tr = makeItemRow();
+              body.appendChild(tr);
+              var idEl = tr.querySelector('.pcombo-id');
+              var nmEl = tr.querySelector('.pcombo-input');
+              if (idEl) idEl.value = it.pid;
+              if (nmEl) nmEl.value = it.nama;
+              var pid = parseInt(it.pid) || 0;
+              var prod = (pid && typeof PRODUK_LIST !== 'undefined' && PRODUK_LIST.find)
+                         ? PRODUK_LIST.find(function(p){ return p.id === pid; }) : null;
+              if (prod && typeof onProdukPick === 'function') onProdukPick(tr, prod);  // satuan/stok/hpp/hppMap
+              // set nilai user SETELAH onProdukPick (yg menimpa harga dgn default produk)
+              var q = tr.querySelector('.item-qty');    if (q) q.value = it.qty;
+              var h = tr.querySelector('.item-harga');  if (h) h.value = it.harga;
+              var d = tr.querySelector('.item-diskon'); if (d) d.value = it.diskon;
+              if (typeof calcRowSubtotal === 'function') calcRowSubtotal(tr);
+            } catch(e){}
+          });
+          if (!body.children.length) body.appendChild(makeItemRow());
+          if (window.numFmtInitAll) window.numFmtInitAll();
+          if (typeof updateItemCount === 'function') updateItemCount();
+        }
+      }
+      try {
+        if (produk){ if (typeof calcGrandTotal === 'function') calcGrandTotal(); }
+        else { if (typeof calcUmum === 'function') calcUmum(); }
+      } catch(e){}
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      if (WANT_RESTORE) { restore(); }
+      else { try { sessionStorage.removeItem(KEY); } catch(e){} }    // kunjungan biasa → bersih
+      if (params.get('restore') === '1') {
+        try { history.replaceState({}, '', '/pemasukan'); } catch(e){}
+      }
+    });
+  } catch(e){}
+})();
+
+{% if inventory_value_alert %}
+document.addEventListener('DOMContentLoaded', function() {
+  new bootstrap.Modal(document.getElementById('inventoryValueAlertModal')).show();
+});
+{% endif %}
+</script>
+{% endblock %}

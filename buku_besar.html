@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+{% block title %}Buku Besar - FinansialApp{% endblock %}
+{% block page_title %}Buku Besar{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalBukuBesarHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_bukubesar_help_modal.html' %}
+<style>
+.bb-saldo-awal  td{background:var(--card-h)!important;color:var(--tx2)!important;font-style:italic}
+.bb-saldo-akhir td{font-weight:800;font-size:.95rem}
+.bb-plus  {color:#15803d;font-weight:600}
+.bb-minus {color:#b91c1c;font-weight:600}
+.bb-zero  {color:var(--tx3)}
+.bb-saldo-pos{color:#15803d;font-weight:700}
+.bb-saldo-neg{color:#b91c1c;font-weight:700}
+[data-theme="dark"] .bb-plus {color:#86efac}
+[data-theme="dark"] .bb-minus{color:#fca5a5}
+[data-theme="dark"] .bb-saldo-pos{color:#86efac}
+[data-theme="dark"] .bb-saldo-neg{color:#fca5a5}
+.bb-ref{font-size:.72rem;color:var(--tx3);font-family:monospace}
+@media print{
+  .no-print{display:none!important}
+  body{padding:0;margin:0}
+  .card{border:none!important;box-shadow:none!important}
+}
+</style>
+
+<!-- Filter Form -->
+<div class="card mb-3 no-print">
+  <div class="card-body py-2 px-3">
+    <form method="GET" class="d-flex flex-wrap align-items-end gap-2">
+      <!-- Pilih Akun -->
+      <div style="flex:2;min-width:220px">
+        <label class="form-label small fw-semibold mb-1">Pilih Akun</label>
+        <select name="akun" class="form-select form-select-sm" required>
+          <option value="">Pilih akun...</option>
+          {% set ns = namespace(tipe_prev='') %}
+          {% for a in semua_akun %}
+            {% if a.tipe != ns.tipe_prev %}
+              {% if ns.tipe_prev %}
+                </optgroup>
+              {% endif %}
+              <optgroup label="{{ a.tipe }}">
+              {% set ns.tipe_prev = a.tipe %}
+            {% endif %}
+            <option value="{{ a.kode }}" {% if a.kode == kode %}selected{% endif %}>
+              {{ a.kode }}, {{ a.nama }}
+            </option>
+          {% endfor %}
+          {% if ns.tipe_prev %}</optgroup>{% endif %}
+        </select>
+      </div>
+      <!-- Dari -->
+      <div style="min-width:130px">
+        <label class="form-label small fw-semibold mb-1">Dari</label>
+        <input type="date" name="sd" class="form-control form-control-sm" value="{{ sd }}" max="{{ today }}">
+      </div>
+      <!-- Sampai -->
+      <div style="min-width:130px">
+        <label class="form-label small fw-semibold mb-1">Sampai</label>
+        <input type="date" name="ed" class="form-control form-control-sm" value="{{ ed }}" max="{{ today }}">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">
+        <i class="fas fa-magnifying-glass me-1"></i>Tampilkan</button>
+      {% if akun_info %}
+      <button type="button" onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-print me-1"></i>Cetak / PDF</button>
+      <a href="{{ url_for('buku_besar_export', akun=kode, sd=sd, ed=ed) }}" class="btn btn-outline-success btn-sm">
+        <i class="fas fa-file-excel me-1"></i>Export Excel</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
+
+{% if not kode %}
+<!-- Placeholder sebelum pilih akun -->
+<div class="card">
+  <div class="card-body text-center py-5">
+    <i class="fas fa-book-open fa-3x text-muted mb-3 opacity-50"></i>
+    <div class="fw-semibold" style="font-size:1rem;color:var(--tx2)">Pilih akun dari dropdown di atas</div>
+    <div class="text-muted mt-1" style="font-size:.85rem">
+      Buku Besar menampilkan semua mutasi per akun beserta saldo berjalan
+    </div>
+  </div>
+</div>
+
+{% elif not akun_info %}
+<div class="card">
+  <div class="card-body text-center py-4 text-danger">
+    <i class="fas fa-circle-exclamation me-2"></i>Akun <strong>{{ kode }}</strong> tidak ditemukan.
+  </div>
+</div>
+
+{% else %}
+
+<!-- Header info akun -->
+<div class="card mb-3">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex align-items-center flex-wrap gap-3">
+      <div>
+        <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);font-weight:700">Akun</div>
+        <div style="font-size:1.05rem;font-weight:800;color:var(--tx)">
+          {{ akun_info.kode }}, {{ akun_info.nama }}</div>
+      </div>
+      <div class="vr d-none d-md-block"></div>
+      <div>
+        <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);font-weight:700">Tipe</div>
+        <div style="font-size:.88rem;font-weight:600;color:var(--tx2)">{{ akun_info.tipe }}</div>
+      </div>
+      <div class="vr d-none d-md-block"></div>
+      <div>
+        <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);font-weight:700">Saldo Normal</div>
+        <span class="badge {% if akun_info.saldo_normal=='DEBIT' %}bg-primary{% else %}bg-success{% endif %}" style="font-size:.72rem">
+          {{ akun_info.saldo_normal }}</span>
+      </div>
+      <div class="vr d-none d-md-block"></div>
+      <div>
+        <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--tx3);font-weight:700">Periode</div>
+        <div style="font-size:.88rem;font-weight:600;color:var(--tx2)">{{ sd|tgl }}, {{ ed|tgl }}</div>
+      </div>
+      <div class="ms-auto d-none d-md-flex gap-3 text-end">
+        <div>
+          <div style="font-size:.6rem;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em">Total Debit</div>
+          <div class="text-rp bb-plus" style="font-size:.95rem">{{ total_debit|rp }}</div>
+        </div>
+        <div>
+          <div style="font-size:.6rem;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em">Total Kredit</div>
+          <div class="text-rp bb-minus" style="font-size:.95rem">{{ total_kredit|rp }}</div>
+        </div>
+        <div>
+          <div style="font-size:.6rem;color:var(--tx3);text-transform:uppercase;letter-spacing:.07em">Saldo Akhir</div>
+          <div class="text-rp {% if saldo_akhir >= 0 %}bb-saldo-pos{% else %}bb-saldo-neg{% endif %}" style="font-size:.95rem">
+            {{ saldo_akhir|rp }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Tabel Buku Besar -->
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover align-middle mb-0" style="font-size:.85rem">
+        <thead class="table-light">
+          <tr>
+            <th style="width:38px;text-align:center" class="ps-2">#</th>
+            <th style="width:100px">Tanggal</th>
+            <th style="width:100px">Ref / ID</th>
+            <th>Keterangan</th>
+            <th class="text-end" style="width:140px">Debit</th>
+            <th class="text-end" style="width:140px">Kredit</th>
+            <th class="text-end pe-3" style="width:150px">Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+
+          {# Baris saldo awal #}
+          <tr class="bb-saldo-awal">
+            <td class="ps-2 text-center text-muted" style="font-size:.72rem">0</td>
+            <td class="text-muted" style="font-size:.78rem">{{ sd|tgl }}</td>
+            <td></td>
+            <td style="color:var(--tx2)"><em>Saldo Awal (sebelum periode)</em></td>
+            <td></td>
+            <td></td>
+            <td class="text-end pe-3 fw-semibold text-rp {% if saldo_awal >= 0 %}bb-saldo-pos{% else %}bb-saldo-neg{% endif %}">
+              {{ saldo_awal|rp }}</td>
+          </tr>
+
+          {% if entri %}
+            {% for e in entri %}
+            <tr>
+              <td class="ps-2 text-center text-muted" style="font-size:.72rem">{{ loop.index }}</td>
+              <td style="white-space:nowrap;color:var(--tx2)">{{ e.tanggal|tgl }}</td>
+              <td>
+                <a href="/transaksi/{{ e.jurnal_id }}" class="bb-ref text-decoration-none"
+                   style="color:var(--tx3)" title="Lihat jurnal">
+                  #{{ e.jurnal_id }}{% if e.referensi %} · {{ e.referensi }}{% endif %}
+                </a>
+              </td>
+              <td style="color:var(--tx)">{{ e.keterangan }}</td>
+              <td class="text-end text-rp">
+                {% if e.debit > 0 %}
+                  <span class="bb-plus">{{ e.debit|rp }}</span>
+                {% else %}
+                  <span class="bb-zero">-</span>
+                {% endif %}
+              </td>
+              <td class="text-end text-rp">
+                {% if e.kredit > 0 %}
+                  <span class="bb-minus">{{ e.kredit|rp }}</span>
+                {% else %}
+                  <span class="bb-zero">-</span>
+                {% endif %}
+              </td>
+              <td class="text-end pe-3 fw-semibold text-rp {% if e.saldo >= 0 %}bb-saldo-pos{% else %}bb-saldo-neg{% endif %}">
+                {{ e.saldo|rp }}
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4" style="font-size:.85rem">
+                <i class="fas fa-inbox me-2 opacity-50"></i>Tidak ada mutasi pada periode ini
+              </td>
+            </tr>
+          {% endif %}
+
+        </tbody>
+        <tfoot>
+          <tr class="bb-saldo-akhir" style="border-top:2px solid var(--bdr)">
+            <td colspan="3" class="ps-3 fw-bold" style="font-size:.82rem;color:var(--tx2)">
+              TOTAL PERIODE</td>
+            <td></td>
+            <td class="text-end text-rp bb-plus">{{ total_debit|rp }}</td>
+            <td class="text-end text-rp bb-minus">{{ total_kredit|rp }}</td>
+            <td class="text-end pe-3 text-rp {% if saldo_akhir >= 0 %}bb-saldo-pos{% else %}bb-saldo-neg{% endif %}">
+              {{ saldo_akhir|rp }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <div class="card-footer py-2 px-3 d-flex justify-content-between align-items-center no-print"
+       style="font-size:.78rem;color:var(--tx3)">
+    <span><i class="fas fa-circle-info me-1"></i>
+      Hijau = Debit &nbsp;·&nbsp; Merah = Kredit &nbsp;·&nbsp;
+      Klik nomor referensi untuk lihat jurnal lengkap
+    </span>
+    <span>{{ entri|length }} baris mutasi</span>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}

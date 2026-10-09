@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block title %}Data Karyawan - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-id-card text-purple me-2" style="color:#7c3aed"></i>Data Karyawan{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="row g-3">
+
+  <!-- Form Tambah Karyawan -->
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-user-plus" style="color:#7c3aed"></i>
+        <span class="section-title">Tambah Karyawan</span>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="action" value="tambah">
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">No. Karyawan</label>
+              <input type="text" name="no_karyawan" class="form-control form-control-sm"
+                     placeholder="K-001 (opsional)">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Nama Lengkap <span class="text-danger">*</span></label>
+              <input type="text" name="nama" class="form-control form-control-sm" required
+                     placeholder="Nama sesuai KTP">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Jabatan</label>
+              <input type="text" name="jabatan" class="form-control form-control-sm"
+                     placeholder="Kasir, Operator, dst">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Status Kerja</label>
+              <select name="status_kerja" class="form-select form-select-sm">
+                <option value="TETAP">Karyawan Tetap (PKWTT)</option>
+                <option value="KONTRAK">Karyawan Kontrak (PKWT)</option>
+                <option value="HARIAN">Karyawan Harian Lepas</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Status Pajak (PTKP)</label>
+              <select name="status_pajak" class="form-select form-select-sm">
+                <option value="TK0">TK/0 - Tidak Kawin, tanpa tanggungan</option>
+                <option value="TK1">TK/1 - Tidak Kawin, 1 tanggungan</option>
+                <option value="K0">K/0 - Kawin, tanpa tanggungan</option>
+                <option value="K1">K/1 - Kawin, 1 tanggungan</option>
+                <option value="K2">K/2 - Kawin, 2 tanggungan</option>
+                <option value="K3">K/3 - Kawin, 3 tanggungan</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">NPWP</label>
+              <input type="text" name="npwp" class="form-control form-control-sm"
+                     placeholder="Opsional">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Gaji Pokok <span class="text-danger">*</span></label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Rp</span>
+                <input type="number" name="gaji_pokok" class="form-control" min="0" step="1"
+                       required placeholder="0">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Tunjangan Tetap</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Rp</span>
+                <input type="number" name="tunjangan" class="form-control" min="0" step="1"
+                       placeholder="0 (opsional)">
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="d-flex gap-3 pt-1">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="bpjs_kesehatan"
+                         value="1" id="bks" checked>
+                  <label class="form-check-label small" for="bks">BPJS Kesehatan</label>
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="bpjs_ketenagakerjaan"
+                         value="1" id="btk" checked>
+                  <label class="form-check-label small" for="btk">BPJS Ketenagakerjaan</label>
+                </div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="accordion accordion-flush mt-1" id="accTambahLanjut">
+                <div class="accordion-item" style="border:1px solid var(--bdr);border-radius:8px;overflow:hidden">
+                  <h2 class="accordion-header">
+                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapseTambahLanjut" style="font-size:.8rem;font-weight:600">
+                      <i class="fas fa-sliders me-2 text-muted"></i>Pengaturan Lanjutan (Jenis Upah, Tanggungan)
+                    </button>
+                  </h2>
+                  <div id="collapseTambahLanjut" class="accordion-collapse collapse" data-bs-parent="#accTambahLanjut">
+                    <div class="accordion-body py-2">
+                      <div class="row g-2">
+                        <div class="col-md-6">
+                          <label class="form-label small fw-semibold">Jenis Upah</label>
+                          <select name="jenis_upah" class="form-select form-select-sm">
+                            <option value="BULANAN">Bulanan Tetap</option>
+                            <option value="HARIAN">Harian</option>
+                            <option value="BORONGAN">Borongan / Satuan</option>
+                          </select>
+                          <div class="form-text" style="font-size:.66rem">Harian/Borongan = pegawai tidak tetap (PPh 21 ambang harian, tanpa BPJS).</div>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label small fw-semibold">Tarif Harian / Satuan</label>
+                          <div class="input-group input-group-sm">
+                            <span class="input-group-text">Rp</span>
+                            <input type="number" name="tarif_harian" class="form-control" min="0" step="1" placeholder="0">
+                          </div>
+                          <div class="form-text" style="font-size:.66rem">Default upah/hari (Harian) atau upah/unit (Borongan).</div>
+                        </div>
+                        <div class="col-md-6">
+                          <label class="form-label small fw-semibold">Jumlah Tanggungan</label>
+                          <input type="number" name="jumlah_tanggungan" class="form-control form-control-sm" min="0" max="20" step="1" value="0">
+                          <div class="form-text" style="font-size:.66rem">Info; PTKP mengikuti pilihan Status Pajak di atas.</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 mt-1">
+              <button type="submit" class="btn btn-sm w-100" style="background:#7c3aed;color:#fff">
+                <i class="fas fa-plus me-1"></i>Tambah Karyawan</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daftar Karyawan -->
+  <div class="col-lg-7">
+    <div class="card">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-users" style="color:#7c3aed"></i>
+        <span class="section-title">Daftar Karyawan</span>
+        <span class="badge ms-auto" style="background:#7c3aed">{{ karyawan_list|length }} orang</span>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0" style="font-size:.82rem">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Nama</th>
+                <th>Jabatan</th>
+                <th>PTKP</th>
+                <th class="text-end">Gaji Pokok</th>
+                <th class="text-end">Tunjangan</th>
+                <th class="text-center">Status</th>
+                <th class="text-end pe-3">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for k in karyawan_list %}
+              <tr {% if not k.aktif %}style="opacity:.5"{% endif %}>
+                <td class="ps-3">
+                  <div class="fw-semibold">{{ k.nama }}</div>
+                  {% if k.no_karyawan %}<div class="text-muted" style="font-size:.72rem">{{ k.no_karyawan }}</div>{% endif %}
+                </td>
+                <td class="text-muted">{{ k.jabatan or '-' }}</td>
+                <td>
+                  <span class="badge bg-light text-dark" style="font-size:.68rem;border:1px solid var(--bdr)">
+                    {{ k.status_pajak }}
+                  </span>
+                </td>
+                <td class="text-end text-rp">{{ k.gaji_pokok|rp }}</td>
+                <td class="text-end text-rp text-muted">{{ k.tunjangan_tetap|rp if k.tunjangan_tetap > 0 else '-' }}</td>
+                <td class="text-center">
+                  {% if k.aktif %}
+                    <span class="badge bg-success">Aktif</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Nonaktif</span>
+                  {% endif %}
+                </td>
+                <td class="text-end pe-3">
+                  <button class="btn btn-xs btn-outline-primary"
+                          onclick='openEditKaryawan({{ k.id }}, {{ k|tojson }})'
+                          title="Edit"><i class="fas fa-pen"></i></button>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="7" class="text-center text-muted py-4">
+                <i class="fas fa-users fa-2x mb-2 d-block opacity-50"></i>
+                Belum ada karyawan. Tambah lewat form di kiri.
+              </td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabel PTKP Referensi -->
+    <div class="card mt-3">
+      <div class="card-header py-2" style="font-size:.82rem;font-weight:600">
+        <i class="fas fa-table me-1 text-muted"></i>Referensi PTKP 2024
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0" style="font-size:.78rem">
+          <thead class="table-light">
+            <tr><th class="ps-3">Status</th><th>Keterangan</th><th class="text-end pe-3">PTKP / Tahun</th></tr>
+          </thead>
+          <tbody>
+            {% for kode, nominal in PTKP.items() %}
+            <tr>
+              <td class="ps-3 fw-semibold">{{ kode }}</td>
+              <td class="text-muted">
+                {% if kode == 'TK0' %}Tidak Kawin, 0 tanggungan
+                {% elif kode == 'TK1' %}Tidak Kawin, 1 tanggungan
+                {% elif kode == 'K0' %}Kawin, 0 tanggungan tambahan
+                {% elif kode == 'K1' %}Kawin, 1 tanggungan
+                {% elif kode == 'K2' %}Kawin, 2 tanggungan
+                {% elif kode == 'K3' %}Kawin, 3 tanggungan
+                {% endif %}
+              </td>
+              <td class="text-end pe-3 text-rp fw-semibold">{{ nominal|rp }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Edit Karyawan -->
+<div class="modal fade" id="modalEditKaryawan" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-pen me-2" style="color:#7c3aed"></i>Edit Karyawan</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="formEditKaryawan">
+        <input type="hidden" name="action" value="edit">
+        <input type="hidden" name="karyawan_id" id="editKarId">
+        <div class="modal-body">
+          <div class="row g-2">
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">No. Karyawan</label>
+              <input type="text" name="no_karyawan" id="editKarNo" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label small fw-semibold">Nama Lengkap *</label>
+              <input type="text" name="nama" id="editKarNama" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Jabatan</label>
+              <input type="text" name="jabatan" id="editKarJabatan" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">NPWP</label>
+              <input type="text" name="npwp" id="editKarNpwp" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Status Kerja</label>
+              <select name="status_kerja" id="editKarStatusKerja" class="form-select form-select-sm">
+                <option value="TETAP">Karyawan Tetap</option>
+                <option value="KONTRAK">Karyawan Kontrak</option>
+                <option value="HARIAN">Karyawan Harian</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Status Pajak</label>
+              <select name="status_pajak" id="editKarStatusPajak" class="form-select form-select-sm">
+                <option value="TK0">TK/0</option>
+                <option value="TK1">TK/1</option>
+                <option value="K0">K/0</option>
+                <option value="K1">K/1</option>
+                <option value="K2">K/2</option>
+                <option value="K3">K/3</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-semibold">Status Aktif</label>
+              <div class="form-check form-switch pt-1">
+                <input class="form-check-input" type="checkbox" name="aktif" id="editKarAktif" value="1">
+                <label class="form-check-label small" for="editKarAktif">Aktif</label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Gaji Pokok (Rp)</label>
+              <input type="number" name="gaji_pokok" id="editKarGaji"
+                     class="form-control form-control-sm" min="0" step="1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Tunjangan Tetap (Rp)</label>
+              <input type="number" name="tunjangan" id="editKarTunjangan"
+                     class="form-control form-control-sm" min="0" step="1" placeholder="0">
+            </div>
+            <div class="col-12">
+              <div class="d-flex gap-4 pt-1">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="bpjs_kesehatan"
+                         value="1" id="editBks">
+                  <label class="form-check-label small" for="editBks">BPJS Kesehatan</label>
+                </div>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" name="bpjs_ketenagakerjaan"
+                         value="1" id="editBtk">
+                  <label class="form-check-label small" for="editBtk">BPJS Ketenagakerjaan</label>
+                </div>
+              </div>
+            </div>
+            <div class="col-12">
+              <div class="accordion accordion-flush" id="accEditLanjut">
+                <div class="accordion-item" style="border:1px solid var(--bdr);border-radius:8px;overflow:hidden">
+                  <h2 class="accordion-header">
+                    <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#collapseEditLanjut" style="font-size:.8rem;font-weight:600">
+                      <i class="fas fa-sliders me-2 text-muted"></i>Pengaturan Lanjutan (Jenis Upah, Tanggungan)
+                    </button>
+                  </h2>
+                  <div id="collapseEditLanjut" class="accordion-collapse collapse" data-bs-parent="#accEditLanjut">
+                    <div class="accordion-body py-2">
+                      <div class="row g-2">
+                        <div class="col-md-4">
+                          <label class="form-label small fw-semibold">Jenis Upah</label>
+                          <select name="jenis_upah" id="editKarJenisUpah" class="form-select form-select-sm">
+                            <option value="BULANAN">Bulanan Tetap</option>
+                            <option value="HARIAN">Harian</option>
+                            <option value="BORONGAN">Borongan / Satuan</option>
+                          </select>
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label small fw-semibold">Tarif Harian / Satuan (Rp)</label>
+                          <input type="number" name="tarif_harian" id="editKarTarif"
+                                 class="form-control form-control-sm" min="0" step="1" placeholder="0">
+                        </div>
+                        <div class="col-md-4">
+                          <label class="form-label small fw-semibold">Jumlah Tanggungan</label>
+                          <input type="number" name="jumlah_tanggungan" id="editKarTanggungan"
+                                 class="form-control form-control-sm" min="0" max="20" step="1" value="0">
+                        </div>
+                      </div>
+                      <div class="form-text" style="font-size:.66rem">
+                        Harian/Borongan = pegawai tidak tetap (PPh 21 ambang harian, tanpa BPJS).
+                        Tanggungan bersifat info; PTKP mengikuti Status Pajak.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+      <!-- Form hapus TERPISAH: HTML tidak mengizinkan <form> bersarang di dalam form edit.
+           Tombol di footer dihubungkan ke form lewat atribut form="..." (HTML5). -->
+      <form method="POST" id="formHapusKaryawan" class="d-none"
+            onsubmit="return confirm('Hapus karyawan ini? Hanya bisa dihapus jika belum ada riwayat gaji.')">
+        <input type="hidden" name="action" value="hapus">
+        <input type="hidden" name="karyawan_id" id="hapusKarId">
+      </form>
+      <div class="modal-footer py-2 d-flex justify-content-between">
+        <button type="submit" form="formHapusKaryawan" class="btn btn-sm btn-outline-danger">
+          <i class="fas fa-trash me-1"></i>Hapus</button>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" form="formEditKaryawan" class="btn btn-sm" style="background:#7c3aed;color:#fff">
+            <i class="fas fa-save me-1"></i>Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ pagination(pg) }}
+{% endblock %}
+{% block scripts %}
+<script>
+function openEditKaryawan(id, k) {
+  document.getElementById('editKarId').value      = id;
+  document.getElementById('hapusKarId').value     = id;
+  document.getElementById('editKarNo').value      = k.no_karyawan || '';
+  document.getElementById('editKarNama').value    = k.nama || '';
+  document.getElementById('editKarJabatan').value = k.jabatan || '';
+  document.getElementById('editKarNpwp').value    = k.npwp || '';
+  document.getElementById('editKarGaji').value    = k.gaji_pokok || 0;
+  document.getElementById('editKarTunjangan').value = k.tunjangan_tetap || 0;
+  document.getElementById('editKarStatusKerja').value = k.status_kerja || 'TETAP';
+  document.getElementById('editKarStatusPajak').value = k.status_pajak || 'TK0';
+  document.getElementById('editKarAktif').checked = !!k.aktif;
+  document.getElementById('editBks').checked      = !!k.bpjs_kesehatan;
+  document.getElementById('editBtk').checked      = !!k.bpjs_ketenagakerjaan;
+  document.getElementById('editKarJenisUpah').value   = k.jenis_upah || 'BULANAN';
+  document.getElementById('editKarTarif').value       = k.tarif_harian || 0;
+  document.getElementById('editKarTanggungan').value  = k.jumlah_tanggungan || 0;
+  new bootstrap.Modal(document.getElementById('modalEditKaryawan')).show();
+}
+</script>
+{% endblock %}

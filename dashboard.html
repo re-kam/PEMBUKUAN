@@ -1,0 +1,1976 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - FinansialApp{% endblock %}
+{% block page_title %}
+  {% if session.role == 'OPERATOR' %}Portal Operator{% elif session.role == 'INVESTOR' %}Dashboard Investor{% else %}Dashboard{% endif %}
+{% endblock %}
+{% block content %}
+
+{% if session.role == 'OPERATOR' %}
+{# ── OPERATOR PORTAL ── #}
+{% set cm = today.strftime('%B %Y') %}
+<div class="row g-3 mb-3">
+  <!-- Greeting -->
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body py-3 px-4 d-flex align-items-center gap-3">
+        <div style="width:52px;height:52px;border-radius:14px;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-user-pen" style="color:#1d4ed8;font-size:1.3rem"></i>
+        </div>
+        <div>
+          <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748b">Selamat datang</div>
+          <div style="font-size:1.15rem;font-weight:800;color:#0f172a">{{ session.nama }}</div>
+          <div style="font-size:.78rem;color:#64748b">
+            <i class="fas fa-calendar-day me-1" style="color:#3b82f6"></i>Input transaksi aktif untuk
+            <strong style="color:#0369a1">{{ cm }}</strong>
+          </div>
+        </div>
+        <div class="ms-auto text-end">
+          <div class="badge" style="background:#0369a1;font-size:.7rem;padding:.35rem .75rem">OPERATOR</div>
+          <div style="font-size:.65rem;color:var(--tx3);margin-top:.3rem">Akses terbatas</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Quick action cards -->
+  <div class="col-md-6">
+    <a href="/pemasukan" class="card text-decoration-none h-100">
+      <div class="card-body py-3 px-4 d-flex align-items-center gap-3">
+        <div style="width:48px;height:48px;border-radius:12px;background:#dcfce7;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-arrow-trend-up" style="color:#15803d;font-size:1.2rem"></i>
+        </div>
+        <div>
+          <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Input</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#15803d">Penjualan</div>
+          <div style="font-size:.73rem;color:#86efac">Catat penjualan & pendapatan</div>
+        </div>
+        <i class="fas fa-chevron-right ms-auto" style="color:#86efac"></i>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-6">
+    <a href="/pengeluaran" class="card text-decoration-none h-100">
+      <div class="card-body py-3 px-4 d-flex align-items-center gap-3">
+        <div style="width:48px;height:48px;border-radius:12px;background:#fee2e6;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-arrow-trend-down" style="color:#dc2626;font-size:1.2rem"></i>
+        </div>
+        <div>
+          <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Input</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#991b1b">Pengeluaran</div>
+          <div style="font-size:.73rem;color:#fca5a5">Catat beban & pengeluaran</div>
+        </div>
+        <i class="fas fa-chevron-right ms-auto" style="color:#fca5a5"></i>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="/piutang" class="card text-decoration-none h-100">
+      <div class="card-body py-3 px-4 d-flex align-items-center gap-3">
+        <div style="width:48px;height:48px;border-radius:12px;background:#fef3c7;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-file-invoice-dollar" style="color:#b45309;font-size:1.2rem"></i>
+        </div>
+        <div>
+          <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Input</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#92400e">Piutang</div>
+          <div style="font-size:.73rem;color:#fcd34d">Catat tagihan pelanggan</div>
+        </div>
+        <i class="fas fa-chevron-right ms-auto" style="color:#fcd34d"></i>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="/hutang" class="card text-decoration-none h-100">
+      <div class="card-body py-3 px-4 d-flex align-items-center gap-3">
+        <div style="width:48px;height:48px;border-radius:12px;background:#fff7ed;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-hand-holding-dollar" style="color:#c2410c;font-size:1.2rem"></i>
+        </div>
+        <div>
+          <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Input</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#c2410c">Hutang</div>
+          <div style="font-size:.73rem;color:#fdba74">Catat hutang ke pemasok</div>
+        </div>
+        <i class="fas fa-chevron-right ms-auto" style="color:#fdba74"></i>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-4">
+    <a href="/stok" class="card text-decoration-none h-100">
+      <div class="card-body py-3 px-4 d-flex align-items-center gap-3">
+        <div style="width:48px;height:48px;border-radius:12px;background:#eef2ff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas fa-boxes-stacked" style="color:#6366f1;font-size:1.2rem"></i>
+        </div>
+        <div>
+          <div style="font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">Input</div>
+          <div style="font-size:1.1rem;font-weight:800;color:#4338ca">Inventory</div>
+          <div style="font-size:.73rem;color:#a5b4fc">Kelola stok produk</div>
+        </div>
+        <i class="fas fa-chevron-right ms-auto" style="color:#a5b4fc"></i>
+      </div>
+    </a>
+  </div>
+  <!-- Info box -->
+  <div class="col-12">
+    <div class="card" style="border:1px solid #fde68a;background:#fffbeb">
+      <div class="card-body py-2 px-3 d-flex align-items-center gap-2" style="font-size:.8rem;color:#92400e">
+        <i class="fas fa-circle-info" style="color:#b45309"></i>
+        <span>Pemasukan & pengeluaran hanya bisa diinput untuk bulan <strong>{{ cm }}</strong>. Piutang, hutang, dan stok tidak dibatasi bulan.</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+{# ── NORMAL DASHBOARD (ADMIN + INVESTOR) ── #}
+<style>
+/* Rekening strip */
+.rek-strip{background:linear-gradient(135deg,#f0fdf4 0%,#eff6ff 100%)}
+[data-theme=dark] .rek-strip{background:linear-gradient(135deg,rgba(5,46,22,.6) 0%,rgba(30,58,95,.6) 100%)}
+
+/* Golden ratio KPI */
+.kpi-golden{overflow:hidden;container-type:inline-size}
+.kpi-g-main{flex:1.618;min-width:0;padding:1.4rem 1.75rem;border-right:1px solid var(--bdr);display:flex;align-items:center;gap:1.1rem;background:var(--pg)}
+.kpi-g-main > div{min-width:0}
+.kpi-g-main .g-icon{width:54px;height:54px;border-radius:14px;background:rgba(22,163,74,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.kpi-g-main .g-lbl{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--pgp);margin-bottom:.3rem}
+.kpi-g-main .g-num{font-size:2.1rem;font-weight:900;color:var(--pgt);line-height:1;letter-spacing:-.02em}
+.kpi-g-main .g-sub{font-size:.67rem;color:var(--pgp);margin-top:.3rem;opacity:.8}
+.kpi-g-side{flex:1;min-width:0;display:flex;flex-direction:column}
+.kpi-g-row{flex:1;min-width:0;padding:.95rem 1.25rem;display:flex;align-items:center;gap:.75rem}
+.kpi-g-row+.kpi-g-row{border-top:1px solid var(--bdr)}
+.kpi-g-row .g-icon2{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.kpi-g-row .g-lbl2{font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem}
+.kpi-g-row .g-num2{font-size:1.3rem;font-weight:800;line-height:1;letter-spacing:-.01em}
+.kpi-g-row .g-sub2{font-size:.62rem;color:var(--tx3);margin-top:.18rem}
+/* Cashflow grid */
+.cf-row{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--bdr)}
+.cf-cell{padding:.9rem 1rem}
+.cf-cell+.cf-cell{border-left:1px solid var(--bdr)}
+.cf-lbl{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.35rem;color:var(--tx3)}
+.cf-val{font-size:1.12rem;font-weight:800;line-height:1}
+.cf-full{padding:.9rem 1rem;border-bottom:1px solid var(--bdr)}
+.cf-saldo{padding:.9rem 1rem}
+/* ── Custom Date Range Picker ── */
+.drp2-panel{position:fixed;z-index:9999;background:var(--card);border:1px solid var(--bdr-md);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.18);display:flex;overflow:hidden;width:700px;max-width:calc(100vw - 16px)}
+.drp2-sidebar{width:175px;flex-shrink:0;border-right:1px solid var(--bdr-md);overflow-y:auto;padding:.6rem 0;background:var(--card)}
+.drp2-stitle{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--tx3);padding:.25rem .85rem .5rem}
+.drp2-preset{padding:.38rem .85rem;font-size:.82rem;cursor:pointer;color:var(--tx2);border-left:2.5px solid transparent;transition:background .1s,color .1s;white-space:nowrap}
+.drp2-preset:hover{background:var(--bdr);color:var(--tx)}
+.drp2-preset.drp2-active{background:#f0fdf4;color:#15803d;border-left-color:#16a34a;font-weight:600}
+[data-theme=dark] .drp2-preset.drp2-active{background:rgba(20,83,45,.4);color:#4ade80}
+.drp2-right{flex:1;display:flex;flex-direction:column;min-width:0}
+.drp2-cals{display:flex;gap:1.25rem;padding:1rem 1rem .75rem}
+.drp2-month{flex:1}
+.drp2-mhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+.drp2-mnav{background:none;border:none;cursor:pointer;color:var(--tx2);font-size:1.15rem;line-height:1;padding:2px 8px;border-radius:5px;transition:background .1s}
+.drp2-mnav:hover{background:var(--bdr)}
+.drp2-mtitle{font-size:.85rem;font-weight:700;color:var(--tx)}
+.drp2-daynames{display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:.25rem}
+.drp2-daynames div{text-align:center;font-size:.6rem;font-weight:600;color:var(--tx3);padding:.18rem 0}
+.drp2-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.drp2-day,.drp2-empty{text-align:center;font-size:.78rem;padding:.3rem .1rem;cursor:pointer;border-radius:5px;color:var(--tx);border:1.5px solid transparent;transition:background .1s;line-height:1.4;user-select:none}
+.drp2-empty{cursor:default}
+.drp2-day:hover{background:var(--bdr)}
+.drp2-today{font-weight:700;border-color:#16a34a!important;color:#15803d}
+.drp2-sel-s,.drp2-sel-e{background:#15803d!important;color:#fff!important;border-color:#16a34a!important;border-radius:5px!important;font-weight:700}
+.drp2-in-range{background:#dcfce7;color:#15803d;border-radius:0}
+.drp2-hover-range{background:#f0fdf4;color:#166534;border-radius:0}
+[data-theme=dark] .drp2-in-range{background:rgba(20,83,45,.5);color:#86efac}
+[data-theme=dark] .drp2-hover-range{background:rgba(20,83,45,.25);color:#86efac}
+.drp2-foot{padding:.65rem 1rem;border-top:1px solid var(--bdr-md);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
+.drp2-inp{background:var(--inp);color:var(--tx);border:1px solid var(--bdr-md);border-radius:6px;padding:.3rem .65rem;font-size:.8rem;width:112px;font-family:inherit;outline:none;cursor:default}
+.drp2-inp:focus{border-color:#16a34a}
+.drp2-sep{color:var(--tx3);font-size:.9rem}
+
+/* Profitabilitas table */
+.pnl-tbl{width:100%;border-collapse:collapse}
+.pnl-tbl thead td{font-size:.56rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--tx3);background:var(--card-h);border-bottom:2px solid var(--bdr);padding:.4rem .75rem}
+/* Sub rows, muted, compact */
+.pnl-row-sub td{font-size:.74rem;color:var(--tx3);padding:.3rem .75rem;font-weight:500}
+.pnl-row-sub td:first-child{padding-left:1.5rem}
+.pnl-row-sub td:nth-child(2),.pnl-row-sub td:nth-child(3){font-weight:600}
+/* Main result rows, prominent */
+.pnl-row-main td{padding:.6rem .75rem;font-weight:800;font-size:.86rem}
+/* Separator */
+.pnl-sep td{padding:.08rem 0}
+/* Deduction/Beban rows, same hierarchy as main rows, red */
+.pnl-ded{background:rgba(239,68,68,.07);border-bottom:1px solid rgba(239,68,68,.14)}
+.pnl-ded td{color:#b91c1c!important;font-size:.88rem!important;font-weight:800!important}
+.pnl-ded td:first-child{padding:.62rem .75rem!important}
+.pnl-ded td:nth-child(2){padding:.62rem .75rem!important}
+.pnl-ded td:nth-child(3){padding:.62rem .4rem!important;font-size:.78rem!important;font-weight:700!important}
+.pnl-ded td:first-child i{opacity:.9!important;color:#ef4444;font-size:.62rem!important}
+[data-theme=dark] .pnl-ded{background:rgba(239,68,68,.13)}
+[data-theme=dark] .pnl-ded td{color:#fca5a5!important}
+/* Bar */
+.pnl-bar{height:6px;background:rgba(0,0,0,.07);border-radius:4px;overflow:hidden;min-width:40px}
+.pnl-bar-inner{height:100%;border-radius:4px}
+[data-theme=dark] .pnl-bar{background:rgba(255,255,255,.12)}
+/* ── CHART HEIGHT ── */
+#chartWrap { position:relative; height:320px }
+@media(max-width:991.98px){ #chartWrap { height:300px } }
+@media(max-width:575.98px){ #chartWrap { height:280px } }
+/* ── TREN HARIAN (daily trend) ── */
+#dtWrap { position:relative; height:300px }
+@media(max-width:991.98px){ #dtWrap { height:280px } }
+@media(max-width:575.98px){ #dtWrap { height:250px } }
+.dash-daily-trend .dt-controls #dtMonth{ color:var(--tx); background:var(--card-h); border:1.5px solid var(--bdr) }
+.dash-daily-trend .dt-controls #dtMonth::-webkit-calendar-picker-indicator{ opacity:.55; cursor:pointer }
+[data-theme=dark] .dash-daily-trend .dt-controls #dtMonth::-webkit-calendar-picker-indicator{ filter:invert(1); opacity:.7 }
+@media(max-width:480px){
+  .dash-daily-trend .card-header{ flex-direction:column; align-items:stretch!important }
+  .dash-daily-trend .dt-controls{ justify-content:center }
+  .dash-daily-trend .dt-controls #dtMonth{ flex:1 1 auto }
+  .dash-daily-trend .dt-summary{ gap:.35rem!important; flex-direction:column }
+}
+
+/* Kartu KPI emas: stack kolom-dalam saat KARTU sempit — pakai container query (lebar kartu,
+   bukan lebar layar) → orientasi-agnostik: cegah angka Pendapatan/Laba terpotong di tablet
+   portrait MAUPUN landscape, tanpa wrap berantakan. */
+@container (max-width:800px){
+  .kpi-golden > .d-flex{flex-direction:column}
+  .kpi-g-main{border-right:none!important;border-bottom:1px solid var(--bdr);flex:none}
+  .kpi-g-main .g-num{font-size:1.6rem}
+  .kpi-g-side{flex:none}
+}
+/* Tablet ke bawah: kartu KPI full-width biar tak berdesakan satu baris dengan kartu lain */
+@media(max-width:1199.98px){
+  .dash-kpi-row > div,.dash-kpi-row > .card{flex:1 1 100%!important;min-width:0!important}
+}
+
+/* ── MOBILE ── */
+@media(max-width:767.98px){
+  .kpi-g-main .g-num{font-size:1.5rem}
+  .drp2-panel{width:calc(100vw - 16px)!important;flex-direction:column}
+  .drp2-sidebar{width:100%!important;border-right:none!important;border-bottom:1px solid var(--bdr-md);max-height:100px;overflow-y:auto;display:flex;flex-wrap:wrap;padding:.35rem .5rem}
+  .drp2-stitle{display:none}
+  .drp2-preset{padding:.25rem .5rem;font-size:.75rem;border-left:none;border-radius:4px;border:1px solid var(--bdr-md);margin:.15rem}
+  .drp2-preset.drp2-active{border-color:#16a34a}
+  .drp2-cals{flex-direction:column;gap:.5rem;padding:.5rem}
+  #drp2Btn{min-width:0!important;width:100%}
+  .dash-mobile-flow{display:flex;flex-direction:column}
+  .dash-filter{order:1}
+  .dash-kpi-row{order:2}
+  .dash-rekening{order:3}
+  .dash-ratio{order:4}
+  .dash-daily-trend{order:4}
+  .dash-chart-alert-row{display:contents}
+  .dash-main-chart{order:5}
+  .dash-main-row{display:contents}
+  .dash-cashflow-card{order:6}
+  .dash-alerts-card{order:7}
+  .dash-tagihan-card{order:8}
+  .dash-profit-card{order:9}
+  .dash-recent-card{order:10}
+  .rek-strip .card-body{padding:.85rem 1rem!important}
+  .rek-list{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem!important;align-items:stretch!important}
+  .rek-title{grid-column:1/-1;font-size:.64rem!important;letter-spacing:.08em!important}
+  .rek-divider{display:none}
+  .rek-chip{width:100%;min-width:0;padding:.52rem .62rem!important;border-radius:9px!important;gap:.48rem!important}
+  .rek-chip i{font-size:.82rem!important}
+  .rek-chip-name{font-size:.58rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .rek-chip-balance{font-size:.83rem!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dash-chart-alert-row{margin-bottom:0!important}
+  .dash-main-chart,.dash-cashflow-card,.dash-alerts-card,.dash-tagihan-card,.dash-profit-card,.dash-recent-card{margin-bottom:1rem}
+}
+@media(max-width:340px){
+  .rek-list{grid-template-columns:1fr}
+}
+/* pnl-tbl dashboard: hide % and Bar columns below xxl, allow label wrap */
+@media(max-width:1399.98px){
+  .pnl-tbl-dash td:nth-child(3),
+  .pnl-tbl-dash td:nth-child(4){ display:none }
+  .pnl-tbl-dash colgroup col:nth-child(3),
+  .pnl-tbl-dash colgroup col:nth-child(4){ display:none }
+  .pnl-tbl-dash td:first-child{ white-space:normal!important;min-width:80px }
+  .pnl-tbl-dash td:nth-child(2){ font-size:.82rem!important }
+}
+/* pnl-tbl compact on medium screens */
+@media(max-width:1199.98px){
+  .pnl-tbl-dash td{ font-size:.8rem!important }
+}
+
+/* ═══════════ REDESIGN KARTU DASHBOARD — clean & modern (gaya rekap) ═══════════ */
+/* Hanya tampilan; data/route/variabel tidak berubah (kompatibel DB lama).        */
+/* Kartu: borderless + shadow lembut + sudut halus. !important menetralkan         */
+/* inline border-left (side-stripe) & border-top (top-stripe) di kartu-kartu dash. */
+.card{border:none!important;border-radius:13px!important;box-shadow:0 1px 3px rgba(15,23,42,.07),0 4px 12px rgba(15,23,42,.05)!important}
+[data-theme=dark] .card{box-shadow:0 2px 10px rgba(0,0,0,.5)!important}
+.card-header{border-radius:13px 13px 0 0!important;border-bottom:1px solid var(--bdr)!important;background:var(--card)!important;padding:.7rem 1.05rem!important}
+.card-header .section-title{font-size:.9rem;font-weight:700;letter-spacing:-.01em}
+/* Strip rekening & kartu info atas: flat (buang gradient) */
+.rek-strip,[data-theme=dark] .rek-strip{background:var(--card)!important}
+/* Profitabilitas: baris pengurang jadi TENANG & netral (buang blok merah) */
+.pnl-ded{background:transparent!important;border-bottom:1px solid var(--bdr)!important}
+.pnl-ded td{color:var(--tx2)!important}
+.pnl-ded td i{color:#f87171!important;opacity:1!important}
+[data-theme=dark] .pnl-ded td{color:var(--tx2)!important}
+/* Bar tipis rapi */
+.pnl-bar{background:rgba(15,23,42,.06)!important}
+[data-theme=dark] .pnl-bar{background:rgba(255,255,255,.1)!important}
+</style>
+
+<div class="dash-mobile-flow">
+
+<!-- Filter Bar -->
+<div class="card mb-3 dash-filter">
+  <div class="card-body py-2 px-3">
+    <form method="GET" id="filterForm" class="d-flex flex-wrap align-items-center gap-2">
+      <input type="hidden" name="sd" id="fSd" value="{{ sd }}">
+      <input type="hidden" name="ed" id="fEd" value="{{ ed }}">
+      <span style="font-size:.8rem;font-weight:600;color:var(--tx2)">Periode:</span>
+      <button type="button" id="drp2Btn" class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-2"
+              style="font-size:.82rem;min-width:220px;justify-content:flex-start">
+        <i class="fas fa-calendar-days" style="color:#15803d;font-size:.85rem;flex-shrink:0"></i>
+        <span id="drp2Lbl" style="flex:1;text-align:left">Pilih Rentang Tanggal</span>
+        <i class="fas fa-chevron-down" style="font-size:.65rem;opacity:.45;flex-shrink:0"></i>
+      </button>
+      <div class="ms-auto d-flex gap-2">
+        <button type="button" class="btn btn-outline-success btn-sm"
+                onclick="openExportModal()">
+          <i class="fas fa-file-excel me-1"></i>Export Excel</button>
+        {% if session.role in ('ADMIN','FINANCE') %}
+        <a href="/pemasukan" class="btn btn-success btn-sm"><i class="fas fa-plus me-1"></i>Penjualan</a>
+        <a href="/pengeluaran" class="btn btn-danger btn-sm"><i class="fas fa-minus me-1"></i>Pengeluaran</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Golden Ratio KPI Row -->
+{% set net_cf    = cf.masuk - cf.keluar %}
+{% set total_exp = pnl.hpp + pnl.op_exp + pnl.tax %}
+{% set lb_c      = '#15803d' if pnl.laba_bersih >= 0 else '#dc2626' %}
+{% set lb_bg2    = 'rgba(22,163,74,.12)' if pnl.laba_bersih >= 0 else 'rgba(220,38,38,.12)' %}
+{% set cf_c      = '#15803d' if net_cf >= 0 else '#dc2626' %}
+{% set cf_bg3    = 'rgba(22,163,74,.12)' if net_cf >= 0 else 'rgba(220,38,38,.12)' %}
+
+<div class="d-flex gap-3 mb-3 dash-kpi-row" style="align-items:stretch;flex-wrap:wrap">
+
+  <!-- ── Golden KPI card ── -->
+  <div class="card kpi-golden" style="flex:1.618;min-width:280px;--kpi-a:#064E3B;--kpi-b:#047857">
+    <div class="sec-band"><i class="fas fa-scale-balanced me-2"></i>Ringkasan Laba Rugi</div>
+    <div class="d-flex" style="flex:1;min-height:0">
+
+      <!-- Pendapatan (61.8% of card) -->
+      <div class="kpi-g-main" style="flex:1.618">
+        <div class="g-icon">
+          <i class="fas fa-arrow-trend-up" style="color:var(--pgp);font-size:1.3rem"></i>
+        </div>
+        <div>
+          <div class="g-lbl">Total Pendapatan</div>
+          <div class="g-num text-rp">{{ pnl.rev|rp }}</div>
+          {% if pnl.rev > 0 and max_rev_year > 0 %}
+            {% if pnl.rev >= max_rev_year %}
+            <div class="g-sub">
+              <i class="fas fa-trophy me-1" style="color:#f59e0b;font-size:.6rem"></i>Tertinggi di tahun {{ today.year }}
+            </div>
+            {% else %}
+            <div class="g-sub">
+              {{ "%.0f"|format(pnl.rev / max_rev_year * 100) }}% dari tertinggi tahun ini
+              <span style="opacity:.7">({{ max_rev_year|rp }})</span>
+            </div>
+            {% endif %}
+          {% else %}
+          <div class="g-sub">periode ini</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Total Beban + Laba Bersih (38.2% of card) -->
+      <div class="kpi-g-side" style="flex:1">
+
+        <!-- Total Beban -->
+        <div class="kpi-g-row">
+          <div class="g-icon2" style="background:rgba(239,68,68,.12)">
+            <i class="fas fa-arrow-trend-down" style="color:#dc2626;font-size:.9rem"></i>
+          </div>
+          <div style="min-width:0">
+            <div class="g-lbl2" style="color:#dc2626">Total Beban</div>
+            <div class="g-num2 text-rp" style="color:#dc2626">{{ total_exp|rp }}</div>
+            <div class="g-sub2">operasional · pajak · penyusutan</div>
+          </div>
+          <div class="ms-auto text-end ps-2" style="flex-shrink:0">
+            <div style="font-size:.7rem;font-weight:700;color:#dc2626">
+              {% if pnl.rev > 0 %}{{ "%.1f"|format(total_exp / pnl.rev * 100) }}%{% else %}-{% endif %}
+            </div>
+            <div style="height:4px;width:48px;background:rgba(239,68,68,.15);border-radius:2px;margin-top:.3rem;overflow:hidden">
+              <div style="height:100%;border-radius:2px;background:#ef4444;width:{% if pnl.rev > 0 %}{{ [[total_exp / pnl.rev * 100,0]|max,100]|min|round|int }}%{% else %}0%{% endif %}"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Laba Bersih -->
+        <div class="kpi-g-row">
+          <div class="g-icon2" style="background:{{ lb_bg2 }}">
+            <i class="fas fa-coins" style="color:{{ lb_c }};font-size:.9rem"></i>
+          </div>
+          <div style="min-width:0">
+            <div class="g-lbl2" style="color:{{ lb_c }}">Laba Bersih</div>
+            <div class="g-num2 text-rp" style="color:{{ lb_c }}">{{ pnl.laba_bersih|rp }}</div>
+            <div class="g-sub2">margin {{ pnl.pct_laba_bersih }}%</div>
+          </div>
+          <div class="ms-auto text-end ps-2" style="flex-shrink:0">
+            <div style="font-size:.7rem;font-weight:700;color:{{ lb_c }}">{{ pnl.pct_laba_bersih }}%</div>
+            <div style="height:4px;width:48px;background:rgba(22,163,74,.12);border-radius:2px;margin-top:.3rem;overflow:hidden">
+              <div style="height:100%;border-radius:2px;background:{{ lb_c }};width:{{ [[pnl.pct_laba_bersih|float,0]|max,100]|min|round|int }}%"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Cashflow card (38.2%) ── -->
+  {% set saldo_pos = cf.saldo >= 0 %}
+  <div style="flex:1;min-width:250px">
+    <a href="/arus-kas" class="text-decoration-none h-100" style="display:flex;flex-direction:column;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px {{ 'rgba(37,99,235,.13)' if saldo_pos else 'rgba(220,38,38,.15)' }}">
+
+      <div class="sec-band" style="--kpi-a:{{ '#1E3A8A' if saldo_pos else '#7F1D1D' }};--kpi-b:{{ '#2563eb' if saldo_pos else '#dc2626' }}"><i class="fas fa-right-left me-2"></i>Ringkasan Cashflow</div>
+
+      <!-- Hero: Uang Terkumpul -->
+      <div style="background:{{ '#2563eb' if saldo_pos else '#dc2626' }};padding:.9rem 1rem .75rem;position:relative;overflow:hidden">
+        <div style="position:absolute;right:-10px;top:-10px;width:70px;height:70px;border-radius:50%;background:rgba(255,255,255,.07)"></div>
+        <div style="position:absolute;right:14px;bottom:-18px;width:48px;height:48px;border-radius:50%;background:rgba(255,255,255,.05)"></div>
+        <div style="font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.7);margin-bottom:.15rem">
+          <i class="fas fa-vault me-1"></i>Uang Terkumpul
+        </div>
+        <div class="text-rp" style="font-size:1.35rem;font-weight:900;color:#fff;line-height:1;letter-spacing:-.01em">{{ cf.saldo|rp }}</div>
+        <div style="font-size:.6rem;color:rgba(255,255,255,.55);margin-top:.2rem">net kas periode yang dipilih</div>
+      </div>
+
+      <!-- Sub: Masuk | Keluar -->
+      <div style="display:flex;background:var(--card);border:1px solid var(--pgb);border-top:none;border-radius:0 0 12px 12px;flex:1">
+        <div style="flex:1;padding:.6rem .9rem;border-right:1px solid var(--pgb)">
+          <div style="font-size:.57rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#15803d;margin-bottom:.1rem">
+            <i class="fas fa-arrow-down me-1"></i>Uang Masuk
+          </div>
+          <div class="text-rp" style="font-size:.97rem;font-weight:800;color:#15803d;line-height:1.2">{{ cf.masuk|rp }}</div>
+          <div style="font-size:.58rem;color:var(--tx3)">periode ini</div>
+        </div>
+        <div style="flex:1;padding:.6rem .9rem">
+          <div style="font-size:.57rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#dc2626;margin-bottom:.1rem">
+            <i class="fas fa-arrow-up me-1"></i>Uang Keluar
+          </div>
+          <div class="text-rp" style="font-size:.97rem;font-weight:800;color:#b91c1c;line-height:1.2">{{ cf.keluar|rp }}</div>
+          <div style="font-size:.58rem;color:var(--tx3)">periode ini</div>
+        </div>
+      </div>
+
+    </a>
+  </div>
+
+</div>
+
+<!-- Rincian Rekening -->
+{% if saldo_rekening %}
+<div class="card mb-3 rek-strip dash-rekening" style="border:none;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap rek-list">
+      <div class="rek-title" style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#64748b;white-space:nowrap;flex-shrink:0">
+        <i class="fas fa-vault me-1" style="color:#3b82f6"></i>Rekening
+      </div>
+      <div class="rek-divider" style="width:1px;height:28px;background:rgba(0,0,0,.1);flex-shrink:0"></div>
+      {% for rek in saldo_rekening %}
+        {% if 'Kas' in rek.nama or 'kas' in rek.nama %}
+          {% set chip_bg     = '#dcfce7' %}
+          {% set chip_border = '#86efac' %}
+          {% set chip_lbl    = '#15803d' %}
+          {% set chip_icon   = 'fas fa-money-bill-wave' %}
+          {% set chip_ic_clr = '#16a34a' %}
+        {% elif 'Wallet' in rek.nama or 'wallet' in rek.nama or 'E-' in rek.nama %}
+          {% set chip_bg     = '#faf5ff' %}
+          {% set chip_border = '#d8b4fe' %}
+          {% set chip_lbl    = '#7c3aed' %}
+          {% set chip_icon   = 'fas fa-wallet' %}
+          {% set chip_ic_clr = '#8b5cf6' %}
+        {% else %}
+          {% set chip_bg     = '#dbeafe' %}
+          {% set chip_border = '#93c5fd' %}
+          {% set chip_lbl    = '#1d4ed8' %}
+          {% set chip_icon   = 'fas fa-building-columns' %}
+          {% set chip_ic_clr = '#3b82f6' %}
+        {% endif %}
+      <div class="rek-chip" style="display:flex;align-items:center;gap:.55rem;padding:.35rem .75rem;
+                  background:{{ chip_bg }};border-radius:9px;border:1px solid {{ chip_border }}">
+        <i class="{{ chip_icon }}" style="color:{{ chip_ic_clr }};font-size:.85rem;flex-shrink:0"></i>
+        <div style="min-width:0">
+          <div class="rek-chip-name" style="font-size:.6rem;color:{{ chip_lbl }};font-weight:600;line-height:1.2;opacity:.8">{{ rek.nama }}</div>
+          <div class="rek-chip-balance text-rp" style="font-size:.9rem;font-weight:800;line-height:1.2;
+               color:{% if rek.saldo >= 0 %}{{ chip_lbl }}{% else %}#dc2626{% endif %}">
+            {{ rek.saldo|rp }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Kesehatan Keuangan (rasio configurable via /settings) -->
+{% if ratios and app_pref.ratio_widgets and show_feature.analisis_rasio %}
+{% set _rcls = {
+  'Sehat':           'badge-lunas',
+  'Cukup':           'badge-sebagian',
+  'Perlu Perhatian': 'badge-belum'
+} %}
+{# Map key → (label, value, interpretation, icon, color) #}
+{% set _rw_map = {
+  'current_ratio':        ('Current Ratio',        '%.2fx'|format(ratios.current_ratio),   ratios.current_int, 'fas fa-droplet',             '#0ea5e9'),
+  'quick_ratio':          ('Quick Ratio',          '%.2fx'|format(ratios.quick_ratio),     ratios.quick_int,   'fas fa-bolt',                '#06b6d4'),
+  'cash_ratio':           ('Cash Ratio',           '%.2fx'|format(ratios.cash_ratio),      ratios.cash_int,    'fas fa-coins',               '#14b8a6'),
+  'der':                  ('DER',                  '%.2fx'|format(ratios.der),             ratios.der_int,     'fas fa-scale-balanced',      '#f97316'),
+  'debt_to_asset':        ('Debt to Asset',        '%.2f'|format(ratios.debt_to_asset),    ratios.dta_int,     'fas fa-link',                '#fb923c'),
+  'equity_ratio':         ('Equity Ratio',         '%.2f'|format(ratios.equity_ratio),     ratios.eqr_int,     'fas fa-shield',              '#fbbf24'),
+  'gpm':                  ('Gross Margin',         '%.1f%%'|format(ratios.gpm),            ratios.gpm_int,     'fas fa-percent',             '#22c55e'),
+  'opm':                  ('Operating Margin',     '%.1f%%'|format(ratios.opm),            ratios.opm_int,     'fas fa-percent',             '#16a34a'),
+  'npm':                  ('Net Margin',           '%.1f%%'|format(ratios.npm),            ratios.npm_int,     'fas fa-percent',             '#8b5cf6'),
+  'roa':                  ('ROA',                  '%.1f%%'|format(ratios.roa),            ratios.roa_int,     'fas fa-chart-pie',           '#ec4899'),
+  'roe':                  ('ROE',                  '%.1f%%'|format(ratios.roe),            ratios.roe_int,     'fas fa-chart-line',          '#10b981'),
+  'inv_turnover':         ('Inventory Turnover',   '%.2fx'|format(ratios.inv_turnover),    ratios.inv_int,     'fas fa-boxes-stacked',       '#0284c7'),
+  'asset_turnover':       ('Asset Turnover',       '%.2fx'|format(ratios.asset_turnover),  ratios.at_int,      'fas fa-rotate',              '#7c3aed'),
+  'receivables_turnover': ('Receivables Turnover', '%.2fx'|format(ratios.receivables_turnover), ratios.recv_int,'fas fa-hand-holding-dollar', '#d97706')
+} %}
+<a href="/analisis-rasio?sd={{ sd }}&ed={{ ed }}" class="text-decoration-none dash-ratio">
+<div class="card mb-3" style="border:none;box-shadow:0 1px 3px rgba(0,0,0,.06)">
+  <div class="card-body py-2 px-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <div style="font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#64748b;white-space:nowrap;flex-shrink:0">
+        <i class="fas fa-gauge-high me-1" style="color:#0369a1"></i>Kesehatan Keuangan
+      </div>
+      <div style="width:1px;height:28px;background:rgba(0,0,0,.1);flex-shrink:0"></div>
+      {% for w_key in app_pref.ratio_widgets %}
+      {% set r = _rw_map.get(w_key) %}
+      {% if r %}
+      <div style="display:flex;align-items:center;gap:.55rem;padding:.35rem .75rem;background:var(--card);border-radius:9px;border:1px solid var(--bdr-md)">
+        <i class="{{ r[3] }}" style="color:{{ r[4] }};font-size:.85rem;flex-shrink:0"></i>
+        <div>
+          <div style="font-size:.6rem;color:var(--tx3);font-weight:600;line-height:1.2">{{ r[0] }}</div>
+          <div class="text-rp" style="font-size:.9rem;font-weight:800;line-height:1.2;color:var(--tx)">{{ r[1] }}</div>
+        </div>
+        <span class="badge {{ _rcls[r[2]] }}" style="margin-left:.3rem">{{ r[2] }}</span>
+      </div>
+      {% endif %}
+      {% endfor %}
+      <div class="ms-auto" style="font-size:.7rem;color:#0369a1;font-weight:600;white-space:nowrap">
+        Lihat semua rasio <i class="fas fa-arrow-right ms-1" style="font-size:.65rem"></i>
+      </div>
+    </div>
+  </div>
+</div>
+</a>
+{% endif %}
+
+<!-- ── Tren Harian: Pendapatan vs Laba Bersih (picker bulan & tahun) ── -->
+<div class="card mb-3 dash-daily-trend">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <i class="fas fa-arrow-trend-up" style="font-size:.9rem;color:#15803d"></i>
+      <span style="font-weight:700;font-size:.92rem">Tren Harian &mdash; Pendapatan vs Laba Bersih</span>
+    </div>
+    <div class="d-flex align-items-center gap-1 dt-controls">
+      <button type="button" class="btn btn-sm btn-outline-secondary px-2 py-1" id="dtPrev" title="Bulan sebelumnya">
+        <i class="fas fa-chevron-left" style="font-size:.7rem"></i>
+      </button>
+      <input type="month" id="dtMonth" class="form-control form-control-sm"
+             style="width:auto;font-weight:600;min-width:140px"
+             value="{{ today.strftime('%Y-%m') }}"
+             min="{{ earliest_date[:7] }}" max="{{ today.strftime('%Y-%m') }}">
+      <button type="button" class="btn btn-sm btn-outline-secondary px-2 py-1" id="dtNext" title="Bulan berikutnya">
+        <i class="fas fa-chevron-right" style="font-size:.7rem"></i>
+      </button>
+    </div>
+  </div>
+  <div class="card-body p-2">
+    <div class="d-flex gap-3 flex-wrap px-2 pt-1 pb-2 dt-summary" style="font-size:.78rem">
+      <div><span class="text-muted">Pendapatan:</span>
+        <span class="fw-bold text-rp" id="dtTotRev" style="color:#0369a1">&mdash;</span></div>
+      <div><span class="text-muted">Laba Bersih:</span>
+        <span class="fw-bold text-rp" id="dtTotProfit" style="color:#15803d">&mdash;</span></div>
+      <div><span class="text-muted">Rata-rata Laba/Hari Aktif:</span>
+        <span class="fw-bold text-rp" id="dtAvgProfit">&mdash;</span></div>
+    </div>
+    <div id="dtWrap" style="position:relative;height:300px"><canvas id="chartDaily"></canvas></div>
+    <div id="dtEmpty" class="text-center text-muted py-5" style="display:none">
+      <i class="fas fa-chart-line mb-2" style="font-size:1.6rem;opacity:.35"></i><br>
+      Belum ada transaksi pada bulan ini.
+    </div>
+  </div>
+</div>
+
+<!-- Chart + Alerts -->
+<div class="row g-3 mb-3 dash-chart-alert-row">
+  <div class="col-lg-8 dash-main-chart">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <i class="fas fa-chart-bar text-primary" style="font-size:.85rem;flex-shrink:0"></i>
+          <!-- Metric dropdown -->
+          <div class="dropdown">
+            <button class="btn btn-sm dropdown-toggle d-flex align-items-center gap-1 px-2 py-1"
+                    id="chartMetricBtn" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                    style="font-weight:700;font-size:.88rem;color:var(--tx);border:1.5px solid var(--bdr);
+                           border-radius:7px;background:var(--card-h)">
+              <i class="fas fa-chart-bar" id="chartMetricIcon" style="font-size:.75rem;color:#3b82f6"></i>
+              <span id="chartMetricLbl">Pendapatan vs Beban</span>
+            </button>
+            <ul class="dropdown-menu shadow-sm" style="font-size:.83rem;min-width:230px">
+              <li><h6 class="dropdown-header" style="font-size:.68rem">Pilih Metrik</h6></li>
+              <li><a class="dropdown-item d-flex align-items-center gap-2 active" href="#"
+                     data-key="pvb" data-lbl="Pendapatan vs Beban" data-icon="fa-chart-bar" data-color="#3b82f6">
+                <i class="fas fa-chart-bar fa-fw" style="color:#3b82f6"></i> Pendapatan vs Beban</a></li>
+              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"
+                     data-key="laba" data-lbl="Laba Bersih Bulanan" data-icon="fa-arrow-trend-up" data-color="#16a34a">
+                <i class="fas fa-arrow-trend-up fa-fw" style="color:#15803d"></i> Laba Bersih Bulanan</a></li>
+              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"
+                     data-key="kas" data-lbl="Arus Kas Operasional" data-icon="fa-water" data-color="#0ea5e9">
+                <i class="fas fa-water fa-fw" style="color:#0369a1"></i> Arus Kas Operasional</a></li>
+              {% if can.show_hpp_margin %}
+              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"
+                     data-key="margin" data-lbl="Gross &amp; Net Margin %" data-icon="fa-percent" data-color="#8b5cf6">
+                <i class="fas fa-percent fa-fw" style="color:#8b5cf6"></i> Gross &amp; Net Margin %</a></li>
+              {% endif %}
+              <li><a class="dropdown-item d-flex align-items-center gap-2" href="#"
+                     data-key="biaya" data-lbl="Breakdown Biaya" data-icon="fa-layer-group" data-color="#f97316">
+                <i class="fas fa-layer-group fa-fw" style="color:#c2410c"></i> Breakdown Biaya</a></li>
+            </ul>
+          </div>
+          <!-- Year dropdown -->
+          <div class="dropdown">
+            <button class="btn btn-sm dropdown-toggle d-flex align-items-center gap-1 px-2 py-1"
+                    id="chartYearBtn" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                    style="font-weight:600;font-size:.83rem;color:var(--tx);border:1.5px solid var(--bdr);
+                           border-radius:7px;background:var(--card-h)">
+              <i class="fas fa-calendar-alt" style="font-size:.72rem;color:#64748b"></i>
+              <span id="chartYearLbl">{{ today.year }}</span>
+            </button>
+            <ul class="dropdown-menu shadow-sm" id="chartYearMenu" style="font-size:.83rem;min-width:100px">
+              <li><h6 class="dropdown-header" style="font-size:.68rem">Pilih Tahun</h6></li>
+              {% for yr in available_years %}
+              <li><a class="dropdown-item {% if yr == today.year %}active{% endif %}" href="#"
+                     data-year="{{ yr }}">{{ yr }}</a></li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        {% if show_feature.grafik %}
+        <a href="/charts" class="btn btn-outline-primary btn-xs" style="font-size:.72rem;padding:2px 8px">Lihat Semua</a>
+        {% endif %}
+      </div>
+      <div class="card-body p-2">
+        <div id="chartWrap" style="position:relative;height:320px"><canvas id="chartBulan"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4 dash-alerts-card">
+    {% if stok_rendah %}
+    <div class="card mb-3">
+      <div class="card-header" style="background:#fef3c7;color:#92400e;border-bottom:1px solid #fde68a">
+        <i class="fas fa-triangle-exclamation me-1"></i>
+        <span style="font-size:.9rem;font-weight:700">Stok Hampir Habis</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for p in stok_rendah %}
+          <tr>
+            <td class="ps-3">{{ p.nama }}{% if p.varian %} <small class="text-muted">{{ p.varian }}</small>{% endif %}</td>
+            <td class="text-danger fw-bold text-end pe-3">{{ p.stok|qty }} {{ p.satuan }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    {% if piutang_jatuh %}
+    <div class="card">
+      <div class="card-header text-white" style="background:#dc2626">
+        <i class="fas fa-clock me-1"></i>
+        <span style="font-size:.9rem;font-weight:700">Piutang Jatuh Tempo</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for p in piutang_jatuh %}
+          <tr>
+            <td class="ps-3">
+              <div class="fw-semibold" style="font-size:.85rem">{{ p.pelanggan }}</div>
+              <small class="text-muted">JT: {{ p.jatuh_tempo|tgl }}</small>
+            </td>
+            <td class="text-end pe-3">
+              <div class="text-danger fw-bold text-rp" style="font-size:.85rem">{{ (p.jumlah-p.terbayar)|rp }}</div>
+            </td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+    {% endif %}
+    {% if not stok_rendah and not piutang_jatuh %}
+    <div class="card h-100 d-flex align-items-center justify-content-center text-center p-4">
+      <i class="fas fa-check-circle fa-2x text-success mb-2 opacity-75"></i>
+      <div class="text-muted" style="font-size:.85rem">Tidak ada peringatan aktif</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Main 3-col row -->
+<div class="row g-3 mb-3 dash-main-row">
+
+  <!-- PROFITABILITAS -->
+  <div class="col-xl-4 col-md-6 dash-profit-card">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <i class="fas fa-chart-bar" style="color:#15803d"></i>
+          <span class="section-title">Profitabilitas</span>
+        </div>
+        <a href="/laba-rugi?sd={{ sd }}&ed={{ ed }}"
+           class="btn btn-xs" style="font-size:.7rem;color:var(--tx3);border:1px solid var(--bdr);padding:2px 8px;border-radius:5px">
+          <i class="fas fa-arrow-up-right-from-square me-1"></i>Detail</a>
+      </div>
+      <div class="card-body p-0" style="overflow-x:auto;overflow-y:visible">
+        {%- set rev = pnl.rev if pnl.rev else 1 -%}
+        {%- macro barMain(pct, color) -%}
+          <td style="padding:.6rem .65rem;width:56px">
+            <div class="pnl-bar"><div class="pnl-bar-inner" style="width:{{ [pct|float,0]|max|round|int }}%;background:{{ color }}"></div></div>
+          </td>
+        {%- endmacro -%}
+        {%- macro barSub(pct, color) -%}
+          <td style="padding:.28rem .65rem;width:56px">
+            <div class="pnl-bar" style="height:4px;opacity:.5"><div class="pnl-bar-inner" style="width:{{ [pct|float,0]|max|round|int }}%;background:{{ color }};height:4px"></div></div>
+          </td>
+        {%- endmacro -%}
+        <table class="pnl-tbl pnl-tbl-dash">
+          <colgroup><col><col style="width:108px"><col style="width:40px"><col style="width:56px"></colgroup>
+          <thead>
+            <tr>
+              <td>Aktivitas</td>
+              <td style="text-align:right">Nominal</td>
+              <td style="text-align:right">%</td>
+              <td>Bar</td>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- ── PENDAPATAN ── -->
+            <tr style="background:var(--pg);border-bottom:1px solid var(--pgb)">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:var(--pgt)">
+                <i class="fas fa-arrow-trend-up me-1" style="font-size:.62rem"></i>Total Pendapatan</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:var(--pgt)" class="text-rp">{{ pnl.rev|rp }}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:var(--pgp)">100%</td>
+              {{ barMain(100, 'var(--pgp)') }}
+            </tr>
+            {% if can.show_hpp_margin %}
+            <!-- HPP sub -->
+            <tr class="pnl-ded">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:#b91c1c">
+                <i class="fas fa-minus me-1" style="font-size:.62rem;color:#ef4444"></i>HPP / COGS</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:#b91c1c" class="text-rp">{% if pnl.hpp %}{{ pnl.hpp|rp }}{% else %}<span style="opacity:.35">-</span>{% endif %}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:#ef4444">{{ pnl.pct_hpp }}%</td>
+              {{ barSub(pnl.pct_hpp, '#ef4444') }}
+            </tr>
+
+            <!-- separator -->
+            <tr><td colspan="4" style="padding:0;background:#16a34a;height:2px"></td></tr>
+
+            <!-- ── LABA KOTOR ── -->
+            <tr style="background:var(--pg);border-bottom:1px solid var(--pgb)">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:var(--pgt)">
+                <i class="fas fa-equals me-1" style="font-size:.58rem"></i>Laba Kotor</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:var(--pgt)" class="text-rp">{{ pnl.laba_kotor|rp }}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:var(--pgp)">{{ pnl.pct_laba_kotor }}%</td>
+              {{ barMain(pnl.pct_laba_kotor, 'var(--pgp)') }}
+            </tr>
+            {% endif %}
+            <!-- Biaya Operasional sub (excluding penyusutan) -->
+            <tr class="pnl-ded">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:#b91c1c">
+                <i class="fas fa-minus me-1" style="font-size:.62rem;color:#ef4444"></i>Biaya Operasional</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:#b91c1c" class="text-rp">{% if pnl.op_exp %}{{ pnl.op_exp|rp }}{% else %}<span style="opacity:.35">-</span>{% endif %}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:#ef4444">{{ pnl.pct_op }}%</td>
+              {{ barSub(pnl.pct_op, '#f97316') }}
+            </tr>
+
+            <!-- separator -->
+            <tr><td colspan="4" style="padding:0;background:#3b82f6;height:2px"></td></tr>
+
+            <!-- ── MARGIN OPERASIONAL ── -->
+            <tr style="background:var(--pb);border-bottom:1px solid var(--pbb)">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:var(--pbt)">
+                <i class="fas fa-equals me-1" style="font-size:.58rem"></i>Margin Operasional</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:var(--pbt)" class="text-rp">{{ pnl.laba_op|rp }}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:var(--pbp)">{{ pnl.pct_laba_op }}%</td>
+              {{ barMain(pnl.pct_laba_op, 'var(--pbp)') }}
+            </tr>
+            <!-- Penyusutan sub -->
+            <tr class="pnl-ded">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:#b91c1c">
+                <i class="fas fa-minus me-1" style="font-size:.62rem;color:#ef4444"></i>Penyusutan</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:#b91c1c" class="text-rp">{% if pnl.depr %}{{ pnl.depr|rp }}{% else %}<span style="opacity:.35">-</span>{% endif %}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:#ef4444">{{ pnl.pct_depr }}%</td>
+              {{ barSub(pnl.pct_depr, '#64748b') }}
+            </tr>
+
+            <!-- separator -->
+            <tr><td colspan="4" style="padding:0;background:#7c3aed;height:2px"></td></tr>
+
+            <!-- ── EBIT ── -->
+            <tr style="background:var(--pp);border-bottom:1px solid var(--ppb)">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:var(--ppt)">
+                <i class="fas fa-equals me-1" style="font-size:.58rem"></i>EBIT</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:var(--ppt)" class="text-rp">{{ pnl.ebit|rp }}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:var(--ppp)">{{ pnl.pct_ebit }}%</td>
+              {{ barMain(pnl.pct_ebit, 'var(--ppp)') }}
+            </tr>
+            <!-- Bunga sub (tampil hanya jika ada) -->
+            {% if pnl.interest %}
+            <tr class="pnl-ded">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:#b91c1c">
+                <i class="fas fa-minus me-1" style="font-size:.62rem;color:#ef4444"></i>Beban Bunga</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:#b91c1c" class="text-rp">{{ pnl.interest|rp }}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:#ef4444">{{ (pnl.interest/pnl.rev*100)|round(1) if pnl.rev else 0 }}%</td>
+              {{ barSub((pnl.interest/pnl.rev*100)|round|int if pnl.rev else 0, '#ef4444') }}
+            </tr>
+            {% endif %}
+            <!-- Pajak sub -->
+            <tr class="pnl-ded">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:#b91c1c">
+                <i class="fas fa-minus me-1" style="font-size:.62rem;color:#ef4444"></i>Pajak</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:#b91c1c" class="text-rp">{% if pnl.tax %}{{ pnl.tax|rp }}{% else %}<span style="opacity:.35">-</span>{% endif %}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:#ef4444">{{ pnl.pct_tax }}%</td>
+              {{ barSub(pnl.pct_tax, '#ef4444') }}
+            </tr>
+
+            <!-- separator -->
+            <tr><td colspan="4" style="padding:0;background:#16a34a;height:3px"></td></tr>
+
+            <!-- ── LABA BERSIH ── -->
+            <tr style="background:#15803d">
+              <td style="padding:.7rem .75rem;font-size:.92rem;font-weight:900;color:#fff">
+                <i class="fas fa-equals me-1" style="font-size:.6rem"></i>Laba Bersih</td>
+              <td style="padding:.7rem .75rem;text-align:right;font-size:.92rem;font-weight:900;color:#fff" class="text-rp">{{ pnl.laba_bersih|rp }}</td>
+              <td style="padding:.7rem .4rem;text-align:right;font-size:.8rem;font-weight:800;color:#dcfce7">{{ pnl.pct_laba_bersih }}%</td>
+              <td style="padding:.7rem .65rem"><div class="pnl-bar" style="background:rgba(255,255,255,.22)"><div class="pnl-bar-inner" style="width:{{ [pnl.pct_laba_bersih|float,0]|max|round|int }}%;background:#dcfce7"></div></div></td>
+            </tr>
+            <!-- Prive sub -->
+            <tr class="pnl-ded">
+              <td style="padding:.62rem .75rem;font-size:.88rem;font-weight:800;color:#b91c1c">
+                <i class="fas fa-minus me-1" style="font-size:.62rem;color:#ef4444"></i>Penarikan Owner</td>
+              <td style="padding:.62rem .75rem;text-align:right;font-size:.88rem;font-weight:800;color:#b91c1c" class="text-rp">{% if pnl.prive %}{{ pnl.prive|rp }}{% else %}<span style="opacity:.35">-</span>{% endif %}</td>
+              <td style="padding:.62rem .4rem;text-align:right;font-size:.78rem;font-weight:700;color:#ef4444">{{ pnl.pct_prive }}%</td>
+              {{ barSub(pnl.pct_prive, '#8b5cf6') }}
+            </tr>
+
+            <!-- separator -->
+            <tr><td colspan="4" style="padding:0;background:#059669;height:3px"></td></tr>
+
+            <!-- ── LABA DITAHAN ── -->
+            <tr style="background:#059669">
+              <td style="padding:.7rem .75rem;font-size:.92rem;font-weight:900;color:#fff">
+                <i class="fas fa-equals me-1" style="font-size:.6rem"></i>Laba Ditahan</td>
+              <td style="padding:.7rem .75rem;text-align:right;font-size:.92rem;font-weight:900;color:#fff" class="text-rp">{{ pnl.laba_tahan|rp }}</td>
+              <td style="padding:.7rem .4rem;text-align:right;font-size:.8rem;font-weight:800;color:#d1fae5">{{ pnl.pct_laba_tahan }}%</td>
+              <td style="padding:.7rem .65rem"><div class="pnl-bar" style="background:rgba(255,255,255,.22)"><div class="pnl-bar-inner" style="width:{{ [pnl.pct_laba_tahan|float,0]|max|round|int }}%;background:#d1fae5"></div></div></td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CASHFLOW -->
+  <div class="col-xl-4 col-md-6 dash-cashflow-card">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-droplet" style="color:#3b82f6"></i>
+        <span class="section-title">Cashflow Periode Ini</span>
+      </div>
+      <div class="card-body p-0">
+
+        <!-- ── Donut Cashflow (masuk + keluar dalam 1 lingkaran) ── -->
+        {% if cf_masuk_rek or cf_keluar_kat %}
+        <div style="padding:1rem .9rem .85rem;border-bottom:1px solid var(--bdr);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;justify-content:center">
+            <!-- Donut -->
+            <div style="position:relative;width:130px;height:130px;flex:0 0 130px">
+              <canvas id="pie-cashflow" width="130" height="130"></canvas>
+            </div>
+            <!-- Legend kanan -->
+            <div id="legend-cashflow" style="flex:1 1 120px;min-width:0"></div>
+          </div>
+          <!-- Caption -->
+          <div style="text-align:center;margin-top:.55rem;font-size:.6rem;color:var(--tx3);font-weight:600">
+            <span style="color:#15803d">●</span> Masuk per rekening
+            &nbsp;·&nbsp;
+            <span style="color:#b91c1c">●</span> Keluar per jenis pengeluaran
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Masuk / Keluar -->
+        <div class="cf-row">
+          <div class="cf-cell">
+            <div class="cf-lbl"><i class="fas fa-arrow-down me-1" style="color:#15803d"></i>Uang Masuk</div>
+            <div class="cf-val text-rp" style="color:#15803d">{{ cf.masuk|rp }}</div>
+          </div>
+          <div class="cf-cell">
+            <div class="cf-lbl"><i class="fas fa-arrow-up me-1" style="color:#dc2626"></i>Uang Keluar</div>
+            <div class="cf-val text-rp" style="color:#dc2626">{{ cf.keluar|rp }}</div>
+          </div>
+        </div>
+
+        <!-- Net Cashflow -->
+        {% if net_cf >= 0 %}
+        <div class="cf-full" style="background:var(--ctpbg)">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="cf-lbl" style="color:var(--ctpl)">
+                <i class="fas fa-piggy-bank me-1"></i>Net Cashflow Periode Ini</div>
+              <div class="cf-val text-rp" style="color:var(--ctpv)">+{{ net_cf|rp }}</div>
+              <div style="font-size:.63rem;color:var(--tx3);margin-top:.2rem">Masuk − Keluar</div>
+            </div>
+            <i class="fas fa-piggy-bank fa-xl" style="color:var(--ctpi);opacity:.5"></i>
+          </div>
+        </div>
+        {% else %}
+        <div class="cf-full" style="background:var(--ctnbg)">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="cf-lbl" style="color:var(--ctnl)">
+                <i class="fas fa-piggy-bank me-1"></i>Net Cashflow Periode Ini</div>
+              <div class="cf-val text-rp" style="color:var(--ctnv)">{{ net_cf|rp }}</div>
+              <div style="font-size:.63rem;color:var(--tx3);margin-top:.2rem">Masuk − Keluar</div>
+            </div>
+            <i class="fas fa-piggy-bank fa-xl" style="color:var(--ctni);opacity:.5"></i>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Saldo Kas -->
+        <div class="cf-saldo" style="background:var(--csbg)">
+          <div class="d-flex align-items-center justify-content-between">
+            <div>
+              <div class="cf-lbl" style="color:var(--csl)">
+                <i class="fas fa-vault me-1"></i>Saldo Kas & Bank</div>
+              <div class="cf-val text-rp" style="color:var(--csv)">{{ cf.saldo|rp }}</div>
+              <div style="font-size:.63rem;color:var(--tx3);margin-top:.2rem">Saldo kumulatif semua rekening</div>
+            </div>
+            <i class="fas fa-vault fa-xl" style="color:var(--csi);opacity:.5"></i>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- TAGIHAN AKTIF -->
+  <div class="col-xl-4 col-md-12 dash-tagihan-card">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-file-invoice" style="color:#b45309"></i>
+        <span class="section-title">Tagihan Aktif</span>
+      </div>
+      <div class="card-body p-0">
+
+        <!-- Piutang -->
+        <a href="/piutang" class="text-decoration-none">
+          <div class="d-flex align-items-center gap-3 px-3 py-3"
+               style="border-bottom:1px solid var(--tb);transition:background .15s">
+            <div style="width:38px;height:38px;border-radius:9px;background:#fef9c3;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="fas fa-file-invoice-dollar" style="color:#b45309"></i>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3)">Total Piutang</div>
+              <div class="text-rp" style="font-size:1.1rem;font-weight:800;color:var(--tv)">{{ total_piutang|rp }}</div>
+              <div style="font-size:.68rem;color:var(--ts)">{{ piutang_count }} aktif
+                {% if piutang_overdue > 0 %}
+                  · <span style="color:#dc2626;font-weight:700">{{ piutang_overdue }} lewat JT</span>
+                {% endif %}
+              </div>
+            </div>
+            <i class="fas fa-chevron-right" style="color:var(--tx3);font-size:.75rem"></i>
+          </div>
+        </a>
+
+        <!-- Hutang -->
+        <a href="/hutang" class="text-decoration-none">
+          <div class="d-flex align-items-center gap-3 px-3 py-3"
+               style="border-bottom:1px solid var(--tb);transition:background .15s">
+            <div style="width:38px;height:38px;border-radius:9px;background:#fff7ed;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <i class="fas fa-hand-holding-dollar" style="color:#c2410c"></i>
+            </div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--tx3)">Total Hutang</div>
+              <div class="text-rp" style="font-size:1.1rem;font-weight:800;color:var(--tv)">{{ total_hutang|rp }}</div>
+              <div style="font-size:.68rem;color:var(--ts)">{{ hutang_count }} aktif
+                {% if hutang_overdue > 0 %}
+                  · <span style="color:#dc2626;font-weight:700">{{ hutang_overdue }} lewat JT</span>
+                {% endif %}
+              </div>
+            </div>
+            <i class="fas fa-chevron-right" style="color:var(--tx3);font-size:.75rem"></i>
+          </div>
+        </a>
+
+        <!-- Pelunasan CTA -->
+        {% if show_feature.pelunasan %}
+        <div class="px-3 py-2" style="border-bottom:1px solid var(--tb)">
+          <a href="/pelunasan" class="btn btn-sm w-100"
+             style="background:#b45309;color:#fff;border:none;font-weight:700;border-radius:9px;padding:.5rem .75rem;font-size:.82rem">
+            <i class="fas fa-handshake me-2"></i>Input Pelunasan</a>
+        </div>
+        {% endif %}
+
+        <!-- Donut charts -->
+        <div class="px-3 pt-3 pb-2" style="background:var(--tdb)">
+          <div class="row g-0 text-center">
+            <div class="col-6" style="border-right:1px solid var(--tdd);padding-right:.5rem">
+              <div style="font-size:.63rem;font-weight:700;color:var(--tdt);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">
+                <i class="fas fa-file-invoice-dollar me-1"></i>Piutang</div>
+              <div style="position:relative;width:72px;margin:0 auto">
+                <canvas id="donut-piutang" width="72" height="72"></canvas>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);line-height:1.2">
+                  <div style="font-size:.8rem;font-weight:800;color:var(--tdv)">{{ piutang_lunas }}/{{ piutang_total }}</div>
+                  <div style="font-size:.55rem;color:var(--tds)">lunas</div>
+                </div>
+              </div>
+              <div style="font-size:.65rem;color:var(--tdc);margin-top:.4rem;font-weight:600">{{ piutang_count }} aktif</div>
+            </div>
+            <div class="col-6" style="padding-left:.5rem">
+              <div style="font-size:.63rem;font-weight:700;color:var(--tdt);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">
+                <i class="fas fa-hand-holding-dollar me-1"></i>Hutang</div>
+              <div style="position:relative;width:72px;margin:0 auto">
+                <canvas id="donut-hutang" width="72" height="72"></canvas>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);line-height:1.2">
+                  <div style="font-size:.8rem;font-weight:800;color:var(--tdv)">{{ hutang_lunas }}/{{ hutang_total }}</div>
+                  <div style="font-size:.55rem;color:var(--tds)">lunas</div>
+                </div>
+              </div>
+              <div style="font-size:.65rem;color:var(--tdc);margin-top:.4rem;font-weight:600">{{ hutang_count }} aktif</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Jatuh tempo alerts -->
+        {% set all_jatuh = [] %}
+        {% for p in piutang_jatuh %}{% set _ = all_jatuh.append(('piutang', p.pelanggan, p.jatuh_tempo, p.jumlah - p.terbayar)) %}{% endfor %}
+        {% for h in hutang_jatuh %}{% set _ = all_jatuh.append(('hutang', h.pemasok, h.jatuh_tempo, h.jumlah - h.terbayar)) %}{% endfor %}
+        {% if all_jatuh %}
+        <div style="background:var(--tab);border-top:1px solid var(--tad)">
+          <div class="px-3 pt-2 pb-1" style="font-size:.6rem;font-weight:700;color:var(--tat);text-transform:uppercase;letter-spacing:.08em">
+            <i class="fas fa-clock me-1"></i>Jatuh Tempo 7 Hari</div>
+          {% for tipe, nama, tgl, sisa in all_jatuh[:4] %}
+          <div class="d-flex align-items-center gap-2 px-3 py-1" style="border-top:1px solid var(--tad)">
+            <i class="fas fa-circle" style="font-size:.35rem;color:{% if tipe=='piutang' %}#15803d{% else %}#c2410c{% endif %};flex-shrink:0"></i>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:.76rem;font-weight:600;color:var(--tan);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ nama }}</div>
+              <div style="font-size:.62rem;color:var(--tas)">{{ 'Piutang' if tipe=='piutang' else 'Hutang' }} · {{ tgl }}</div>
+            </div>
+            <div style="font-size:.73rem;font-weight:700;color:{% if tipe=='piutang' %}#15803d{% else %}#c2410c{% endif %};white-space:nowrap">
+              {{ sisa|rp }}</div>
+          </div>
+          {% endfor %}
+          <div class="pb-2"></div>
+        </div>
+        {% else %}
+        <div class="px-3 py-2 text-center" style="background:var(--tab);border-top:1px solid var(--tad)">
+          <i class="fas fa-check-circle me-1" style="color:#15803d;font-size:.8rem"></i>
+          <span style="font-size:.73rem;color:var(--tat);font-weight:600">Tidak ada tagihan jatuh tempo</span>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- Recent Transactions -->
+<div class="card dash-recent-card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span class="section-title"><i class="fas fa-receipt me-2 text-primary"></i>Transaksi Terbaru</span>
+    <div class="d-flex gap-2">
+      <a href="/pemasukan" class="btn btn-success btn-sm"><i class="fas fa-plus me-1"></i>Penjualan</a>
+      <a href="/pengeluaran" class="btn btn-danger btn-sm"><i class="fas fa-minus me-1"></i>Pengeluaran</a>
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Tanggal</th>
+            <th>Keterangan</th>
+            <th>Tipe</th>
+            <th>Kategori</th>
+            <th class="text-end pe-3">Jumlah</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in transaksi_baru %}
+          <tr onclick="location.href='/transaksi/{{ t.id }}'" style="cursor:pointer">
+            <td class="ps-3 text-muted" style="white-space:nowrap">{{ t.tanggal|tgl }}</td>
+            <td>{{ t.keterangan }}</td>
+            <td>
+              {% if t.tipe_tx == 'PEMASUKAN' %}<span class="badge badge-pem">Penjualan</span>
+              {% elif t.tipe_tx == 'PENGELUARAN' %}<span class="badge badge-pen">Pengeluaran</span>
+              {% elif t.tipe_tx == 'PELUNASAN' %}<span class="badge badge-pel">Pelunasan</span>
+              {% elif t.tipe_tx == 'TRANSFER' %}<span class="badge bg-info text-dark">Transfer</span>
+              {% else %}<span class="badge badge-op">Jurnal</span>{% endif %}
+            </td>
+            <td>
+              {% if t.kategori == 'OPERASIONAL' %}<span class="badge badge-op">Operasional</span>
+              {% elif t.kategori == 'INVESTASI' %}<span class="badge badge-inv">Investasi</span>
+              {% elif t.kategori == 'PENDANAAN' %}<span class="badge badge-fin">Pendanaan</span>
+              {% else %}<span class="badge bg-secondary">{{ t.kategori or '-' }}</span>{% endif %}
+            </td>
+            <td class="text-end pe-3 fw-semibold text-rp">{{ t.total|rp }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-4">Belum ada transaksi</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer text-end py-2">
+    <a href="/transaksi" class="btn btn-outline-secondary btn-sm">Lihat Semua Transaksi</a>
+  </div>
+</div>
+
+</div>
+
+{% endif %}{# end normal dashboard (else) #}
+
+<!-- ── Modal Export Excel ──────────────────────────────── -->
+<div class="modal fade" id="modalExportExcel" tabindex="-1" aria-labelledby="exportExcelModalLabel">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:430px">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="border-bottom:1.5px solid #e2e8f0">
+        <h6 class="modal-title" id="exportExcelModalLabel">
+          <i class="fas fa-file-excel text-success me-2"></i>Export Laporan Keuangan
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-3">
+
+        {# Preset chips #}
+        <div class="d-flex flex-wrap gap-1 mb-3">
+          {% for key, lbl in [('month','Bulan Ini'),('quarter','Kuartal Ini'),('year','Tahun Ini'),('all','Semua Data')] %}
+          <button type="button" class="btn btn-sm btn-outline-secondary px-2 py-0"
+                  style="font-size:.76rem" onclick="setExportPreset('{{ key }}')">{{ lbl }}</button>
+          {% endfor %}
+        </div>
+
+        {# Date inputs #}
+        <div class="mb-3">
+          <label class="form-label small fw-semibold mb-1">Dari Tanggal</label>
+          <input type="date" id="expSd" class="form-control form-control-sm" value="{{ sd }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold mb-1">Sampai Tanggal</label>
+          <input type="date" id="expEd" class="form-control form-control-sm" value="{{ ed }}">
+        </div>
+
+        {# Info #}
+        <div class="rounded-3 px-3 py-2" style="background:#f0fdf4;border:1px solid #bbf7d0;font-size:.77rem;color:#166534">
+          <i class="fas fa-circle-info me-1"></i>
+          File Excel berisi 4 sheet:
+          <strong>Laba Rugi</strong>, <strong>Arus Kas</strong>,
+          <strong>Neraca</strong>, <strong>Daftar Transaksi</strong>
+        </div>
+      </div>
+      <div class="modal-footer py-2" style="border-top:1.5px solid #e2e8f0">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-sm btn-success" onclick="doExportExcel()">
+          <i class="fas fa-download me-1"></i>Download Excel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+{% if session.role != 'OPERATOR' %}
+<script>
+(function(){
+  const dark = document.documentElement.getAttribute('data-theme')==='dark';
+  const trackColor = dark ? '#78350f' : '#fde68a';
+  const donutOpts = {
+    responsive: false, cutout: '72%',
+    animation: { duration: 800 },
+    plugins: { legend: { display: false }, tooltip: { enabled: false } }
+  };
+  const pL = {{ piutang_lunas }}, pT = {{ piutang_total }};
+  new Chart(document.getElementById('donut-piutang'), {
+    type: 'doughnut',
+    data: { datasets: [{ data: [pL, Math.max(pT-pL,0)],
+      backgroundColor: ['#16a34a', trackColor], borderWidth: 0, hoverOffset: 0 }] },
+    options: donutOpts
+  });
+  const hL = {{ hutang_lunas }}, hT = {{ hutang_total }};
+  new Chart(document.getElementById('donut-hutang'), {
+    type: 'doughnut',
+    data: { datasets: [{ data: [hL, Math.max(hT-hL,0)],
+      backgroundColor: ['#16a34a', trackColor], borderWidth: 0, hoverOffset: 0 }] },
+    options: donutOpts
+  });
+})();
+
+// ── DONUT CASHFLOW: masuk + keluar dalam 1 lingkaran ────────────────────────
+(function(){
+  const el = document.getElementById('pie-cashflow');
+  if (!el) return;
+
+  const dark   = document.documentElement.getAttribute('data-theme') === 'dark';
+  const masuk  = {{ cf_masuk_rek | tojson }};
+  const keluar = {{ cf_keluar_kat | tojson }};
+
+  // Palet hijau (Masuk) → terang berurut
+  const greenPal = ['#15803d','#16a34a','#22c55e','#4ade80','#86efac','#bbf7d0'];
+  // Palet merah/abu (Keluar) per kategori
+  const keluarColorMap = {
+    'Bahan Baku':        '#991b1b',
+    'Beban Operasional': '#dc2626',
+    'Investasi Aset':    '#b91c1c',
+    'Pajak':             '#ef4444',
+    'Prive':             '#f87171',
+    'Pinjaman Karyawan': '#fb7185',
+    'Pelunasan Hutang':  '#9ca3af',
+    'Lainnya':           '#d1d5db',
+  };
+  const keluarFallback = ['#991b1b','#dc2626','#ef4444','#f87171','#9ca3af','#d1d5db'];
+
+  function rpShort(v) {
+    if (v >= 1e9) return (v/1e9).toFixed(1) + ' M';
+    if (v >= 1e6) return (v/1e6).toFixed(1) + ' jt';
+    if (v >= 1e3) return (v/1e3).toFixed(0) + ' rb';
+    return window.APP_DECIMAL_AKTIF ? Number(v || 0).toFixed(2).replace('.', ',') : Math.round(v);
+  }
+
+  // Gabung jadi satu dataset
+  const labels = [], data = [], colors = [], groups = [];
+  masuk.forEach((d, i) => {
+    labels.push('Masuk · ' + d.nama);
+    data.push(d.total);
+    colors.push(greenPal[i % greenPal.length]);
+    groups.push('masuk');
+  });
+  keluar.forEach((d, i) => {
+    labels.push('Keluar · ' + d.label);
+    data.push(d.total);
+    colors.push(keluarColorMap[d.label] || keluarFallback[i % keluarFallback.length]);
+    groups.push('keluar');
+  });
+
+  const grand = data.reduce((a, b) => a + b, 0);
+
+  new Chart(el, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderWidth: 2,
+        borderColor: dark ? '#1e293b' : '#fff',
+        hoverOffset: 5
+      }]
+    },
+    options: {
+      responsive: false,
+      cutout: '58%',
+      animation: { duration: 750 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.parsed;
+              const pct = grand > 0 ? Math.round(v / grand * 100) : 0;
+              return ' ' + ctx.label + ': Rp ' + rpShort(v) + ' (' + pct + '%)';
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Legend kanan, dikelompokkan Masuk lalu Keluar
+  const leg = document.getElementById('legend-cashflow');
+  if (leg) {
+    leg.innerHTML = labels.map((lbl, i) => {
+      const pct = grand > 0 ? Math.round(data[i] / grand * 100) : 0;
+      return `<div style="display:flex;align-items:center;gap:5px;margin:2px 0">
+        <div style="width:9px;height:9px;border-radius:2px;flex-shrink:0;background:${colors[i]}"></div>
+        <div style="font-size:.62rem;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4">
+          ${lbl}
+          <span style="color:var(--tx3);font-weight:600">${pct}%</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+}());
+
+let _chartYear    = {{ today.year }};
+let _chartKey     = 'pvb';
+let chartInst     = null;
+
+function loadChart(year) {
+  _chartYear = year;
+  fetch('/api/chart-year?year=' + year)
+    .then(r => r.json())
+    .then(data => {
+    const dark       = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor  = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)';
+    const labelColor = dark ? '#94a3b8' : '#64748b';
+
+    function rpFmt(v) {
+      const abs = Math.abs(v);
+      if(abs >= 1e9) return (v<0?'-':'')+'Rp '+(abs/1e9).toFixed(1)+' M';
+      if(abs >= 1e6) return (v<0?'-':'')+'Rp '+(abs/1e6).toFixed(1)+' jt';
+      if(abs >= 1e3) return (v<0?'-':'')+'Rp '+(abs/1e3).toFixed(0)+' rb';
+      return window.rpFmt ? window.rpFmt(v) : 'Rp '+Math.round(v).toLocaleString('id-ID');
+    }
+
+    const sharedScaleX = {
+      ticks: { color: labelColor, font: { size: 10.5 } },
+      grid:  { display: false }
+    };
+    const sharedScaleY = (stacked) => ({
+      stacked: !!stacked,
+      ticks: {
+        callback: v => {
+          if(Math.abs(v)>=1e6) return 'Rp '+(v/1e6).toFixed(0)+'jt';
+          if(Math.abs(v)>=1e3) return 'Rp '+(v/1e3).toFixed(0)+'rb';
+          return v===0?'Rp 0':v;
+        },
+        color: labelColor, font: { size: 10 }, maxTicksLimit: 6
+      },
+      grid: { color: gridColor }, border: { dash: [4,3] }
+    });
+    const sharedLegend = (order=[]) => ({
+      position: 'top',
+      labels: {
+        color: labelColor, boxWidth: 10, boxHeight: 10, font: { size: 11 },
+        sort: order.length ? (a,b) => order.indexOf(a.text)-order.indexOf(b.text) : undefined
+      }
+    });
+    const tipRp = {
+      callbacks: {
+        label: ctx => {
+          const v = ctx.parsed.y;
+          if(v===null||v===undefined) return null;
+          return ' '+ctx.dataset.label+': '+rpFmt(v);
+        }
+      }
+    };
+
+    // ── 1. Pendapatan vs Beban ──────────────────────────────
+    function cfgPvB() {
+      return {
+        type: 'bar',
+        data: {
+          labels: data.map(d=>d.label),
+          datasets: [
+            { label:'Total Beban',
+              data: data.map(d=>d.is_future?null:d.total_beban),
+              backgroundColor: data.map(d=>d.is_future?'rgba(239,68,68,.1)':'rgba(239,68,68,.82)'),
+              stack:'A', borderRadius:{topLeft:0,topRight:0,bottomLeft:5,bottomRight:5}, borderSkipped:false },
+            { label:'Pendapatan',
+              data: data.map(d=>d.is_future?null:d.pendapatan),
+              backgroundColor: data.map(d=>d.is_future?'rgba(22,163,74,.12)':'rgba(22,163,74,.85)'),
+              stack:'A', borderRadius:{topLeft:5,topRight:5,bottomLeft:0,bottomRight:0}, borderSkipped:false },
+            { label:'Laba Ditahan',
+              data: data.map(d=>d.is_future?null:(d.laba_tahan>0?d.laba_tahan:null)),
+              backgroundColor: data.map(d=>d.is_future?'rgba(234,179,8,.12)':'rgba(234,179,8,.88)'),
+              stack:'B', borderRadius:{topLeft:0,topRight:0,bottomLeft:5,bottomRight:5}, borderSkipped:false },
+            { label:'Laba Bersih',
+              data: data.map(d=>d.is_future?null:d.laba_bersih),
+              backgroundColor: data.map(d=>{ if(d.is_future) return 'rgba(59,130,246,.1)';
+                return d.laba_bersih>=0?'rgba(59,130,246,.82)':'rgba(239,68,68,.7)'; }),
+              stack:'B', borderRadius:{topLeft:5,topRight:5,bottomLeft:0,bottomRight:0}, borderSkipped:false },
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+          plugins: { legend: sharedLegend(['Pendapatan','Total Beban','Laba Bersih','Laba Ditahan']), tooltip: tipRp },
+          scales: { x:{...sharedScaleX,stacked:true}, y: sharedScaleY(true) }
+        }
+      };
+    }
+
+    // ── 2. Laba Bersih Bulanan ──────────────────────────────
+    function cfgLaba() {
+      return {
+        type: 'bar',
+        data: {
+          labels: data.map(d=>d.label),
+          datasets: [
+            { label:'Laba Bersih',
+              data: data.map(d=>d.is_future?null:d.laba_bersih),
+              backgroundColor: data.map(d=>{ if(d.is_future) return 'rgba(0,0,0,.05)';
+                return d.laba_bersih>=0?'rgba(22,163,74,.85)':'rgba(239,68,68,.82)'; }),
+              borderRadius: 6, borderSkipped:false },
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+          plugins: { legend: sharedLegend(), tooltip: tipRp },
+          scales: { x: sharedScaleX, y: sharedScaleY(false) }
+        }
+      };
+    }
+
+    // ── 3. Arus Kas Operasional ─────────────────────────────
+    function cfgKas() {
+      return {
+        type: 'bar',
+        data: {
+          labels: data.map(d=>d.label),
+          datasets: [
+            { label:'Kas Masuk',
+              data: data.map(d=>d.is_future?null:d.kas_masuk),
+              backgroundColor: data.map(d=>d.is_future?'rgba(14,165,233,.1)':'rgba(14,165,233,.82)'),
+              borderRadius:{topLeft:5,topRight:5,bottomLeft:5,bottomRight:5}, borderSkipped:false },
+            { label:'Kas Keluar',
+              data: data.map(d=>d.is_future?null:-d.kas_keluar),
+              backgroundColor: data.map(d=>d.is_future?'rgba(239,68,68,.1)':'rgba(239,68,68,.75)'),
+              borderRadius:{topLeft:5,topRight:5,bottomLeft:5,bottomRight:5}, borderSkipped:false },
+            { label:'Net Kas',
+              type:'line',
+              data: data.map(d=>d.is_future?null:d.net_kas),
+              borderColor: data.map(d=>d.net_kas>=0?'#16a34a':'#dc2626'),
+              borderColor: '#f59e0b', backgroundColor:'rgba(245,158,11,.15)',
+              borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#f59e0b',
+              fill:false, tension:0.3, yAxisID:'y' },
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+          plugins: { legend: sharedLegend(), tooltip: tipRp },
+          scales: { x: sharedScaleX, y: sharedScaleY(false) }
+        }
+      };
+    }
+
+    // ── 4. Gross & Net Margin % ─────────────────────────────
+    function cfgMargin() {
+      return {
+        type: 'bar',
+        data: {
+          labels: data.map(d=>d.label),
+          datasets: [
+            { label:'Gross Margin %',
+              data: data.map(d=>d.is_future?null:d.gm_pct),
+              backgroundColor: data.map(d=>{ if(d.is_future) return 'rgba(0,0,0,.05)';
+                return d.gm_pct>=40?'rgba(22,163,74,.85)':d.gm_pct>=20?'rgba(234,179,8,.85)':'rgba(239,68,68,.82)'; }),
+              borderRadius:{topLeft:5,topRight:5,bottomLeft:0,bottomRight:0}, borderSkipped:false },
+            { label:'Net Margin %',
+              type:'line',
+              data: data.map(d=>d.is_future?null:d.nm_pct),
+              borderColor:'#6366f1', backgroundColor:'rgba(99,102,241,.12)',
+              borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#6366f1',
+              fill:false, tension:0.3 },
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+          plugins: {
+            legend: sharedLegend(),
+            tooltip: {
+              callbacks: {
+                label: ctx => {
+                  const v = ctx.parsed.y;
+                  if(v===null||v===undefined) return null;
+                  return ' '+ctx.dataset.label+': '+v.toFixed(1)+'%';
+                }
+              }
+            }
+          },
+          scales: {
+            x: sharedScaleX,
+            y: {
+              ticks: { callback: v=>v.toFixed(0)+'%', color:labelColor, font:{size:10}, maxTicksLimit:7 },
+              grid: { color:gridColor }, border: { dash:[4,3] }
+            }
+          }
+        }
+      };
+    }
+
+    // ── 5. Breakdown Biaya ──────────────────────────────────
+    function cfgBiaya() {
+      return {
+        type: 'bar',
+        data: {
+          labels: data.map(d=>d.label),
+          datasets: [
+            { label:'HPP / Bahan Baku',
+              data: data.map(d=>d.is_future?null:d.hpp),
+              backgroundColor: data.map(d=>d.is_future?'rgba(239,68,68,.08)':'rgba(239,68,68,.82)'),
+              stack:'cost', borderRadius:{topLeft:0,topRight:0,bottomLeft:5,bottomRight:5}, borderSkipped:false },
+            { label:'Operasional',
+              data: data.map(d=>d.is_future?null:d.op_exp),
+              backgroundColor: data.map(d=>d.is_future?'rgba(249,115,22,.08)':'rgba(249,115,22,.82)'),
+              stack:'cost', borderSkipped:false },
+            { label:'Penyusutan',
+              data: data.map(d=>d.is_future?null:d.depr),
+              backgroundColor: data.map(d=>d.is_future?'rgba(139,92,246,.08)':'rgba(139,92,246,.78)'),
+              stack:'cost', borderSkipped:false },
+            { label:'Pajak',
+              data: data.map(d=>d.is_future?null:d.tax),
+              backgroundColor: data.map(d=>d.is_future?'rgba(100,116,139,.08)':'rgba(100,116,139,.75)'),
+              stack:'cost', borderRadius:{topLeft:5,topRight:5,bottomLeft:0,bottomRight:0}, borderSkipped:false },
+          ]
+        },
+        options: {
+          responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
+          plugins: { legend: sharedLegend(), tooltip: tipRp },
+          scales: { x:{...sharedScaleX,stacked:true}, y: sharedScaleY(true) }
+        }
+      };
+    }
+
+    const CFGS = { pvb:cfgPvB, laba:cfgLaba, kas:cfgKas, margin:cfgMargin, biaya:cfgBiaya };
+
+    function switchChart(key) {
+      _chartKey = key;
+      if(chartInst) { chartInst.destroy(); chartInst = null; }
+      chartInst = new Chart(document.getElementById('chartBulan'), CFGS[key]());
+    }
+
+    switchChart(_chartKey);
+  }); // end fetch.then
+} // end loadChart
+
+// initial load
+loadChart(_chartYear);
+
+// metric dropdown wiring
+document.querySelectorAll('#chartMetricBtn + .dropdown-menu .dropdown-item').forEach(function(item) {
+  item.addEventListener('click', function(e) {
+    e.preventDefault();
+    const key   = this.dataset.key;
+    const lbl   = this.dataset.lbl;
+    const icon  = this.dataset.icon;
+    const color = this.dataset.color;
+    document.getElementById('chartMetricLbl').textContent = lbl;
+    const ic = document.getElementById('chartMetricIcon');
+    ic.className = 'fas ' + icon + ' fa-fw';
+    ic.style.color = color;
+    document.querySelectorAll('#chartMetricBtn + .dropdown-menu .dropdown-item')
+            .forEach(function(i){ i.classList.remove('active'); });
+    this.classList.add('active');
+    _chartKey = key;
+    loadChart(_chartYear);
+  });
+});
+
+// year dropdown wiring
+document.querySelectorAll('#chartYearMenu .dropdown-item').forEach(function(item) {
+  item.addEventListener('click', function(e) {
+    e.preventDefault();
+    const yr = parseInt(this.dataset.year, 10);
+    document.getElementById('chartYearLbl').textContent = yr;
+    document.querySelectorAll('#chartYearMenu .dropdown-item')
+            .forEach(function(i){ i.classList.remove('active'); });
+    this.classList.add('active');
+    loadChart(yr);
+  });
+});
+
+// ── Custom Date Range Picker ──
+(function(){
+  const BLN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const HRN=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+  let _s=null,_e=null,_h=null,_sel=false;
+  let _ly,_lm,_panel=null;
+
+  function z(n){return String(n).padStart(2,'0');}
+  function ymd(d){return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate());}
+  function fromYMD(s){if(!s)return null;const[y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d);}
+  function disp(d){if(!d)return'';return d.getDate()+' '+BLN[d.getMonth()].slice(0,3)+' '+d.getFullYear();}
+
+  function mkPresets(){
+    const t=new Date();t.setHours(0,0,0,0);
+    function ago(n){const d=new Date(t);d.setDate(d.getDate()-n);return d;}
+    function sow(d){const r=new Date(d);const w=r.getDay();r.setDate(r.getDate()-(w===0?6:w-1));return r;}
+    function som(d){return new Date(d.getFullYear(),d.getMonth(),1);}
+    function eom(d){return new Date(d.getFullYear(),d.getMonth()+1,0);}
+    const lms=new Date(t.getFullYear(),t.getMonth()-1,1);
+    const lw=sow(ago(7));const lwe=new Date(lw);lwe.setDate(lwe.getDate()+6);
+    const earliest=new Date('{{ earliest_date }}T00:00:00');
+    return[
+      {l:'Hari Ini',s:t,e:t},
+      {l:'Kemarin',s:ago(1),e:ago(1)},
+      {l:'Hari Ini & Kemarin',s:ago(1),e:t},
+      {l:'7 Hari Terakhir',s:ago(6),e:t},
+      {l:'14 Hari Terakhir',s:ago(13),e:t},
+      {l:'28 Hari Terakhir',s:ago(27),e:t},
+      {l:'30 Hari Terakhir',s:ago(29),e:t},
+      {l:'Minggu Ini',s:sow(t),e:t},
+      {l:'Minggu Lalu',s:lw,e:lwe},
+      {l:'Bulan Ini',s:som(t),e:t},
+      {l:'Bulan Lalu',s:lms,e:eom(lms)},
+      {l:'Tahun Ini',s:new Date(t.getFullYear(),0,1),e:t},
+      {l:'★ Maksimum (Semua Data)',s:earliest,e:t},
+    ];
+  }
+  const PS=mkPresets();
+
+  function activePI(){
+    if(!_s||!_e)return-1;
+    return PS.findIndex(p=>ymd(p.s)===ymd(_s)&&ymd(p.e)===ymd(_e));
+  }
+
+  function calCells(y,m){
+    const first=new Date(y,m,1).getDay();
+    const total=new Date(y,m+1,0).getDate();
+    const cells=[];
+    for(let i=0;i<first;i++)cells.push(null);
+    for(let d=1;d<=total;d++)cells.push(new Date(y,m,d));
+    return cells;
+  }
+
+  function dayClass(d){
+    const today=new Date();today.setHours(0,0,0,0);
+    let cls='drp2-day';
+    if(d.getTime()===today.getTime())cls+=' drp2-today';
+    // selected endpoints
+    if(_s&&ymd(d)===ymd(_s))cls+=' drp2-sel-s';
+    if(_e&&ymd(d)===ymd(_e))cls+=' drp2-sel-e';
+    // in-range (committed selection)
+    if(_s&&_e){
+      const lo=_s<_e?_s:_e,hi=_s<_e?_e:_s;
+      if(d>lo&&d<hi)cls+=' drp2-in-range';
+    }
+    // hover preview
+    if(_sel&&_s&&!_e&&_h){
+      const lo=_s<_h?_s:_h,hi=_s<_h?_h:_s;
+      if(d>=lo&&d<=hi){
+        if(ymd(d)===ymd(_s))cls=(cls+' drp2-sel-s').replace(' drp2-in-range','').replace(' drp2-hover-range','');
+        else if(ymd(d)===ymd(_h))cls+=' drp2-sel-e';
+        else cls+=' drp2-hover-range';
+      }
+    }
+    return cls;
+  }
+
+  function renderMo(y,m,isLeft){
+    const cells=calCells(y,m);
+    const MIN_YR=new Date().getFullYear()-30,MAX_YR=new Date().getFullYear()+10;
+    const yrOpts=Array.from({length:MAX_YR-MIN_YR+1},(_,i)=>{
+      const yr=MIN_YR+i;
+      return`<option value="${yr}"${yr===y?' selected':''} >${yr}</option>`;
+    }).join('');
+    return`<div class="drp2-month">
+      <div class="drp2-mhdr">
+        ${isLeft?`<button class="drp2-mnav" id="drp2Prev">&#8249;</button>`:'<span></span>'}
+        <div class="drp2-mtitle">${BLN[m]} <select class="drp2-yr-sel" id="${isLeft?'drp2YrL':'drp2YrR'}">${yrOpts}</select></div>
+        ${isLeft?`<button class="drp2-mnav" id="drp2Next">&#8250;</button>`:'<span></span>'}
+      </div>
+      <div class="drp2-daynames">${HRN.map(h=>`<div>${h}</div>`).join('')}</div>
+      <div class="drp2-grid">${cells.map(d=>d
+        ?`<div class="${dayClass(d)}" data-dt="${ymd(d)}">${d.getDate()}</div>`
+        :'<div class="drp2-empty"></div>'
+      ).join('')}</div>
+    </div>`;
+  }
+
+  function renderPanel(){
+    const ap=activePI();
+    const rm=_lm===11?0:_lm+1,ry=_lm===11?_ly+1:_ly;
+    const canUpdate=_s&&_e;
+    return`<div class="drp2-sidebar">
+        <div class="drp2-stitle">Pilih Cepat</div>
+        ${PS.map((p,i)=>`<div class="drp2-preset${i===ap?' drp2-active':''}" data-pi="${i}">${p.l}</div>`).join('')}
+      </div>
+      <div class="drp2-right">
+        <div class="drp2-cals">
+          ${renderMo(_ly,_lm,true)}
+          ${renderMo(ry,rm,false)}
+        </div>
+        <div class="drp2-foot">
+          <div class="d-flex align-items-center gap-2">
+            <input id="drp2InS" class="drp2-inp" value="${disp(_s)}" placeholder="Tanggal awal" readonly>
+            <span class="drp2-sep">→</span>
+            <input id="drp2InE" class="drp2-inp" value="${disp(_e)}" placeholder="Tanggal akhir" readonly>
+          </div>
+          <div class="ms-auto d-flex gap-2">
+            <button id="drp2Cancel" class="btn btn-sm btn-outline-secondary">Batal</button>
+            <button id="drp2Update" class="btn btn-sm btn-success"${canUpdate?'':' disabled'}>Update</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function refresh(){
+    if(!_panel)return;
+    _panel.innerHTML=renderPanel();
+    bindEvts();
+  }
+
+  function updateDays(){
+    if(!_panel)return;
+    _panel.querySelectorAll('[data-dt]').forEach(el=>{
+      const d=fromYMD(el.dataset.dt);
+      el.className=dayClass(d);
+    });
+    // update inputs
+    const is=_panel.querySelector('#drp2InS');
+    const ie=_panel.querySelector('#drp2InE');
+    if(is)is.value=disp(_s);
+    if(_sel&&_h&&_s&&!_e){if(ie)ie.value=disp(_h<_s?_s:_h);}
+    else{if(ie)ie.value=disp(_e);}
+    const ub=_panel.querySelector('#drp2Update');
+    if(ub)ub.disabled=!(_s&&_e);
+  }
+
+  function bindEvts(){
+    _panel.querySelectorAll('.drp2-preset').forEach(el=>{
+      el.addEventListener('click',()=>{
+        const p=PS[+el.dataset.pi];
+        _s=new Date(p.s);_e=new Date(p.e);_sel=false;_h=null;
+        _ly=_s.getFullYear();_lm=_s.getMonth();
+        refresh();updateTrigger();
+      });
+    });
+    _panel.querySelectorAll('[data-dt]').forEach(el=>{
+      el.addEventListener('click',()=>{
+        const d=fromYMD(el.dataset.dt);
+        if(!_sel||!_s){_s=d;_e=null;_sel=true;_h=null;}
+        else{
+          if(d<_s){_e=new Date(_s);_s=d;}else{_e=d;}
+          _sel=false;_h=null;
+        }
+        refresh();updateTrigger();
+      });
+      el.addEventListener('mouseenter',()=>{
+        if(!_sel)return;_h=fromYMD(el.dataset.dt);updateDays();
+      });
+      el.addEventListener('mouseleave',()=>{
+        if(!_sel)return;_h=null;updateDays();
+      });
+    });
+    const prev=_panel.querySelector('#drp2Prev');
+    const next=_panel.querySelector('#drp2Next');
+    if(prev)prev.addEventListener('click',()=>{_lm--;if(_lm<0){_lm=11;_ly--;}refresh();});
+    if(next)next.addEventListener('click',()=>{_lm++;if(_lm>11){_lm=0;_ly++;}refresh();});
+    const yrL=_panel.querySelector('#drp2YrL');
+    const yrR=_panel.querySelector('#drp2YrR');
+    if(yrL)yrL.addEventListener('change',()=>{_ly=parseInt(yrL.value);refresh();});
+    if(yrR)yrR.addEventListener('change',()=>{
+      // right year = (_lm===11 ? _ly+1 : _ly), so _ly = newRY - (_lm===11 ? 1 : 0)
+      _ly=parseInt(yrR.value)-(_lm===11?1:0);refresh();
+    });
+    const cancel=_panel.querySelector('#drp2Cancel');
+    if(cancel)cancel.addEventListener('click',closePanel);
+    const upd=_panel.querySelector('#drp2Update');
+    if(upd)upd.addEventListener('click',()=>{
+      if(_s&&_e){
+        document.getElementById('fSd').value=ymd(_s);
+        document.getElementById('fEd').value=ymd(_e);
+        closePanel();
+        document.getElementById('filterForm').submit();
+      }
+    });
+  }
+
+  function posPanel(){
+    const btn=document.getElementById('drp2Btn');
+    if(!btn||!_panel)return;
+    const rect=btn.getBoundingClientRect();
+    const pw=_panel.offsetWidth||700,ph=_panel.offsetHeight||380;
+    let top=rect.bottom+6,left=rect.left;
+    if(left+pw>window.innerWidth-8)left=Math.max(8,window.innerWidth-pw-8);
+    if(top+ph>window.innerHeight-8)top=Math.max(8,rect.top-ph-6);
+    _panel.style.top=top+'px';
+    _panel.style.left=left+'px';
+  }
+
+  function openPanel(){
+    if(_panel){closePanel();return;}
+    _panel=document.createElement('div');
+    _panel.className='drp2-panel';
+    _panel.innerHTML=renderPanel();
+    document.body.appendChild(_panel);
+    posPanel();
+    bindEvts();
+    setTimeout(()=>document.addEventListener('mousedown',outerClick),0);
+  }
+
+  function closePanel(){
+    if(_panel){_panel.remove();_panel=null;}
+    document.removeEventListener('mousedown',outerClick);
+    _sel=false;_h=null;
+  }
+
+  function outerClick(e){
+    const btn=document.getElementById('drp2Btn');
+    if(_panel&&!_panel.contains(e.target)&&btn&&!btn.contains(e.target))closePanel();
+  }
+
+  function updateTrigger(){
+    const lbl=document.getElementById('drp2Lbl');
+    if(!lbl)return;
+    lbl.textContent=(_s&&_e)?disp(_s)+', '+disp(_e):'Pilih Rentang Tanggal';
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    _s=fromYMD('{{ sd }}');
+    _e=fromYMD('{{ ed }}');
+    const base=_s||new Date();
+    _ly=base.getFullYear();_lm=base.getMonth();
+    updateTrigger();
+    const btn=document.getElementById('drp2Btn');
+    if(btn)btn.addEventListener('click',openPanel);
+  });
+})();
+
+// ── TREN HARIAN: Pendapatan vs Laba Bersih (picker bulan & tahun) ───────────
+(function(){
+  const monthInput = document.getElementById('dtMonth');
+  const canvas     = document.getElementById('chartDaily');
+  if(!monthInput || !canvas) return;
+  let dailyInst = null;
+
+  function rpFull(v){
+    const neg = v < 0;
+    return (neg?'-':'')+'Rp '+Math.round(Math.abs(v)).toLocaleString('id-ID');
+  }
+  function clampMonth(val){
+    if(monthInput.min && val < monthInput.min) return monthInput.min;
+    if(monthInput.max && val > monthInput.max) return monthInput.max;
+    return val;
+  }
+  function shiftMonth(val, delta){
+    let [y,m]=val.split('-').map(Number);
+    m+=delta; while(m<1){m+=12;y--;} while(m>12){m-=12;y++;}
+    return y+'-'+String(m).padStart(2,'0');
+  }
+
+  function render(payload){
+    const dark = document.documentElement.getAttribute('data-theme')==='dark';
+    const gridColor  = dark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.04)';
+    const labelColor = dark ? '#94a3b8' : '#64748b';
+    const days = payload.days || [];
+
+    const elRev=document.getElementById('dtTotRev'),
+          elPft=document.getElementById('dtTotProfit'),
+          elAvg=document.getElementById('dtAvgProfit');
+    if(elRev) elRev.textContent = rpFull(payload.total_pendapatan||0);
+    if(elPft){ elPft.textContent = rpFull(payload.total_laba_bersih||0);
+               elPft.style.color = (payload.total_laba_bersih||0)>=0 ? '#16a34a' : '#dc2626'; }
+    if(elAvg) elAvg.textContent = rpFull(payload.avg_laba_bersih||0);
+
+    const empty=document.getElementById('dtEmpty'), wrap=document.getElementById('dtWrap');
+    const hasData = (payload.total_pendapatan||0)!==0 || (payload.total_laba_bersih||0)!==0;
+    if(!hasData){
+      if(wrap)wrap.style.display='none';
+      if(empty){empty.style.display='block';
+        empty.innerHTML='<i class="fas fa-chart-line mb-2" style="font-size:1.6rem;opacity:.35"></i><br>Belum ada transaksi pada bulan ini.';}
+      if(dailyInst){dailyInst.destroy();dailyInst=null;}
+      return;
+    }
+    if(wrap)wrap.style.display=''; if(empty)empty.style.display='none';
+
+    const labels = days.map(d=>d.label);
+    const rev    = days.map(d=>d.is_future?null:d.pendapatan);
+    const laba   = days.map(d=>d.is_future?null:d.laba_bersih);
+
+    const cfg = {
+      type:'line',
+      data:{ labels, datasets:[
+        { label:'Pendapatan', data:rev, borderColor:'#0ea5e9',
+          backgroundColor:'rgba(14,165,233,.10)', borderWidth:2, tension:.3,
+          fill:true, pointRadius:2, pointHoverRadius:5, spanGaps:false },
+        { label:'Laba Bersih', data:laba, borderColor:'#16a34a',
+          backgroundColor:'rgba(22,163,74,.10)', borderWidth:2.5, tension:.3,
+          fill:false, pointRadius:2, pointHoverRadius:5, spanGaps:false },
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{ position:'top', labels:{ color:labelColor, boxWidth:10, boxHeight:10, font:{size:11} } },
+          tooltip:{ callbacks:{
+            title: items => items.length ? ('Tgl '+items[0].label+' '+(payload.bulan||'')+' '+payload.year) : '',
+            label: ctx => { const v=ctx.parsed.y; if(v===null||v===undefined) return null;
+              return ' '+ctx.dataset.label+': '+rpFull(v); }
+          }}
+        },
+        scales:{
+          x:{ ticks:{color:labelColor,font:{size:9.5},autoSkip:true,maxTicksLimit:16}, grid:{display:false} },
+          y:{ ticks:{ callback:v=>{ if(Math.abs(v)>=1e6) return 'Rp '+(v/1e6).toFixed(0)+'jt';
+                if(Math.abs(v)>=1e3) return 'Rp '+(v/1e3).toFixed(0)+'rb'; return v===0?'Rp 0':v; },
+              color:labelColor, font:{size:10}, maxTicksLimit:6 },
+            grid:{color:gridColor}, border:{dash:[4,3]} }
+        }
+      }
+    };
+    if(dailyInst) dailyInst.destroy();
+    dailyInst = new Chart(canvas, cfg);
+  }
+
+  function loadDaily(){
+    const val = clampMonth(monthInput.value || '{{ today.strftime('%Y-%m') }}');
+    if(val !== monthInput.value) monthInput.value = val;
+    const [y,m] = val.split('-').map(Number);
+    fetch('/api/chart-daily?year='+y+'&month='+m)
+      .then(r=>r.json()).then(render)
+      .catch(()=>{ const e=document.getElementById('dtEmpty'), w=document.getElementById('dtWrap');
+        if(w)w.style.display='none';
+        if(e){e.style.display='block';e.textContent='Gagal memuat data tren harian.';} });
+  }
+
+  monthInput.addEventListener('change', loadDaily);
+  const prev=document.getElementById('dtPrev'), next=document.getElementById('dtNext');
+  if(prev) prev.addEventListener('click', ()=>{ monthInput.value=clampMonth(shiftMonth(monthInput.value,-1)); loadDaily(); });
+  if(next) next.addEventListener('click', ()=>{ monthInput.value=clampMonth(shiftMonth(monthInput.value, 1)); loadDaily(); });
+
+  loadDaily();
+})();
+</script>
+{% endif %}{# end if not OPERATOR #}
+
+<script>
+function openExportModal() {
+  // Pre-fill with the currently active dashboard period
+  const curSd = document.getElementById('fSd') ? document.getElementById('fSd').value : '{{ sd }}';
+  const curEd = document.getElementById('fEd') ? document.getElementById('fEd').value : '{{ ed }}';
+  document.getElementById('expSd').value = curSd;
+  document.getElementById('expEd').value = curEd;
+  new bootstrap.Modal(document.getElementById('modalExportExcel')).show();
+}
+
+function setExportPreset(preset) {
+  const today = new Date();
+  const ymd = d => d.toISOString().slice(0, 10);
+  let sd, ed = ymd(today);
+  if (preset === 'month') {
+    sd = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`;
+  } else if (preset === 'quarter') {
+    const qm = Math.floor(today.getMonth() / 3) * 3;
+    sd = `${today.getFullYear()}-${String(qm+1).padStart(2,'0')}-01`;
+  } else if (preset === 'year') {
+    sd = `${today.getFullYear()}-01-01`;
+  } else {
+    sd = '2020-01-01';
+  }
+  document.getElementById('expSd').value = sd;
+  document.getElementById('expEd').value = ed;
+}
+
+function doExportExcel() {
+  const sd = document.getElementById('expSd').value;
+  const ed = document.getElementById('expEd').value;
+  if (!sd || !ed) { alert('Isi rentang tanggal terlebih dahulu.'); return; }
+  if (sd > ed) { alert('Tanggal awal tidak boleh lebih besar dari tanggal akhir.'); return; }
+  bootstrap.Modal.getInstance(document.getElementById('modalExportExcel')).hide();
+  window.location.href = `/export/laporan-keuangan?sd=${sd}&ed=${ed}`;
+}
+</script>
+{% endblock %}

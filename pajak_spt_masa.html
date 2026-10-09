@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}SPT Masa PPN - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-file-invoice-dollar text-warning me-2"></i>SPT Masa PPN{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
+  <a href="/pajak" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Hub Pajak</a>
+  <form method="GET" class="d-flex gap-1 align-items-center ms-auto">
+    <label class="small text-muted me-1">Periode:</label>
+    <select name="bulan" class="form-select form-select-sm" style="width:120px">
+      {% for i in range(1,13) %}
+      {% set names = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+      <option value="{{ i }}" {% if i == bulan %}selected{% endif %}>{{ names[i-1] }}</option>
+      {% endfor %}
+    </select>
+    <select name="tahun" class="form-select form-select-sm" style="width:90px">
+      {% for y in range(today.year-2, today.year+1) %}
+      <option value="{{ y }}" {% if y == tahun %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-sm btn-primary">Filter</button>
+    <button type="button" onclick="window.print()" class="btn btn-sm btn-outline-secondary"><i class="fas fa-print me-1"></i>Cetak</button>
+    <a href="{{ url_for('pajak_spt_masa_export', bulan=bulan, tahun=tahun) }}" class="btn btn-sm btn-outline-success"><i class="fas fa-file-excel me-1"></i>Export Excel</a>
+  </form>
+</div>
+
+<!-- ── Header Laporan ── -->
+<div class="card mb-3">
+  <div class="card-body py-3">
+    <h5 class="mb-1 fw-bold">SPT Masa PPN - {{ bulan_nama }} {{ tahun }}</h5>
+    <div class="text-muted small">Periode: {{ from_d }} s/d {{ to_d }}</div>
+  </div>
+</div>
+
+<!-- ── Ringkasan PPN ── -->
+<div class="row g-2 mb-3">
+  <div class="col-md-3">
+    <div class="card kpi grn">
+      <div class="kpi-lbl">PPN Keluaran</div>
+      <div class="kpi-val text-rp text-success">{{ ppn_keluaran|rp }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi blu">
+      <div class="kpi-lbl">PPN Masukan</div>
+      <div class="kpi-val text-rp text-primary">{{ ppn_masukan|rp }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi {% if kurang_bayar > 0 %}red{% else %}sla{% endif %}">
+      <div class="kpi-lbl">Kurang Bayar</div>
+      <div class="kpi-val text-rp {% if kurang_bayar > 0 %}text-danger{% endif %}">
+        {{ kurang_bayar|rp }}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi {% if lebih_bayar > 0 %}grn{% else %}sla{% endif %}">
+      <div class="kpi-lbl">Lebih Bayar</div>
+      <div class="kpi-val text-rp {% if lebih_bayar > 0 %}text-success{% endif %}">
+        {{ lebih_bayar|rp }}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if kurang_bayar > 0 %}
+<div class="alert alert-danger py-2 mb-3" style="font-size:.85rem">
+  <i class="fas fa-triangle-exclamation me-1"></i>
+  <strong>Kewajiban Setor PPN:</strong> Rp {{ '{:,.0f}'.format(kurang_bayar).replace(',', '.') }} harus disetor ke kas negara.
+  <br>
+  <span class="text-muted" style="font-size:.78rem">
+    Jurnal otomatis akan: <code>Dr 2111 Hutang PPN / Cr 1180 PPN Masukan / Cr Kas</code> — PPN Masukan ter-offset, Neraca tetap balance.
+  </span>
+  <a href="/pajak/setor?akun=2111&nominal={{ kurang_bayar|int }}" class="btn btn-sm btn-danger ms-2 mt-1">
+    <i class="fas fa-money-bill-transfer me-1"></i>Setor Sekarang
+  </a>
+</div>
+{% elif lebih_bayar > 0 %}
+<div class="alert alert-success py-2 mb-3" style="font-size:.85rem">
+  <i class="fas fa-circle-check me-1"></i>
+  PPN Masukan lebih besar dari Keluaran. Selisih Rp {{ '{:,.0f}'.format(lebih_bayar).replace(',', '.') }} bisa dikompensasi ke bulan berikutnya atau direstitusi.
+</div>
+{% endif %}
+
+{% if setoran_ppn > 0 %}
+<div class="alert alert-info py-2 mb-3" style="font-size:.82rem">
+  <i class="fas fa-circle-info me-1"></i>
+  Sudah disetor bulan ini: <strong>Rp {{ '{:,.0f}'.format(setoran_ppn).replace(',', '.') }}</strong>
+</div>
+{% endif %}
+
+<!-- ── Rincian PPN Keluaran ── -->
+<div class="card mb-3">
+  <div class="card-header py-2 fw-semibold" style="font-size:.88rem">
+    <i class="fas fa-arrow-up me-2 text-success"></i>Rincian PPN Keluaran (dari Penjualan)
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="table-light"><tr>
+          <th class="ps-3">Tanggal</th><th>Keterangan</th><th>Pihak</th>
+          <th class="text-end pe-3">Nilai PPN</th>
+        </tr></thead>
+        <tbody>
+          {% for r in rincian_keluaran %}
+          <tr>
+            <td class="ps-3">{{ r.tanggal|tgl }}</td>
+            <td>{{ r.keterangan }}</td>
+            <td>{{ r.pihak or '-' }}</td>
+            <td class="text-end pe-3 fw-semibold text-rp">{{ r.nominal|rp }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada PPN Keluaran di periode ini.</td></tr>
+          {% endfor %}
+          {% if rincian_keluaran %}
+          <tr class="table-success">
+            <td colspan="3" class="text-end fw-bold pe-2">TOTAL PPN KELUARAN</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ ppn_keluaran|rp }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Rincian PPN Masukan ── -->
+<div class="card mb-3">
+  <div class="card-header py-2 fw-semibold" style="font-size:.88rem">
+    <i class="fas fa-arrow-down me-2 text-primary"></i>Rincian PPN Masukan (dari Pembelian)
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="table-light"><tr>
+          <th class="ps-3">Tanggal</th><th>Keterangan</th><th>Pihak</th>
+          <th class="text-end pe-3">Nilai PPN</th>
+        </tr></thead>
+        <tbody>
+          {% for r in rincian_masukan %}
+          <tr>
+            <td class="ps-3">{{ r.tanggal|tgl }}</td>
+            <td>{{ r.keterangan }}</td>
+            <td>{{ r.pihak or '-' }}</td>
+            <td class="text-end pe-3 fw-semibold text-rp">{{ r.nominal|rp }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada PPN Masukan di periode ini.</td></tr>
+          {% endfor %}
+          {% if rincian_masukan %}
+          <tr class="table-info">
+            <td colspan="3" class="text-end fw-bold pe-2">TOTAL PPN MASUKAN</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ ppn_masukan|rp }}</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+@media print {
+  .no-print, form, .btn { display: none !important; }
+}
+</style>
+
+{% endblock %}

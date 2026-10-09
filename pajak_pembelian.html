@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Pembelian PKP - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-cart-shopping text-primary me-2"></i>Catat Pembelian (PKP){% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3">
+  <a href="/pajak" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Kembali ke Hub Pajak</a>
+</div>
+
+<form method="POST">
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header py-2 fw-semibold" style="font-size:.88rem">
+        <i class="fas fa-file-invoice me-2 text-primary"></i>Detail Pembelian
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label small">Tanggal <span class="text-danger">*</span></label>
+            <input type="date" name="tanggal" class="form-control form-control-sm" value="{{ today }}" max="{{ today }}" required>
+          </div>
+          <div class="col-md-8">
+            <label class="form-label small">Nama Supplier <span class="text-danger">*</span></label>
+            <input type="text" name="supplier" class="form-control form-control-sm" placeholder="PT ABC / CV XYZ"
+                   list="vendorList" autocomplete="off" required>
+            <datalist id="vendorList">
+              {% for v in vendor_list %}<option value="{{ v.nama }}">{% endfor %}
+            </datalist>
+            <div class="form-text" style="font-size:.7rem">Ketik bebas, atau pilih dari Database Vendor.</div>
+          </div>
+          <div class="col-12">
+            <label class="form-label small">Keterangan Pembelian</label>
+            <input type="text" name="keterangan" class="form-control form-control-sm" placeholder="Beli bahan baku / sewa kantor / dll">
+          </div>
+          <div class="col-md-7">
+            <label class="form-label small">Didebit ke Akun (Persediaan/Beban) <span class="text-danger">*</span></label>
+            <select name="akun_debit" class="form-select form-select-sm" required>
+              <option value="">-- Pilih akun --</option>
+              {% set last_tipe = '' %}
+              {% for a in akun_debit_opts %}
+                {% if a.tipe != last_tipe %}
+                  <optgroup label="{{ a.tipe }}">
+                  {% set last_tipe = a.tipe %}
+                {% endif %}
+                <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+              {% endfor %}
+              </optgroup>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label small">DPP / Harga Beli Sebelum Pajak (Rp) <span class="text-danger">*</span></label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="dpp" id="inp_dpp" class="form-control" min="0" step="1" value="0" required oninput="calcHitung()">
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">PPN Masukan (%)</label>
+            <div class="input-group input-group-sm">
+              <input type="number" name="ppn_persen" id="inp_ppn" class="form-control" min="0" max="100" step="0.01" value="11" oninput="calcHitung()">
+              <span class="input-group-text">%</span>
+            </div>
+            <div class="form-text" style="font-size:.7rem">Default 11%. Set 0 jika supplier non-PKP atau pembelian non-BKP.</div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">PPh 23 (kita yang potong) (%)</label>
+            <div class="input-group input-group-sm">
+              <input type="number" name="pph23_persen" id="inp_pph" class="form-control" min="0" max="100" step="0.01" value="0" oninput="calcHitung()">
+              <span class="input-group-text">%</span>
+            </div>
+            <div class="form-text" style="font-size:.7rem">Isi 2% jika supplier jasa &amp; punya NPWP. Akan jadi Hutang PPh 23.</div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small">Sumber Pembayaran <span class="text-danger">*</span></label>
+            <select name="sumber" id="inp_sumber" class="form-select form-select-sm" onchange="toggleKas()" required>
+              <option value="tunai">Tunai / Bank (langsung bayar)</option>
+              <option value="hutang">Hutang (dibayar nanti)</option>
+            </select>
+          </div>
+          <div class="col-md-6" id="kasBox">
+            <label class="form-label small">Dari Rekening / Kas <span class="text-danger">*</span></label>
+            <select name="akun_kas" class="form-select form-select-sm">
+              {% for k in akun_kas %}
+              <option value="{{ k.kode }}">{{ k.kode }} - {{ k.nama }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Simpan Pembelian &amp; Buat Jurnal</button>
+      <a href="/pajak" class="btn btn-outline-secondary">Batal</a>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card" style="border:2px solid var(--acc)">
+      <div class="card-header py-2 fw-semibold" style="font-size:.88rem">
+        <i class="fas fa-calculator me-2 text-warning"></i>Preview Jurnal
+      </div>
+      <div class="card-body py-2 px-3" style="font-size:.82rem">
+        <div class="d-flex justify-content-between mb-1">
+          <span class="text-muted">DPP</span>
+          <span class="text-rp" id="prv_dpp">Rp 0</span>
+        </div>
+        <div class="d-flex justify-content-between mb-1" id="row_prv_ppn" style="display:none">
+          <span class="text-muted">PPN Masukan (<span id="prv_ppn_pct">0</span>%)</span>
+          <span class="text-rp text-info" id="prv_ppn">+ Rp 0</span>
+        </div>
+        <div class="d-flex justify-content-between mb-1" id="row_prv_pph" style="display:none">
+          <span class="text-muted">Dikurang PPh 23 (<span id="prv_pph_pct">0</span>%)</span>
+          <span class="text-rp text-warning" id="prv_pph">- Rp 0</span>
+        </div>
+        <hr class="my-1">
+        <div class="d-flex justify-content-between">
+          <span class="fw-bold">Dibayar / Terhutang</span>
+          <span class="fw-bold fs-6 text-rp text-success" id="prv_total">Rp 0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-body" style="font-size:.78rem">
+        <div class="fw-bold mb-1"><i class="fas fa-bolt me-1 text-success"></i>Jurnal yang akan dibuat:</div>
+        <div class="p-2" style="background:var(--card-h);border-radius:6px;font-family:monospace;font-size:.72rem">
+          Dr  [Akun Debit]      = DPP<br>
+          Dr  1180 PPN Masukan  = PPN (jika kena)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;Cr  Bank / Hutang   = Net<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;Cr  2112 Hutang PPh23 = PPh (jika potong)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</form>
+
+<script>
+function fmt(n){return window.rpFmt ? window.rpFmt(Math.max(0,n)) : 'Rp ' + Math.round(Math.max(0,n)).toLocaleString('id-ID');}
+function moneyCalc(n){ return Math.round((Number(n) || 0) * 100) / 100; }
+function nv(id){return parseFloat((document.getElementById(id).value||'0').replace(/\./g,'').replace(',','.'))||0;}
+function calcHitung(){
+  const dpp = nv('inp_dpp');
+  const ppnPct = nv('inp_ppn');
+  const pphPct = nv('inp_pph');
+  const ppnNom = moneyCalc(dpp * ppnPct / 100);
+  const pphNom = moneyCalc(dpp * pphPct / 100);
+  const total = dpp + ppnNom - pphNom;
+  document.getElementById('prv_dpp').textContent = fmt(dpp);
+  const rowPpn = document.getElementById('row_prv_ppn');
+  if (ppnPct > 0){
+    rowPpn.style.display = 'flex';
+    document.getElementById('prv_ppn_pct').textContent = ppnPct;
+    document.getElementById('prv_ppn').textContent = '+ ' + fmt(ppnNom);
+  } else rowPpn.style.display = 'none';
+  const rowPph = document.getElementById('row_prv_pph');
+  if (pphPct > 0){
+    rowPph.style.display = 'flex';
+    document.getElementById('prv_pph_pct').textContent = pphPct;
+    document.getElementById('prv_pph').textContent = '- ' + fmt(pphNom);
+  } else rowPph.style.display = 'none';
+  document.getElementById('prv_total').textContent = fmt(total);
+}
+function toggleKas(){
+  const sumber = document.getElementById('inp_sumber').value;
+  document.getElementById('kasBox').style.display = (sumber === 'tunai') ? '' : 'none';
+}
+document.addEventListener('DOMContentLoaded', function(){
+  if (window.numFmtInitAll) window.numFmtInitAll();
+  calcHitung();
+  toggleKas();
+});
+</script>
+
+{% endblock %}

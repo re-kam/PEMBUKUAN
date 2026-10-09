@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Pajak (PPN & PPh) - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-crown text-warning me-2"></i>Pajak PPN &amp; PPh{% endblock %}
+{% block content %}
+
+<div class="alert alert-warning py-2 mb-3" style="font-size:.82rem">
+  <i class="fas fa-puzzle-piece me-1"></i>
+  <strong>Modul Lanjutan Aktif</strong> - Dashboard pajak ini bisa diakses karena Modul Lanjutan "Pajak &amp; Gaji" sudah diaktivasi.
+</div>
+
+<!-- ── Ringkasan PPN bulan ini ── -->
+<div class="row g-2 mb-3">
+  <div class="col-md-4">
+    <div class="card kpi grn">
+      <div class="kpi-lbl">PPN Keluaran ({{ bln }})</div>
+      <div class="kpi-val text-rp text-success">{{ ppn_keluaran|rp }}</div>
+      <div class="kpi-sub">Total PPN yang dipungut dari penjualan</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi blu">
+      <div class="kpi-lbl">PPN Masukan ({{ bln }})</div>
+      <div class="kpi-val text-rp text-primary">{{ ppn_masukan_periode|rp }}</div>
+      <div class="kpi-sub">Total PPN yang dibayar saat pembelian</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi {% if ppn_kurang_bayar > 0 %}red{% else %}sla{% endif %}">
+      <div class="kpi-lbl">Kurang / Lebih Bayar</div>
+      <div class="kpi-val text-rp {% if ppn_kurang_bayar > 0 %}text-danger{% endif %}">
+        {{ ppn_kurang_bayar|rp if ppn_kurang_bayar > 0 else '0' }}
+      </div>
+      <div class="kpi-sub">{% if ppn_kurang_bayar > 0 %}Harus disetor bulan ini{% else %}Tidak ada kewajiban setor{% endif %}</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 6 Aksi Cepat ── -->
+<div class="row g-2 mb-3">
+  <div class="col-md-2 col-sm-4">
+    <a href="/pajak/setor" class="card text-decoration-none h-100" style="border:1px solid var(--pgb);transition:.15s">
+      <div class="card-body py-3 text-center">
+        <i class="fas fa-money-bill-transfer fa-2x text-success mb-2"></i>
+        <div class="fw-bold small">Bayar Pajak/Gaji</div>
+        <div class="text-muted" style="font-size:.75rem">Lunasi PPN, PPh, BPJS, atau gaji</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <a href="/pajak/pembelian-pkp" class="card text-decoration-none h-100" style="border:1px solid var(--pgb)">
+      <div class="card-body py-3 text-center">
+        <i class="fas fa-cart-shopping fa-2x text-primary mb-2"></i>
+        <div class="fw-bold small">Pembelian PKP</div>
+        <div class="text-muted" style="font-size:.75rem">Beli dengan PPN Masukan</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <a href="/pajak/spt-masa" class="card text-decoration-none h-100" style="border:1px solid var(--pgb)">
+      <div class="card-body py-3 text-center">
+        <i class="fas fa-file-invoice-dollar fa-2x text-warning mb-2"></i>
+        <div class="fw-bold small">SPT Masa PPN</div>
+        <div class="text-muted" style="font-size:.75rem">Laporan bulanan PPN</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <a href="/pajak/pph22" class="card text-decoration-none h-100" style="border:1px solid var(--pgb)">
+      <div class="card-body py-3 text-center">
+        <i class="fas fa-landmark fa-2x text-info mb-2"></i>
+        <div class="fw-bold small">Rekap PPh 22</div>
+        <div class="text-muted" style="font-size:.75rem">Pemotongan oleh instansi</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <a href="/pajak/bukti-potong" class="card text-decoration-none h-100" style="border:1px solid var(--pgb)">
+      <div class="card-body py-3 text-center">
+        <i class="fas fa-file-contract fa-2x text-info mb-2"></i>
+        <div class="fw-bold small">Bukti Potong Masuk</div>
+        <div class="text-muted" style="font-size:.75rem">{{ n_bukti_potong }} dok. dari customer</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <a href="/pajak/bukti-potong-keluar" class="card text-decoration-none h-100" style="border:1px solid var(--pgb)">
+      <div class="card-body py-3 text-center">
+        <i class="fas fa-scissors fa-2x text-danger mb-2"></i>
+        <div class="fw-bold small">Bukti Potong Keluar</div>
+        <div class="text-muted" style="font-size:.75rem">PPh 23 ke supplier</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-2 col-sm-4">
+    <a href="/pajak/bukti-bayar" class="card text-decoration-none h-100" style="border:1px solid var(--pgb)">
+      <div class="card-body py-3 text-center">
+        <i class="fas fa-receipt fa-2x text-success mb-2"></i>
+        <div class="fw-bold small">Bukti Bayar Pajak</div>
+        <div class="text-muted" style="font-size:.75rem">Arsip setor ke DJP</div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<!-- ── Gaji bulan ini ── -->
+<div class="card mb-3">
+  <div class="card-header py-2 d-flex align-items-center gap-2">
+    <i class="fas fa-users text-purple" style="color:#7c3aed"></i>
+    <span class="fw-semibold" style="font-size:.88rem">Gaji Bulan Ini ({{ bln }})</span>
+    <span class="badge ms-auto" style="background:#7c3aed;font-size:.68rem">{{ n_karyawan_aktif }} karyawan aktif</span>
+  </div>
+  <div class="card-body py-2">
+    <div class="row g-2">
+      <div class="col-sm-3">
+        <div class="p-2 rounded-2 text-center" style="background:var(--card-h)">
+          <div class="text-muted" style="font-size:.68rem">Slip Diproses</div>
+          <div class="fw-bold fs-5" style="color:#7c3aed">{{ gaji_bulan.n_slip }}</div>
+        </div>
+      </div>
+      <div class="col-sm-3">
+        <div class="p-2 rounded-2 text-center" style="background:var(--card-h)">
+          <div class="text-muted" style="font-size:.68rem">Total Bruto</div>
+          <div class="fw-bold text-rp" style="font-size:.95rem">{{ gaji_bulan.total_bruto|rp }}</div>
+        </div>
+      </div>
+      <div class="col-sm-3">
+        <div class="p-2 rounded-2 text-center" style="background:var(--card-h)">
+          <div class="text-muted" style="font-size:.68rem">PPh 21 Dipotong</div>
+          <div class="fw-bold text-rp text-danger" style="font-size:.95rem">{{ gaji_bulan.total_pph21|rp }}</div>
+        </div>
+      </div>
+      <div class="col-sm-3">
+        <div class="p-2 rounded-2 text-center" style="background:var(--card-h)">
+          <div class="text-muted" style="font-size:.68rem">Take-Home Karyawan</div>
+          <div class="fw-bold text-rp text-success" style="font-size:.95rem">{{ gaji_bulan.total_bersih|rp }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="d-flex gap-2 mt-2">
+      <a href="/gaji/proses" class="btn btn-sm btn-outline-secondary" style="border-color:#7c3aed;color:#7c3aed;font-size:.78rem">
+        <i class="fas fa-calculator me-1"></i>Proses Gaji</a>
+      <a href="/gaji/riwayat" class="btn btn-sm btn-outline-secondary" style="font-size:.78rem">
+        <i class="fas fa-clock-rotate-left me-1"></i>Riwayat</a>
+      <a href="/gaji/karyawan" class="btn btn-sm btn-outline-secondary" style="font-size:.78rem">
+        <i class="fas fa-id-card me-1"></i>Karyawan</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── Saldo Akun Pajak ── -->
+<div class="card mb-3">
+  <div class="card-header py-2 fw-semibold" style="font-size:.88rem">
+    <i class="fas fa-list-check me-2 text-primary"></i>Saldo Akun Pajak & Gaji (Real-time)
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead class="table-light"><tr>
+        <th class="ps-3">Kode</th><th>Nama Akun</th><th>Tipe</th>
+        <th class="text-end pe-3">Saldo Saat Ini</th>
+      </tr></thead>
+      <tbody>
+        <tr><td class="ps-3 fw-bold">2111</td><td>Hutang PPN</td><td><span class="badge bg-danger">Wajib Setor</span></td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ saldo.hutang_ppn|rp }}</td></tr>
+        <tr><td class="ps-3 fw-bold">2112</td><td>Hutang PPh Pasal 23</td><td><span class="badge bg-danger">Wajib Setor</span></td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ saldo.hutang_pph23|rp }}</td></tr>
+        <tr><td class="ps-3 fw-bold">2110</td><td>Hutang PPh Badan</td><td><span class="badge bg-danger">Wajib Setor</span></td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ saldo.hutang_pph_bd|rp }}</td></tr>
+        <tr><td class="ps-3 fw-bold">2115</td><td>Hutang PPh Pasal 21</td><td><span class="badge bg-danger">Wajib Setor</span></td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ saldo.hutang_pph21|rp }}</td></tr>
+        <tr><td class="ps-3 fw-bold">2116</td><td>Hutang BPJS</td><td><span class="badge bg-danger">Wajib Setor</span></td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ saldo.hutang_bpjs|rp }}</td></tr>
+        <tr><td class="ps-3 fw-bold">2120</td><td>Hutang Gaji</td><td><span class="badge bg-danger">Wajib Bayar</span></td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ saldo.hutang_gaji|rp }}</td></tr>
+        <tr><td class="ps-3 fw-bold">1180</td><td>PPN Masukan</td><td><span class="badge bg-info">Bisa Kreditkan</span></td>
+            <td class="text-end pe-3 text-rp">{{ saldo.ppn_masukan|rp }}</td></tr>
+        <tr><td class="ps-3 fw-bold">1181</td><td>PPh 23 Dibayar Dimuka</td><td><span class="badge bg-info">Klaim SPT Tahunan</span></td>
+            <td class="text-end pe-3 text-rp">{{ saldo.pph23_dimuka|rp }}</td></tr>
+        <tr><td class="ps-3 fw-bold">1182</td><td>Angsuran PPh Pasal 25</td><td><span class="badge bg-info">Klaim SPT Tahunan</span></td>
+            <td class="text-end pe-3 text-rp">{{ saldo.angsuran25|rp }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Panduan: Dua Jalur Bayar Pajak ── -->
+<div class="card mb-3">
+  <div class="card-body py-3" style="font-size:.84rem">
+    <div class="fw-bold mb-2"><i class="fas fa-route me-2 text-info"></i>Dua Jalur Bayar Pajak — Pilih Yang Tepat</div>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="p-2 rounded-2" style="background:var(--card-h);height:100%">
+          <div class="fw-semibold text-success mb-1"><i class="fas fa-money-bill-transfer me-1"></i>Setor Pajak (di sini)</div>
+          <div class="text-muted" style="font-size:.78rem">
+            <strong>Pakai bila hutang sudah terbentuk</strong> dari transaksi sebelumnya:
+            PPN Keluaran dari penjualan PKP, PPh 23 yang dipotong saat pembelian PKP,
+            PPh 21 dari payroll, BPJS, gaji.
+            <br><br>
+            <strong>Jurnal:</strong> Dr Hutang Pajak / Cr Kas — hanya pergerakan Neraca,
+            tidak menambah Beban di Laba Rugi (beban sudah diakui saat transaksi).
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="p-2 rounded-2" style="background:var(--card-h);height:100%">
+          <div class="fw-semibold text-warning mb-1"><i class="fas fa-minus me-1"></i>Pengeluaran kategori "Pajak"</div>
+          <div class="text-muted" style="font-size:.78rem">
+            <strong>Pakai bila langsung bayar tanpa hutang</strong>: PBB, pajak kendaraan,
+            pajak final, materai, biaya administrasi pajak.
+            <br><br>
+            <strong>Jurnal:</strong> Dr Beban Pajak (6170) / Cr Kas — langsung jadi beban
+            di Laba Rugi periode bersangkutan.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="alert alert-warning py-2 mb-0 mt-2" style="font-size:.78rem">
+      <i class="fas fa-triangle-exclamation me-1"></i>
+      <strong>PPh Badan:</strong> Bila belum pernah akrual (Dr 6170 / Cr 2110) tapi sudah saatnya bayar,
+      cukup pakai <strong>Setor Pajak</strong> di sini dengan akun 2110 — sistem otomatis akan
+      mengakrual beban pajak terlebih dahulu agar Laba Rugi tidak overstated.
+    </div>
+  </div>
+</div>
+
+<div class="text-muted small">
+  <i class="fas fa-circle-info me-1"></i>
+  Saldo dihitung real-time dari Buku Besar. Klik kode akun dari menu <a href="/akun">Bagan Akun</a> untuk lihat detail mutasi.
+</div>
+
+{% endblock %}

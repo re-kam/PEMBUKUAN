@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Bukti Bayar Pajak - {{ no_bb }}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;color:#000;font-family:'Segoe UI',Arial,sans-serif}
+body{font-size:12px;background:#fff;padding:30px 36px}
+.header{border-bottom:3px solid #1d4ed8;padding-bottom:14px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start}
+.header-left .title{font-size:20px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;color:#1d4ed8}
+.header-left .subtitle{font-size:10px;margin-top:4px;color:#555}
+.header-right{text-align:right}
+.no-bb{font-size:14px;font-weight:800;font-family:monospace;color:#1d4ed8}
+.meta{font-size:11px;margin-top:6px;color:#444}
+.stamp-box{border:2px solid #16a34a;border-radius:8px;padding:14px 20px;margin:20px 0;background:#f0fdf4;text-align:center}
+.stamp-amount{font-size:28px;font-weight:900;color:#16a34a;letter-spacing:.02em}
+.stamp-label{font-size:11px;color:#166534;margin-top:3px}
+.detail-section{margin:16px 0}
+.detail-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#555;border-bottom:1px solid #e5e7eb;padding-bottom:4px;margin-bottom:10px}
+table{width:100%;border-collapse:collapse}
+table td{padding:5px 8px;font-size:11px;vertical-align:top}
+table td:first-child{width:200px;color:#666;font-weight:500}
+table td:last-child{font-weight:600}
+.jenis-box{display:inline-block;padding:3px 10px;border-radius:12px;font-weight:700;font-size:10px}
+.jenis-ppn{background:#dbeafe;color:#1e40af}
+.jenis-pph{background:#fee2e2;color:#b91c1c}
+.jenis-lain{background:#e5e7eb;color:#374151}
+.divider{border:none;border-top:1px dashed #d1d5db;margin:16px 0}
+.footer-box{margin-top:30px;display:flex;justify-content:space-between;align-items:flex-end}
+.tt-block{width:210px;text-align:center}
+.tt-space{height:64px}
+.tt-line{border-top:1px solid #000;padding-top:5px;font-size:11px}
+.notes{background:#fef9c3;border-left:3px solid #f59e0b;padding:10px 14px;font-size:10px;line-height:1.6;margin-top:16px}
+.watermark{font-size:10px;color:#9ca3af;text-align:center;margin-top:20px}
+.btn-print{background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;font-size:13px;margin-right:8px;margin-bottom:14px}
+.btn-back{background:#f1f5f9;color:#475569;border:none;padding:8px 16px;border-radius:5px;cursor:pointer;font-size:13px;margin-bottom:14px}
+@media print{.no-print{display:none!important} body{padding:12mm 16mm}}
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <button onclick="window.print()" class="btn-print">&#128424; Cetak / Save PDF</button>
+  <button onclick="window.close()" class="btn-back">Tutup</button>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="title">Bukti Pembayaran Pajak</div>
+    <div class="subtitle">Dokumen Internal Pengganti BPN - {{ inv_s.inv_nama }}</div>
+    {% if inv_s.inv_alamat %}
+    <div class="subtitle">{{ inv_s.inv_alamat }}</div>
+    {% endif %}
+  </div>
+  <div class="header-right">
+    <div class="no-bb">{{ no_bb }}</div>
+    <div class="meta">Tanggal: <strong>{{ j.tanggal|tgl }}</strong></div>
+    <div class="meta">Jurnal Ref: <strong>#{{ j.id }}</strong></div>
+  </div>
+</div>
+
+<!-- Stamp nominal -->
+<div class="stamp-box">
+  <div class="stamp-label">TOTAL PAJAK YANG DIBAYARKAN</div>
+  <div class="stamp-amount">Rp {{ total_setor|rp }}</div>
+  <div class="stamp-label">{{ j.keterangan }}</div>
+</div>
+
+<!-- Detail pajak yang disetor -->
+<div class="detail-section">
+  <div class="detail-title">Rincian Pajak Disetor</div>
+  <table>
+    {% for r in pajak_rows %}
+    <tr>
+      <td>Jenis Pajak</td>
+      <td>
+        {% if r.kode == '2111' %}
+        <span class="jenis-box jenis-ppn">PPN</span>
+        {% elif r.kode == '2112' %}
+        <span class="jenis-box jenis-pph">PPh Pasal 23</span>
+        {% else %}
+        <span class="jenis-box jenis-lain">Pajak Umum</span>
+        {% endif %}
+        &nbsp;{{ r.nama }} ({{ r.kode }})
+      </td>
+    </tr>
+    <tr>
+      <td>Nominal Disetor</td>
+      <td style="font-size:14px;font-weight:900;color:#16a34a">{{ r.debit|rp }}</td>
+    </tr>
+    {% if not loop.last %}<tr><td colspan="2"><hr style="border-top:1px dashed #e5e7eb;margin:4px 0"></td></tr>{% endif %}
+    {% endfor %}
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- Detail pembayaran sumber -->
+<div class="detail-section">
+  <div class="detail-title">Sumber Pembayaran</div>
+  <table>
+    {% for r in kas_rows %}
+    <tr>
+      <td>Rekening / Kas</td>
+      <td>{{ r.nama }} ({{ r.kode }})</td>
+    </tr>
+    <tr>
+      <td>Jumlah Keluar</td>
+      <td>{{ r.kredit|rp }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- Info pembayar -->
+<div class="detail-section">
+  <div class="detail-title">Informasi Wajib Pajak</div>
+  <table>
+    <tr><td>Nama Usaha</td><td>{{ inv_s.inv_nama }}</td></tr>
+    <tr><td>Alamat</td><td>{{ inv_s.inv_alamat or '-' }}</td></tr>
+    <tr><td>Telepon</td><td>{{ inv_s.inv_telepon or '-' }}</td></tr>
+    <tr><td>Tanggal Bayar</td><td>{{ j.tanggal|tgl }}</td></tr>
+    <tr><td>Keterangan</td><td>{{ j.keterangan }}</td></tr>
+  </table>
+</div>
+
+<div class="notes">
+  <strong>Catatan:</strong>
+  <ul style="margin:4px 0 0 18px">
+    <li>Dokumen ini merupakan bukti pembayaran pajak <strong>internal</strong> yang diterbitkan oleh sistem pembukuan.</li>
+    <li>Untuk keperluan resmi, simpan BPN (Bukti Penerimaan Negara) dari DJP / CoreTax sebagai dokumen sah pembayaran pajak.</li>
+    <li>Nominal yang tercatat: <strong>Rp {{ total_setor|rp }}</strong> pada tanggal <strong>{{ j.tanggal|tgl }}</strong> (Ref. Jurnal #{{ j.id }}).</li>
+    <li>Dokumen ini dapat digunakan sebagai lampiran rekonsiliasi internal dan arsip pembukuan.</li>
+  </ul>
+</div>
+
+<!-- Tanda Tangan -->
+<div class="footer-box">
+  <div style="font-size:10px;color:#888">
+    Diterbitkan oleh Sistem Pembukuan<br>
+    {{ inv_s.inv_nama }}<br>
+    No. Bukti: {{ no_bb }}
+  </div>
+  <div class="tt-block">
+    <div style="font-size:11px;margin-bottom:4px">Dibuat oleh,</div>
+    <div class="tt-space"></div>
+    <div class="tt-line"><strong>{{ inv_s.inv_nama }}</strong></div>
+  </div>
+</div>
+
+<div class="watermark">
+  &#9679; Dokumen ini dicetak dari Sistem Finansial {{ inv_s.inv_nama }} - hanya untuk arsip internal &#9679;
+</div>
+
+</body>
+</html>

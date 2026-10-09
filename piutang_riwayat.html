@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Riwayat Piutang - FinansialApp{% endblock %}
+{% block page_title %}Riwayat Pembayaran Piutang{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="mb-3">
+  <a href="/piutang" class="btn btn-outline-secondary btn-sm">
+    <i class="fas fa-arrow-left me-1"></i>Kembali ke Piutang
+  </a>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="row g-2">
+      <div class="col-sm-3">
+        <div class="text-muted" style="font-size:.75rem">PELANGGAN</div>
+        <div class="fw-bold fs-5">{{ p.pelanggan }}</div>
+      </div>
+      <div class="col-sm-2">
+        <div class="text-muted" style="font-size:.75rem">TANGGAL</div>
+        <div>{{ p.tanggal|tgl }}</div>
+      </div>
+      <div class="col-sm-2">
+        <div class="text-muted" style="font-size:.75rem">JATUH TEMPO</div>
+        <div class="{% if p.jatuh_tempo and p.jatuh_tempo < today.strftime('%Y-%m-%d') and p.status != 'LUNAS' %}text-danger fw-semibold{% endif %}">
+          {{ p.jatuh_tempo|tgl }}
+        </div>
+      </div>
+      <div class="col-sm-2">
+        <div class="text-muted" style="font-size:.75rem">JUMLAH TOTAL</div>
+        <div class="fw-bold text-rp">{{ p.jumlah|rp }}</div>
+      </div>
+      <div class="col-sm-1">
+        <div class="text-muted" style="font-size:.75rem">TERBAYAR</div>
+        <div class="text-success text-rp">{{ p.terbayar|rp }}</div>
+      </div>
+      <div class="col-sm-1">
+        <div class="text-muted" style="font-size:.75rem">SISA</div>
+        <div class="fw-bold text-danger text-rp">{{ (p.jumlah - p.terbayar)|rp }}</div>
+      </div>
+      <div class="col-sm-1 d-flex align-items-end">
+        {% if p.status == 'LUNAS' %}<span class="badge badge-lunas fs-6">Lunas</span>
+        {% elif p.status == 'SEBAGIAN' %}<span class="badge badge-sebagian fs-6">Sebagian</span>
+        {% else %}<span class="badge badge-belum fs-6">Belum Lunas</span>{% endif %}
+      </div>
+    </div>
+    {% if p.keterangan %}
+    <div class="mt-2 text-muted"><small>Keterangan: {{ p.keterangan }}</small></div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header bg-white py-2 px-3">
+    <span class="fw-semibold"><i class="fas fa-history me-2 text-success"></i>Riwayat Pembayaran</span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">#</th>
+          <th>Tanggal Bayar</th>
+          <th class="text-end">Jumlah</th>
+          <th>Catatan</th>
+          <th>Jurnal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in riwayat %}
+        <tr>
+          <td class="ps-3 text-muted">{{ loop.revindex }}</td>
+          <td>{{ r.tanggal|tgl }}</td>
+          <td class="text-end text-success fw-semibold text-rp">{{ r.jumlah|rp }}</td>
+          <td class="text-muted">{{ r.catatan or '-' }}</td>
+          <td>{% if r.jurnal_id %}<a href="/transaksi/{{ r.jurnal_id }}" class="btn btn-xs btn-outline-secondary">Lihat</a>{% else %}-{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center text-muted py-4">Belum ada pembayaran</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if riwayat %}
+      <tfoot>
+        <tr>
+          <td colspan="2" class="text-end fw-bold ps-3">Total Pembayaran:</td>
+          <td class="text-end fw-bold text-success text-rp">{{ p.terbayar|rp }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+      {% endif %}
+    </table>
+  </div>
+</div>
+{{ pagination(pg) }}
+{% endblock %}

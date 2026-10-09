@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}{{ v.nama }} - Vendor{% endblock %}
+{% block page_title %}Detail Vendor{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  <a href="/database/vendor" class="btn btn-sm btn-outline-secondary">
+    <i class="fas fa-arrow-left me-1"></i>Kembali ke Database Vendor</a>
+  {% if session.role in ('ADMIN','FINANCE') %}
+  <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalEditVendor">
+    <i class="fas fa-pen me-1"></i>Edit Info Vendor</button>
+  {% endif %}
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+      <div>
+        <div style="font-size:1.2rem;font-weight:800;color:var(--tx)">
+          <i class="fas fa-truck-field me-2 text-primary"></i>{{ v.nama }}</div>
+        <div class="text-muted mt-1" style="font-size:.82rem">
+          {% if v.telepon %}<i class="fas fa-phone me-1"></i>{{ v.telepon }}&nbsp;&nbsp;{% endif %}
+          {% if v.alamat %}<i class="fas fa-location-dot me-1"></i>{{ v.alamat }}{% endif %}
+        </div>
+        {% if v.catatan %}<div class="text-muted mt-1" style="font-size:.78rem"><i class="fas fa-note-sticky me-1"></i>{{ v.catatan }}</div>{% endif %}
+      </div>
+      <div class="text-center px-3 py-2" style="background:var(--pb);border-radius:10px;min-width:140px">
+        <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--pbp);font-weight:700">Total Belanja</div>
+        <div class="text-rp" style="font-size:1.05rem;font-weight:800;color:var(--pbt)">{{ met.belanja|rp }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if session.role in ('ADMIN','FINANCE') %}
+<div class="modal fade" id="modalEditVendor" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px">
+    <form class="modal-content" method="POST" action="/database/vendor/{{ v.id }}/edit">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-truck-field me-2 text-primary"></i>Edit Info Vendor</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-3">
+        <div class="mb-2">
+          <label class="form-label small fw-semibold mb-1">Nama <span class="text-danger">*</span></label>
+          <input type="text" name="nama" class="form-control form-control-sm" required value="{{ v.nama }}">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold mb-1">Alamat</label>
+          <textarea name="alamat" class="form-control form-control-sm" rows="2" placeholder="Alamat vendor">{{ v.alamat or '' }}</textarea>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-semibold mb-1">Kontak</label>
+          <input type="text" name="telepon" class="form-control form-control-sm" value="{{ v.telepon or '' }}" placeholder="No HP / WA / email / PIC">
+        </div>
+        <div class="mb-1">
+          <label class="form-label small fw-semibold mb-1">Keterangan</label>
+          <textarea name="catatan" class="form-control form-control-sm" rows="3" placeholder="Catatan internal vendor">{{ v.catatan or '' }}</textarea>
+        </div>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-save me-1"></i>Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header p-0">
+    <ul class="nav nav-tabs" style="border:none" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-trx" type="button">
+        <i class="fas fa-receipt me-1"></i>Transaksi <span class="badge bg-secondary">{{ transaksi|length }}</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-belum" type="button">
+        <i class="fas fa-hourglass-half me-1 text-danger"></i>Hutang Belum Lunas <span class="badge bg-danger">{{ belum|length }}</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-lunas" type="button">
+        <i class="fas fa-circle-check me-1 text-success"></i>Sudah Lunas <span class="badge bg-success">{{ lunas|length }}</span></button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-belanja" type="button">
+        <i class="fas fa-cart-shopping me-1"></i>Rincian Belanja</button></li>
+    </ul>
+  </div>
+  <div class="card-body">
+    <div class="tab-content">
+
+      <div class="tab-pane fade show active" id="tab-trx">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr>
+              <th class="ps-3" style="width:110px">Tanggal</th><th>Keterangan</th>
+              <th style="width:150px">Jenis</th><th class="text-end pe-3">Nilai</th></tr></thead>
+            <tbody>
+              {% for t in transaksi %}
+              <tr {% if t.id %}style="cursor:pointer" onclick="location.href='/transaksi/{{ t.id }}'"{% endif %}>
+                <td class="ps-3 text-muted">{{ t.tanggal|tgl }}</td><td>{{ t.keterangan }}</td>
+                <td class="text-muted">{{ t.jenis or t.kategori or '-' }}</td>
+                <td class="text-end pe-3 text-rp fw-semibold">{{ t.total|rp }}</td></tr>
+              {% else %}
+              <tr><td colspan="4" class="text-center text-muted py-3">Belum ada transaksi vendor.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-belum">
+        {% set tot_belum = belum|sum(attribute='jumlah') - belum|sum(attribute='terbayar') %}
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light"><tr>
+              <th class="ps-3" style="width:110px">Tanggal</th><th>Keterangan</th>
+              <th style="width:110px">Jatuh Tempo</th><th class="text-end pe-3">Sisa</th></tr></thead>
+            <tbody>
+              {% for h in belum %}
+              <tr {% if h.jatuh_tempo and h.jatuh_tempo < today %}class="table-danger"{% endif %}>
+                <td class="ps-3 text-muted">{{ h.tanggal|tgl }}</td><td>{{ h.keterangan or 'Hutang' }}</td>
+                <td class="text-muted">{{ h.jatuh_tempo|tgl if h.jatuh_tempo else '-' }}</td>
+                <td class="text-end pe-3 text-rp fw-semibold text-danger">{{ (h.jumlah - h.terbayar)|rp }}</td></tr>
+              {% else %}
+              <tr><td colspan="4" class="text-center text-muted py-3">Tidak ada hutang yang belum lunas. 🎉</td></tr>
+              {% endfor %}
+            </tbody>
+            {% if belum %}<tfoot><tr><td colspan="3" class="text-end fw-bold ps-3">Total Belum Lunas</td>
+              <td class="text-end pe-3 text-rp fw-bold text-danger">{{ tot_belum|rp }}</td></tr></tfoot>{% endif %}
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-lunas">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light"><tr>
+              <th class="ps-3" style="width:110px">Tanggal</th><th>Keterangan</th><th class="text-end pe-3">Jumlah</th></tr></thead>
+            <tbody>
+              {% for h in lunas %}
+              <tr><td class="ps-3 text-muted">{{ h.tanggal|tgl }}</td><td>{{ h.keterangan or 'Hutang' }}</td>
+                <td class="text-end pe-3 text-rp text-success">{{ h.jumlah|rp }}</td></tr>
+              {% else %}
+              <tr><td colspan="3" class="text-center text-muted py-3">Belum ada hutang yang lunas.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-belanja">
+        <div class="rounded-3 p-3 mb-2" style="background:var(--pb);border:1px solid var(--pbb)">
+          <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--pbp);font-weight:700">Total Belanja (semua pembelian)</div>
+          <div class="text-rp" style="font-size:1.6rem;font-weight:900;color:var(--pbt)">{{ met.belanja|rp }}</div>
+          <div class="text-muted" style="font-size:.78rem">Dari {{ belanja_rows|length }} transaksi pembelian (tunai + hutang).</div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th class="ps-3" style="width:110px">Tanggal</th><th>Keterangan</th><th class="text-end pe-3">Nilai</th></tr></thead>
+            <tbody>
+              {% for t in belanja_rows %}
+              <tr><td class="ps-3 text-muted">{{ t.tanggal|tgl }}</td><td>{{ t.keterangan }}</td>
+                <td class="text-end pe-3 text-rp">{{ t.total|rp }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Bukti Potong PPh 23 Keluar{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+<div class="d-flex align-items-center gap-2 mb-3">
+  <a href="/pajak" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-left"></i></a>
+  <h4 class="mb-0"><i class="fas fa-scissors text-warning me-2"></i>Bukti Potong PPh 23, Keluar
+    <span class="badge bg-warning text-dark ms-1" style="font-size:.65rem"><i class="fas fa-puzzle-piece me-1"></i>Lanjutan</span>
+  </h4>
+</div>
+
+<div class="alert alert-info py-2 small mb-3">
+  <i class="fas fa-circle-info me-1"></i>
+  Daftar transaksi di mana <strong>perusahaan Anda sebagai Pemotong</strong> menahan PPh Pasal 23 dari pembayaran ke supplier/vendor. Dokumen ini diserahkan ke supplier sebagai bukti pemotongan.
+</div>
+
+{% if rows %}
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 align-middle small">
+      <thead class="table-light">
+        <tr>
+          <th>Tanggal</th>
+          <th>Keterangan</th>
+          <th>Supplier / Pihak</th>
+          <th class="text-end">PPh 23 Dipotong</th>
+          <th class="text-center">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="text-nowrap">{{ r.tanggal|tgl }}</td>
+          <td>{{ r.keterangan }}</td>
+          <td>{{ r.pihak or '-' }}</td>
+          <td class="text-end fw-semibold text-danger">{{ r.pph_nom|rp }}</td>
+          <td class="text-center">
+            <a href="/pajak/bukti-potong-keluar/{{ r.id }}/cetak" target="_blank"
+               class="btn btn-sm btn-outline-primary">
+              <i class="fas fa-print me-1"></i>Cetak BPK
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="fas fa-scissors fa-3x mb-3 opacity-25"></i>
+  <p class="mb-1">Belum ada transaksi dengan pemotongan PPh 23 ke supplier.</p>
+  <p class="small">Gunakan <a href="/pajak/pembelian-pkp">Pembelian PKP</a> atau centang "PPh 23" di form
+    <a href="/pengeluaran">Pengeluaran</a> untuk mencatat pembelian dengan pemotongan PPh.</p>
+</div>
+{% endif %}
+{{ pagination(pg) }}
+{% endblock %}

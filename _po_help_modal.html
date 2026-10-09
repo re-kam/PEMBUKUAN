@@ -1,0 +1,91 @@
+{# Modal petunjuk Purchase Order. Di-include di po_list.html; dipicu tombol [data-bs-target="#modalPoHelp"]. #}
+<div class="modal fade" id="modalPoHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Purchase Order</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Purchase Order (PO) dipakai untuk memesan barang ke vendor secara resmi dan
+          melacak statusnya, dari draft sampai barang diterima. Anggap PO sebagai
+          surat pesanan, bukan nota pembelian atau bukti uang keluar.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>PO belum masuk pembukuan.</strong>
+            Selama barang masih dipesan, tidak ada satu angka pun yang berubah di Laba Rugi
+            maupun Neraca. Memesan bukan membeli. Pembukuan baru tercatat saat Anda menandai
+            PO <em>Diterima</em> lewat form penerimaan barang.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-list-ol me-1" style="color:var(--ink)"></i>Alur status</div>
+        <ol class="ps-3 mb-3">
+          <li class="mb-1"><strong>Draft</strong>: pesanan disiapkan, belum dikirim ke vendor.</li>
+          <li class="mb-1"><strong>Dikirim</strong>: PO sudah dikirim, menunggu barang. Pembukuan masih nol.</li>
+          <li class="mb-1"><strong>Diterima</strong>: barang datang. Anda isi tanggal terima, uang yang dibayar, akun kas/bank, dan jatuh tempo hutang. Di sinilah jurnal, stok, dan hutang otomatis dibuat.</li>
+          <li><strong>Dibatalkan</strong>: pesanan batal. Jika sebelumnya sudah diterima, sistem membalik jurnal/stok/hutang selama hutang PO belum pernah dibayar.</li>
+        </ol>
+
+        <div class="fw-bold mb-1"><i class="fas fa-book me-1" style="color:var(--ink)"></i>Kaitan dengan pembukuan</div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1"><i class="fas fa-scale-balanced me-1" style="color:#15803d"></i>Neraca</div>
+              Saat barang diterima, Persediaan (aset) naik. Kalau ada pembayaran, Kas/Bank turun
+              sebesar uang yang dibayar. Kalau belum lunas, sisa tagihan masuk Hutang Usaha.
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1"><i class="fas fa-chart-bar me-1" style="color:#ef4444"></i>Laba Rugi</div>
+              Beli stok belum jadi biaya. Nilainya baru pindah ke Harga Pokok Penjualan (HPP)
+              di Laba Rugi nanti, saat barangnya benar-benar terjual.
+            </div>
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-boxes-stacked me-1" style="color:var(--ink)"></i>Inventory dan biaya tambahan</div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1">Item SKU</div>
+              Jika item PO dipilih dari produk inventory, stok produk akan bertambah saat PO diterima.
+              HPP rata-rata produk ikut diperbarui dari nilai pembelian.
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1">Non-SKU, ongkir, biaya lain</div>
+              Item manual tetap masuk persediaan non-SKU. Ongkir dan biaya lain dialokasikan ke
+              nilai persediaan/HPP, jadi jangan dicatat lagi sebagai pengeluaran terpisah untuk PO yang sama.
+            </div>
+          </div>
+        </div>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Anda buat PO 100 sak semen, harga Rp50.000 per sak, total Rp5.000.000. Saat barang datang, Anda bayar Rp2.000.000 dan sisanya tempo.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Status <strong>Dikirim</strong>: pembukuan belum berubah sama sekali. Neraca dan Laba Rugi tetap.</li>
+            <li>Status <strong>Diterima</strong>: Persediaan +Rp5.000.000, Kas/Bank -Rp2.000.000, dan Hutang Usaha +Rp3.000.000 di Neraca.</li>
+            <li>Laba Rugi masih nol sampai semennya terjual. Saat 20 sak terjual, baru Rp1.000.000 masuk HPP.</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Jadi kalau PO sudah banyak tapi laba belum berubah, itu wajar.
+          Yang dihitung adalah barang yang diterima dan terjual, bukan yang baru dipesan.
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

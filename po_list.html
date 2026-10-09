@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Purchase Order - FinansialApp{% endblock %}
+{% block page_title %}Purchase Order{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalPoHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_po_help_modal.html' %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/po" class="btn btn-sm {% if not sf %}btn-primary{% else %}btn-outline-secondary{% endif %}">Semua</a>
+    <a href="/po?status=DRAFT"      class="btn btn-sm {% if sf=='DRAFT'      %}btn-secondary{% else %}btn-outline-secondary{% endif %}">Draft</a>
+    <a href="/po?status=DIKIRIM"    class="btn btn-sm {% if sf=='DIKIRIM'    %}btn-info{% else %}btn-outline-info{% endif %}">Dikirim</a>
+    <a href="/po?status=DITERIMA"   class="btn btn-sm {% if sf=='DITERIMA'   %}btn-success{% else %}btn-outline-success{% endif %}">Diterima</a>
+    <a href="/po?status=DIBATALKAN" class="btn btn-sm {% if sf=='DIBATALKAN' %}btn-danger{% else %}btn-outline-danger{% endif %}">Dibatalkan</a>
+    <form class="d-flex gap-1" method="GET">
+      {% if sf %}<input type="hidden" name="status" value="{{ sf }}">{% endif %}
+      <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+             placeholder="Cari vendor / nomor PO..." style="width:200px">
+      <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-search"></i></button>
+    </form>
+  </div>
+  <div class="d-flex gap-2">
+    {% if session.role in ('ADMIN','FINANCE','OPERATOR') %}
+    <a href="/po/baru" class="btn btn-primary btn-sm">
+      <i class="fas fa-plus me-1"></i>Buat PO</a>
+    {% endif %}
+    <a href="/po/pengaturan" class="btn btn-outline-secondary btn-sm">
+      <i class="fas fa-sliders me-1"></i>Kustomisasi</a>
+  </div>
+</div>
+
+{% if po_data %}
+<div class="card shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Nomor PO</th>
+            <th>Vendor</th>
+            <th>Tanggal</th>
+            <th>Exp. Terima</th>
+            <th class="text-end">Total</th>
+            <th class="text-center">Status</th>
+            <th class="text-center pe-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in po_data %}
+          {% set p = d.po %}
+          <tr>
+            <td class="ps-3 fw-semibold" style="font-family:monospace">{{ p.nomor }}</td>
+            <td class="fw-semibold">{{ p.vendor }}</td>
+            <td class="text-muted small">{{ p.tanggal|tgl }}</td>
+            <td class="small {% if p.expected_date and p.status not in ('DITERIMA','DIBATALKAN') and p.expected_date < today.strftime('%Y-%m-%d') %}text-danger fw-bold{% else %}text-muted{% endif %}">
+              {{ p.expected_date|tgl if p.expected_date else '-' }}
+            </td>
+            <td class="text-end fw-semibold text-rp">{{ d.total|rp }}</td>
+            <td class="text-center">
+              {% if p.status == 'DRAFT' %}
+                <span class="badge bg-secondary">Draft</span>
+              {% elif p.status == 'DIKIRIM' %}
+                <span class="badge bg-info">Dikirim</span>
+              {% elif p.status == 'DITERIMA' %}
+                <span class="badge bg-success">Diterima</span>
+              {% elif p.status == 'DIBATALKAN' %}
+                <span class="badge bg-danger">Dibatalkan</span>
+              {% endif %}
+            </td>
+            <td class="text-center pe-3">
+              <div class="d-flex gap-1 justify-content-center">
+                <a href="/po/{{ p.id }}" class="btn btn-xs btn-outline-secondary" title="Detail">
+                  <i class="fas fa-eye"></i></a>
+                <a href="/po/{{ p.id }}/cetak" target="_blank" class="btn btn-xs btn-outline-primary" title="Cetak PO">
+                  <i class="fas fa-print"></i></a>
+                {% if session.role in ('ADMIN','FINANCE','OPERATOR') and p.status not in ('DITERIMA','DIBATALKAN') %}
+                <a href="/po/{{ p.id }}/edit" class="btn btn-xs btn-outline-warning" title="Edit">
+                  <i class="fas fa-edit"></i></a>
+                {% endif %}
+                {% if session.role in ('ADMIN','FINANCE') %}
+                <form method="POST" action="/po/{{ p.id }}/hapus" class="d-inline"
+                      onsubmit="return confirm('Hapus PO {{ p.nomor }}?')">
+                  <button class="btn btn-xs btn-outline-danger" title="Hapus">
+                    <i class="fas fa-trash"></i></button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{ pagination(pg) }}
+{% else %}
+<div class="text-center text-muted py-5">
+  <i class="fas fa-cart-flatbed fa-3x mb-3 opacity-25"></i>
+  <p class="mb-1">Belum ada Purchase Order{% if sf %} dengan status <strong>{{ sf }}</strong>{% endif %}.</p>
+  {% if session.role in ('ADMIN','FINANCE','OPERATOR') %}
+  <a href="/po/baru" class="btn btn-primary btn-sm mt-2">
+    <i class="fas fa-plus me-1"></i>Buat PO Pertama</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

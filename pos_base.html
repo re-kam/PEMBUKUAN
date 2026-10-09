@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}POS Kasir{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <script>
+    window.APP_DECIMAL_AKTIF = {{ 'true' if app_pref.decimal_aktif else 'false' }};
+    window.rpFmt = function(value, opts){
+      opts = opts || {};
+      var n = Number(value || 0);
+      if(!Number.isFinite(n)) n = 0;
+      if(opts.abs) n = Math.abs(n);
+      var digits = window.APP_DECIMAL_AKTIF ? 2 : 0;
+      var sign = n < 0 ? '-' : '';
+      var s = Math.abs(n).toLocaleString('id-ID', {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      });
+      return sign + 'Rp ' + s;
+    };
+    window.rpAbsFmt = function(value){ return window.rpFmt(value, {abs:true}); };
+    window.rpPlainFmt = function(value){
+      var n = Number(value || 0);
+      if(!Number.isFinite(n)) n = 0;
+      var digits = window.APP_DECIMAL_AKTIF ? 2 : 0;
+      return n.toLocaleString('id-ID', {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      });
+    };
+    window.moneyInputValue = function(value){
+      var n = Number(value || 0);
+      if(!Number.isFinite(n)) n = 0;
+      return window.APP_DECIMAL_AKTIF ? n.toFixed(2) : String(Math.round(n));
+    };
+  </script>
+  <style>
+    :root{
+      --ink:#0A0A0A; --paper:#FFFFFF; --paper-soft:#F4F4F2;
+      --gray-600:#5C5C5C; --gray-500:#7C7C7C; --gray-400:#A0A0A0; --gray-300:#C9C9C9; --gray-200:#E2E2E0;
+      --line-hair:rgba(10,10,10,.14);
+      --font-display:'Anton','Arial Narrow',sans-serif;
+      --font-body:'Montserrat',system-ui,-apple-system,sans-serif;
+      --r-md:12px; --r-lg:20px; --r-pill:999px;
+      --shadow-lg:0 18px 50px rgba(10,10,10,.16);
+      --ease-out:cubic-bezier(.16,1,.3,1);
+      --bg:var(--paper-soft);--card:var(--paper);--tx:var(--ink);--mut:var(--gray-600);--line:var(--line-hair);--acc:var(--ink);--dark:var(--ink)
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+    .pos-top{height:58px;background:var(--ink);color:#fff;display:flex;align-items:center;gap:1rem;padding:0 1rem;position:sticky;top:0;z-index:20}
+    .pos-brand{display:flex;align-items:center;gap:.65rem;font-family:var(--font-display);font-weight:400;letter-spacing:.01em;text-transform:uppercase;font-size:1.05rem}
+    .pos-brand .mark{width:34px;height:34px;border-radius:var(--r-md);background:var(--paper);color:var(--ink);display:flex;align-items:center;justify-content:center}
+    .pos-user{font-size:.78rem;color:rgba(255,255,255,.55)}
+    .pos-shell{min-height:calc(100vh - 58px)}
+    .btn-pos{border-radius:var(--r-pill);font-weight:700}
+    .flash-wrap{position:fixed;right:1rem;top:70px;z-index:50;max-width:420px}
+    .text-rp{font-variant-numeric:tabular-nums}
+    .btn{border-radius:var(--r-pill);font-weight:600}
+    .card{border:1px solid var(--line-hair);border-radius:var(--r-md);box-shadow:none}
+    .form-control,.form-select{border-radius:var(--r-md)!important}
+    .form-control:focus,.form-select:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(10,10,10,.08)}
+    .badge{border-radius:var(--r-pill)}
+    .btn-primary{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+    .btn-primary:hover{background:#262626;border-color:#262626}
+    .btn-outline-light{border-radius:var(--r-pill)}
+    @media print{.pos-top,.no-print,.flash-wrap{display:none!important}body{background:#fff}.pos-shell{min-height:auto}}
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="pos-top no-print">
+    <a href="/pos" class="pos-brand text-white text-decoration-none">
+      <span class="mark"><i class="fas fa-cash-register"></i></span>
+      <span>POS Kasir</span>
+    </a>
+    <div class="pos-user ms-auto">
+      {% if session.user_id %}
+        <i class="fas fa-user me-1"></i>{{ session.nama or session.username }}
+        <span class="badge bg-success ms-2">{{ session.role }}</span>
+      {% endif %}
+    </div>
+    {% if session.role in ('ADMIN','FINANCE','OPERATOR','DEMO') %}
+      <a href="/" class="btn btn-sm btn-outline-light btn-pos"><i class="fas fa-table-columns me-1"></i>Finansial App</a>
+    {% endif %}
+    {% if session.user_id %}
+      <a href="/pos/logout" class="btn btn-sm btn-outline-warning btn-pos"><i class="fas fa-right-from-bracket me-1"></i>Logout</a>
+    {% endif %}
+  </div>
+
+  <div class="flash-wrap">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}
+      <div class="alert alert-{{ cat }} alert-dismissible fade show py-2 mb-2 shadow-sm">
+        {{ msg }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      {% endfor %}
+    {% endwith %}
+  </div>
+
+  <main class="pos-shell">
+    {% block content %}{% endblock %}
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

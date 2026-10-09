@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+{% set NM_BULAN = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'] %}
+{% set nm_bln_id = NM_BULAN[bulan] %}
+{% block title %}Anggaran & Target — {{ nm_bln_id }} {{ tahun }}{% endblock %}
+{% block page_title %}<i class="fas fa-bullseye text-warning me-2"></i>Anggaran &amp; Target{% endblock %}
+{% block content %}
+
+<div class="alert alert-warning py-2 mb-3" style="font-size:.82rem">
+  <i class="fas fa-puzzle-piece me-1"></i>
+  <strong>Modul Lanjutan Aktif</strong> — Tetapkan anggaran beban per akun dan target pendapatan setiap bulan, lalu pantau realisasinya secara otomatis dari buku besar.
+</div>
+
+<!-- ── Filter Bulan/Tahun ── -->
+<form method="GET" class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+  {% set bln_prev = bulan - 1 if bulan > 1 else 12 %}
+  {% set thn_prev = tahun if bulan > 1 else tahun - 1 %}
+  {% set bln_next = bulan + 1 if bulan < 12 else 1 %}
+  {% set thn_next = tahun if bulan < 12 else tahun + 1 %}
+
+  <a href="?bulan={{ bln_prev }}&tahun={{ thn_prev }}" class="btn btn-sm btn-outline-secondary">
+    <i class="fas fa-chevron-left"></i>
+  </a>
+
+  <select name="bulan" class="form-select form-select-sm" style="width:130px" onchange="this.form.submit()">
+    {% for i in range(1, 13) %}
+    {% set nm = ['Januari','Februari','Maret','April','Mei','Juni',
+                 'Juli','Agustus','September','Oktober','November','Desember'][i-1] %}
+    <option value="{{ i }}" {% if i == bulan %}selected{% endif %}>{{ nm }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="tahun" class="form-select form-select-sm" style="width:90px" onchange="this.form.submit()">
+    {% for y in range(today.year - 3, today.year + 3) %}
+    <option value="{{ y }}" {% if y == tahun %}selected{% endif %}>{{ y }}</option>
+    {% endfor %}
+  </select>
+
+  <a href="?bulan={{ bln_next }}&tahun={{ thn_next }}" class="btn btn-sm btn-outline-secondary">
+    <i class="fas fa-chevron-right"></i>
+  </a>
+
+  <span class="fw-semibold ms-1" style="font-size:.95rem">{{ nm_bln_id }} {{ tahun }}</span>
+
+  {% if bulan == today.month and tahun == today.year %}
+  <span class="badge bg-success ms-1" style="font-size:.7rem">Bulan Ini</span>
+  {% endif %}
+
+  <div class="ms-auto">
+    <button type="submit" form="formSalinBulanLalu" class="btn btn-sm btn-outline-secondary">
+      <i class="fas fa-copy me-1"></i>Salin Bulan Lalu
+    </button>
+  </div>
+</form>
+<!-- Form salin TERPISAH: tidak boleh bersarang di dalam form filter (method GET),
+     kalau nested tombolnya malah ke-submit sebagai GET dan aksi POST diabaikan.
+     Tombol di atas dihubungkan via atribut form="formSalinBulanLalu" (HTML5). -->
+<form method="POST" id="formSalinBulanLalu" class="d-none"
+      onsubmit="return confirm('Salin semua pos anggaran bulan lalu ke {{ nm_bln_id }} {{ tahun }}?\n\nPos yang sudah ada tidak akan ditimpa.');">
+  <input type="hidden" name="action" value="salin_bulan_lalu">
+  <input type="hidden" name="bulan" value="{{ bulan }}">
+  <input type="hidden" name="tahun" value="{{ tahun }}">
+</form>
+
+<!-- ── Kartu Ringkasan ── -->
+<div class="row g-2 mb-3">
+
+  <!-- Target Pendapatan -->
+  <div class="col-md-5">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="fas fa-arrow-trend-up text-success"></i>
+          <span class="fw-semibold" style="font-size:.88rem">Target Pendapatan</span>
+          <span class="text-muted small ms-auto">{{ nm_bln_id }} {{ tahun }}</span>
+        </div>
+
+        {% if target_nominal > 0 %}
+        {% set pct_pend = [(aktual_pendapatan / target_nominal * 100), 100] | min | round(1) %}
+        {% set over_pend = aktual_pendapatan > target_nominal %}
+        <div class="d-flex justify-content-between align-items-baseline mb-1">
+          <span class="fw-bold text-rp" style="font-size:1.15rem;color:#15803d">{{ aktual_pendapatan|rp }}</span>
+          <span class="text-muted small">dari {{ target_nominal|rp }}</span>
+        </div>
+        <div class="progress mb-1" style="height:10px;border-radius:5px">
+          <div class="progress-bar {{ 'bg-success' if not over_pend else 'bg-warning' }}"
+               style="width:{{ pct_pend }}%;border-radius:5px"></div>
+        </div>
+        <div class="d-flex justify-content-between" style="font-size:.75rem">
+          <span class="{{ 'text-success' if not over_pend else 'text-warning' }} fw-semibold">
+            {{ pct_pend }}% tercapai
+          </span>
+          {% if over_pend %}
+          <span class="text-warning"><i class="fas fa-star me-1"></i>Melampaui target!</span>
+          {% else %}
+          <span class="text-muted">Sisa {{ (target_nominal - aktual_pendapatan)|rp }}</span>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="text-muted small mb-2">Belum ada target. Realisasi saat ini:</div>
+        <div class="fw-bold text-rp" style="font-size:1.1rem;color:#15803d">{{ aktual_pendapatan|rp }}</div>
+        {% endif %}
+
+        <!-- Form set target -->
+        <form method="POST" class="mt-3 d-flex gap-2">
+          <input type="hidden" name="action" value="set_target">
+          <input type="hidden" name="bulan" value="{{ bulan }}">
+          <input type="hidden" name="tahun" value="{{ tahun }}">
+          <input type="number" name="nominal" class="form-control form-control-sm"
+                 placeholder="Target (Rp)" min="0" step="1000"
+                 value="{{ target_nominal|int if target_nominal > 0 else '' }}"
+                 style="max-width:180px">
+          <button type="submit" class="btn btn-sm btn-success">
+            <i class="fas fa-check me-1"></i>{{ 'Update' if target_nominal > 0 else 'Set' }}
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ringkasan Anggaran Beban -->
+  <div class="col-md-7">
+    <div class="card h-100">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="fas fa-chart-pie text-primary"></i>
+          <span class="fw-semibold" style="font-size:.88rem">Ringkasan Anggaran Beban</span>
+          <span class="text-muted small ms-auto">{{ nm_bln_id }} {{ tahun }}</span>
+        </div>
+
+        {% if anggaran_data %}
+        {% set total_pct = (total_realisasi / total_anggaran * 100) | round(1) if total_anggaran > 0 else 0 %}
+        {% set total_over = total_realisasi > total_anggaran %}
+        <div class="row g-2 mb-2">
+          <div class="col-6">
+            <div class="p-2 rounded-2 text-center" style="background:var(--card-h)">
+              <div class="text-muted" style="font-size:.68rem">Total Anggaran</div>
+              <div class="fw-bold text-rp" style="font-size:.92rem;color:#2563eb">{{ total_anggaran|rp }}</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-2 rounded-2 text-center" style="background:var(--card-h)">
+              <div class="text-muted" style="font-size:.68rem">Total Realisasi</div>
+              <div class="fw-bold text-rp" style="font-size:.92rem;color:{{ '#dc2626' if total_over else '#15803d' }}">{{ total_realisasi|rp }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="progress mb-1" style="height:12px;border-radius:6px">
+          <div class="progress-bar {{ 'bg-danger' if total_over else ('bg-warning' if total_pct > 85 else 'bg-primary') }}"
+               style="width:{{ [total_pct, 100]|min }}%;border-radius:6px"></div>
+        </div>
+        <div class="d-flex justify-content-between" style="font-size:.78rem">
+          <span class="fw-semibold {{ 'text-danger' if total_over else 'text-muted' }}">
+            {{ total_pct }}% terpakai
+          </span>
+          {% if total_over %}
+          <span class="text-danger fw-semibold"><i class="fas fa-triangle-exclamation me-1"></i>Over anggaran!</span>
+          {% else %}
+          <span class="text-muted">Sisa {{ (total_anggaran - total_realisasi)|rp }}</span>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-3">
+          <i class="fas fa-chart-bar fa-2x mb-2 opacity-25"></i>
+          <div style="font-size:.85rem">Belum ada pos anggaran bulan ini.</div>
+          <div style="font-size:.75rem">Tambahkan di bawah atau salin dari bulan lalu.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Tabel Anggaran Beban ── -->
+<div class="card shadow-sm mb-3">
+  <div class="card-header py-2 d-flex align-items-center gap-2">
+    <i class="fas fa-list-check text-primary"></i>
+    <span class="fw-semibold" style="font-size:.88rem">Detail Anggaran Beban — {{ nm_bln_id }} {{ tahun }}</span>
+    <span class="badge bg-secondary ms-auto" style="font-size:.7rem">{{ anggaran_data|length }} pos</span>
+  </div>
+
+  {% if anggaran_data %}
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0 align-middle small">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3" style="width:80px">Kode</th>
+          <th>Nama Akun</th>
+          <th class="text-end" style="width:130px">Anggaran</th>
+          <th class="text-end" style="width:130px">Realisasi</th>
+          <th class="text-end" style="width:110px">Selisih</th>
+          <th style="width:160px">Penggunaan</th>
+          <th class="text-center" style="width:60px">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in anggaran_data %}
+        <tr>
+          <td class="ps-3 fw-bold text-muted">{{ a.akun_kode }}</td>
+          <td>
+            <div class="fw-semibold">{{ a.akun_nama }}</div>
+            {% if a.subtipe %}<div class="text-muted" style="font-size:.72rem">{{ a.subtipe }}</div>{% endif %}
+          </td>
+          <td class="text-end fw-semibold text-rp">{{ a.nominal|rp }}</td>
+          <td class="text-end text-rp {{ 'text-danger fw-bold' if a.over else 'text-dark' }}">
+            {{ a.realisasi|rp }}
+          </td>
+          <td class="text-end text-rp {{ 'text-danger' if a.selisih < 0 else 'text-success' }}">
+            {% if a.selisih < 0 %}
+            <i class="fas fa-minus" style="font-size:.65rem"></i> {{ (a.selisih * -1)|rp }}
+            {% else %}
+            <i class="fas fa-plus" style="font-size:.65rem"></i> {{ a.selisih|rp }}
+            {% endif %}
+          </td>
+          <td>
+            {% set bar_pct = [a.pct, 100]|min %}
+            {% set bar_cls = 'bg-danger' if a.over else ('bg-warning' if a.pct > 85 else 'bg-success') %}
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-fill" style="height:7px;border-radius:4px">
+                <div class="progress-bar {{ bar_cls }}"
+                     style="width:{{ bar_pct }}%;border-radius:4px"></div>
+              </div>
+              <span style="font-size:.75rem;min-width:38px;text-align:right"
+                    class="{{ 'text-danger fw-bold' if a.over else 'text-muted' }}">
+                {{ a.pct|round(0)|int }}%
+              </span>
+            </div>
+            {% if a.over %}
+            <div class="text-danger" style="font-size:.68rem;margin-top:1px">
+              <i class="fas fa-triangle-exclamation me-1"></i>Over {{ (a.realisasi - a.nominal)|rp }}
+            </div>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            <form method="POST"
+                  onsubmit="return confirm('Hapus anggaran {{ a.akun_nama }}?');">
+              <input type="hidden" name="action" value="hapus_anggaran">
+              <input type="hidden" name="anggaran_id" value="{{ a.id }}">
+              <input type="hidden" name="bulan" value="{{ bulan }}">
+              <input type="hidden" name="tahun" value="{{ tahun }}">
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus">
+                <i class="fas fa-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td colspan="2" class="ps-3 text-muted">Total</td>
+          <td class="text-end text-rp">{{ total_anggaran|rp }}</td>
+          <td class="text-end text-rp {{ 'text-danger' if total_realisasi > total_anggaran else '' }}">{{ total_realisasi|rp }}</td>
+          <td class="text-end text-rp {{ 'text-danger' if (total_anggaran - total_realisasi) < 0 else 'text-success' }}">
+            {% set total_selisih = total_anggaran - total_realisasi %}
+            {% if total_selisih < 0 %}
+            <i class="fas fa-minus" style="font-size:.65rem"></i> {{ (total_selisih * -1)|rp }}
+            {% else %}
+            <i class="fas fa-plus" style="font-size:.65rem"></i> {{ total_selisih|rp }}
+            {% endif %}
+          </td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-center text-muted py-4">
+    <i class="fas fa-inbox fa-2x mb-2 opacity-25"></i>
+    <div>Belum ada pos anggaran untuk {{ nm_bln_id }} {{ tahun }}.</div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Form Tambah Pos Anggaran ── -->
+{% if akun_beban_avail %}
+<div class="card shadow-sm mb-3">
+  <div class="card-header py-2">
+    <i class="fas fa-plus-circle text-success me-1"></i>
+    <span class="fw-semibold" style="font-size:.88rem">Tambah Pos Anggaran</span>
+  </div>
+  <div class="card-body py-3">
+    <form method="POST" class="row g-2 align-items-end">
+      <input type="hidden" name="action" value="set_anggaran">
+      <input type="hidden" name="bulan" value="{{ bulan }}">
+      <input type="hidden" name="tahun" value="{{ tahun }}">
+
+      <div class="col-md-5">
+        <label class="form-label small fw-semibold mb-1">Akun Beban</label>
+        <select name="akun_kode" class="form-select form-select-sm" required>
+          <option value="">— Pilih Akun Beban —</option>
+          {% for ak in akun_beban_avail %}
+          <option value="{{ ak.kode }}">{{ ak.kode }} — {{ ak.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label small fw-semibold mb-1">Nominal Anggaran (Rp)</label>
+        <input type="number" name="nominal" class="form-control form-control-sm"
+               placeholder="Contoh: 5000000" min="0" step="1000" required>
+      </div>
+
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-sm btn-success w-100">
+          <i class="fas fa-plus me-1"></i>Tambah Pos
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-secondary py-2 small">
+  <i class="fas fa-circle-check me-1 text-success"></i>
+  Semua akun beban yang tersedia sudah memiliki pos anggaran bulan ini.
+</div>
+{% endif %}
+
+<!-- ── Tips ── -->
+<div class="text-muted small mt-1">
+  <i class="fas fa-circle-info me-1"></i>
+  Realisasi dihitung otomatis dari <a href="/buku-besar">Buku Besar</a> akun beban pada periode ini.
+  Saldo akun pendapatan untuk target juga berasal dari buku besar bulan {{ nm_bln_id }} {{ tahun }}.
+</div>
+
+{% endblock %}

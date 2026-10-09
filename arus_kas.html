@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}Arus Kas - FinansialApp{% endblock %}
+{% block page_title %}Laporan Arus Kas (Otomatis){% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalArusKasHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_aruskas_help_modal.html' %}
+
+<div class="d-flex gap-2 mb-3 align-items-center flex-wrap">
+  <form class="d-flex gap-2 align-items-center" method="get">
+    <label class="mb-0 fw-semibold text-nowrap">Periode:</label>
+    <input type="date" name="sd" value="{{ sd }}" class="form-control form-control-sm" style="width:150px">
+    <span>s/d</span>
+    <input type="date" name="ed" value="{{ ed }}" class="form-control form-control-sm" style="width:150px">
+    <button class="btn btn-primary btn-sm"><i class="fas fa-sync me-1"></i>Tampilkan</button>
+  </form>
+  <a href="/export/laporan-keuangan?sd={{ sd }}&ed={{ ed }}"
+     class="btn btn-outline-success btn-sm ms-auto">
+    <i class="fas fa-file-excel me-1"></i>Export Excel
+  </a>
+  <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+    <i class="fas fa-print me-1"></i>Cetak
+  </button>
+</div>
+
+<div class="alert alert-info py-2 mb-3" style="font-size:.82rem">
+  <i class="fas fa-info-circle me-1"></i>
+  Arus kas dihitung otomatis dari transaksi yang melibatkan akun <strong>Kas (1100)</strong> dan <strong>Bank (1110)</strong>.
+  Kategori ditentukan saat input transaksi jurnal.
+</div>
+
+<!-- Ringkasan Uang Masuk / Keluar -->
+{% set net_cf = uang_masuk - uang_keluar %}
+<div class="row g-3 mb-3">
+  <div class="col-md-4">
+    <div class="card kpi grn p-3">
+      <div class="kpi-lbl"><i class="fas fa-arrow-down me-1 text-success"></i>Total Uang Masuk</div>
+      <div class="kpi-val text-success text-rp">{{ uang_masuk|rp }}</div>
+      <div class="kpi-sub">semua penerimaan kas &amp; rekening</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi red p-3">
+      <div class="kpi-lbl"><i class="fas fa-arrow-up me-1 text-danger"></i>Total Uang Keluar</div>
+      <div class="kpi-val text-danger text-rp">{{ uang_keluar|rp }}</div>
+      <div class="kpi-sub">semua pengeluaran kas &amp; rekening</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi {% if net_cf >= 0 %}grn{% else %}red{% endif %} p-3">
+      <div class="kpi-lbl">Selisih Periode Ini</div>
+      <div class="kpi-val {% if net_cf >= 0 %}text-success{% else %}text-danger{% endif %} text-rp">
+        {% if net_cf > 0 %}+{% endif %}{{ net_cf|rp }}
+      </div>
+      <div class="kpi-sub">masuk − keluar</div>
+    </div>
+  </div>
+</div>
+
+<!-- KPI Detail -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card kpi p-3">
+      <div class="kpi-lbl">Saldo Awal</div>
+      <div class="kpi-val text-rp">{{ saldo_awal|rp }}</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi {% if total_op >= 0 %}grn{% else %}red{% endif %} p-3">
+      <div class="kpi-lbl">Kas Operasional</div>
+      <div class="kpi-val {% if total_op >= 0 %}text-success{% else %}text-danger{% endif %} text-rp">
+        {% if total_op >= 0 %}+{% endif %}{{ total_op|rp }}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi {% if total_inv >= 0 %}grn{% else %}red{% endif %} p-3">
+      <div class="kpi-lbl">Kas Investasi</div>
+      <div class="kpi-val {% if total_inv >= 0 %}text-success{% else %}text-danger{% endif %} text-rp">
+        {% if total_inv >= 0 %}+{% endif %}{{ total_inv|rp }}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card kpi {% if saldo_akhir >= 0 %}grn{% else %}red{% endif %} p-3">
+      <div class="kpi-lbl">Saldo Akhir Kas &amp; Bank</div>
+      <div class="kpi-val {% if saldo_akhir >= 0 %}text-success{% else %}text-danger{% endif %} text-rp">
+        {{ saldo_akhir|rp }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary -->
+<div class="card mb-3">
+  <div class="card-body">
+    <h6 class="fw-bold mb-3"><i class="fas fa-calculator me-2"></i>Ringkasan Arus Kas</h6>
+    <table class="table table-sm mb-0" style="max-width:500px">
+      <tr>
+        <td>Saldo Kas & Bank Awal</td>
+        <td class="text-end fw-semibold text-rp">{{ saldo_awal|rp }}</td>
+      </tr>
+      <tr>
+        <td class="ps-3 text-muted">+ Kas bersih dari operasional</td>
+        <td class="text-end text-rp {% if total_op >= 0 %}text-success{% else %}text-danger{% endif %}">
+          {{ total_op|rp }}
+        </td>
+      </tr>
+      <tr>
+        <td class="ps-3 text-muted">+ Kas bersih dari investasi</td>
+        <td class="text-end text-rp {% if total_inv >= 0 %}text-success{% else %}text-danger{% endif %}">
+          {{ total_inv|rp }}
+        </td>
+      </tr>
+      <tr class="border-bottom">
+        <td class="ps-3 text-muted">+ Kas bersih dari pendanaan</td>
+        <td class="text-end text-rp {% if total_pend_fin >= 0 %}text-success{% else %}text-danger{% endif %}">
+          {{ total_pend_fin|rp }}
+        </td>
+      </tr>
+      <tr class="fw-bold {% if saldo_akhir >= 0 %}table-success{% else %}table-danger{% endif %}">
+        <td>Saldo Kas & Bank Akhir</td>
+        <td class="text-end text-rp fs-5">{{ saldo_akhir|rp }}</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Operasional -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header" style="background:#e0f2fe;color:#0369a1">
+        <i class="fas fa-gear me-2"></i><span style="font-size:.95rem;font-weight:700">Aktivitas Operasional</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for r in operasional %}
+          <tr>
+            <td class="ps-3">
+              <div style="font-size:.82rem">{{ r.keterangan }}</div>
+              <small class="text-muted">{{ r.tanggal|tgl }}</small>
+            </td>
+            <td class="text-end pe-3 fw-semibold text-rp {% if r.net_kas >= 0 %}text-success{% else %}text-danger{% endif %}">
+              {% if r.net_kas >= 0 %}+{% endif %}{{ r.net_kas|rp }}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="2" class="text-center text-muted py-3" style="font-size:.82rem">
+            Tidak ada transaksi operasional
+          </td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div class="card-footer py-2 px-3" style="background:#e0f2fe">
+        <div class="d-flex justify-content-between">
+          <span class="fw-bold" style="font-size:.82rem">NET OPERASIONAL</span>
+          <span class="fw-bold text-rp {% if total_op >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {% if total_op >= 0 %}+{% endif %}{{ total_op|rp }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Investasi -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header" style="background:#fef3c7;color:#92400e">
+        <i class="fas fa-building me-2"></i><span style="font-size:.95rem;font-weight:700">Aktivitas Investasi</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for r in investasi %}
+          <tr>
+            <td class="ps-3">
+              <div style="font-size:.82rem">{{ r.keterangan }}</div>
+              <small class="text-muted">{{ r.tanggal|tgl }}</small>
+            </td>
+            <td class="text-end pe-3 fw-semibold text-rp {% if r.net_kas >= 0 %}text-success{% else %}text-danger{% endif %}">
+              {% if r.net_kas >= 0 %}+{% endif %}{{ r.net_kas|rp }}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="2" class="text-center text-muted py-3" style="font-size:.82rem">
+            Tidak ada transaksi investasi
+          </td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div class="card-footer py-2 px-3" style="background:#fef3c7">
+        <div class="d-flex justify-content-between">
+          <span class="fw-bold" style="font-size:.82rem">NET INVESTASI</span>
+          <span class="fw-bold text-rp {% if total_inv >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {% if total_inv >= 0 %}+{% endif %}{{ total_inv|rp }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pendanaan -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header" style="background:#ede9fe;color:#5b21b6">
+        <i class="fas fa-coins me-2"></i><span style="font-size:.95rem;font-weight:700">Aktivitas Pendanaan</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for r in pendanaan %}
+          <tr>
+            <td class="ps-3">
+              <div style="font-size:.82rem">{{ r.keterangan }}</div>
+              <small class="text-muted">{{ r.tanggal|tgl }}</small>
+            </td>
+            <td class="text-end pe-3 fw-semibold text-rp {% if r.net_kas >= 0 %}text-success{% else %}text-danger{% endif %}">
+              {% if r.net_kas >= 0 %}+{% endif %}{{ r.net_kas|rp }}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="2" class="text-center text-muted py-3" style="font-size:.82rem">
+            Tidak ada transaksi pendanaan
+          </td></tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div class="card-footer py-2 px-3" style="background:#ede9fe">
+        <div class="d-flex justify-content-between">
+          <span class="fw-bold" style="font-size:.82rem">NET PENDANAAN</span>
+          <span class="fw-bold text-rp {% if total_pend_fin >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {% if total_pend_fin >= 0 %}+{% endif %}{{ total_pend_fin|rp }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

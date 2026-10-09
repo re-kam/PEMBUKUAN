@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Import Penjualan Marketplace - FinansialApp{% endblock %}
+{% block page_title %}Import Penjualan Marketplace{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-11">
+
+{% if state == 'form' %}
+  <div class="card">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="fas fa-store text-success"></i>
+      <span class="section-title">Import Penjualan dari Marketplace (Excel)</span>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-info">
+        <div class="fw-semibold mb-1"><i class="fas fa-circle-info me-1"></i> Cara kerja</div>
+        Upload file laporan <b>.xlsx</b> dari marketplace. Sistem otomatis mengenali formatnya:
+        <ul class="mb-2 mt-2 small">
+          <li><b>Shopee</b>: Statistik Toko / Shop Stats (omzet dari sheet "Pesanan Dibayar"), <b>atau</b> Export Pesanan (mis. "Order.all" / Riwayat Pesanan) yang otomatis dijumlahkan per tanggal (pesanan batal/dikembalikan diabaikan).</li>
+          <li><b>TikTok / Tokopedia</b>: Shop Analytics / Key metrics. Omzet diambil dari kolom GMV harian.</li>
+        </ul>
+        File Excel <b>tidak disimpan</b>, hanya datanya yang dibaca. Sebelum diposting ada layar
+        preview yang bisa kamu edit bebas.
+      </div>
+      <div class="alert alert-light border">
+        <div class="fw-semibold mb-2"><i class="fas fa-calculator me-1"></i> Cara perhitungan</div>
+        <ol class="mb-0 small ps-3">
+          <li class="mb-1">Omzet dibaca <b>per hari</b> (hanya hari yang ada penjualan), dibulatkan ke rupiah penuh.</li>
+          <li class="mb-1">Tiap hari jadi <b>1 jurnal</b>: <b>Debit</b> akun Kas/Bank yang kamu pilih,
+            <b>Kredit</b> 4100 Pendapatan Penjualan, sebesar omzet hari itu.
+            Total Pendapatan = jumlah omzet semua hari yang dicentang.</li>
+          <li class="mb-1">Angka ini <b>omzet kotor</b>. Biaya admin/komisi marketplace dan HPP/modal tidak ada
+            di laporan, jadi tidak ikut tercatat. Catat terpisah kalau mau lihat laba bersih.</li>
+          <li>Satu tanggal per marketplace cuma bisa masuk sekali. Hari yang sudah pernah diimpor
+            otomatis ditandai dan tidak dicentang. Centang "paksa import ulang" kalau memang mau mencatat lagi.</li>
+        </ol>
+      </div>
+      <form method="POST" action="{{ url_for('import_marketplace') }}" enctype="multipart/form-data">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">File Excel (.xlsx) dari Shopee / TikTok / Tokopedia</label>
+          <input type="file" name="file" accept=".xlsx" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-success">
+          <i class="fas fa-magnifying-glass me-1"></i> Cek &amp; Preview</button>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-light">Batal</a>
+      </form>
+    </div>
+  </div>
+
+{% elif state == 'preview' %}
+  <div class="card mb-3">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="fas fa-eye text-success"></i>
+      <span class="section-title">Preview: edit dulu sebelum diposting</span>
+    </div>
+    <div class="card-body">
+      <div class="row g-3 mb-1">
+        <div class="col-6 col-md-3"><div class="p-3 rounded bg-light h-100">
+          <div class="text-muted small">Marketplace</div>
+          <div class="fs-6 fw-bold">{{ parsed.platform_label }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="p-3 rounded bg-light h-100">
+          <div class="text-muted small">Periode</div>
+          <div class="fs-6 fw-bold">{{ parsed.start|tgl }} &ndash; {{ parsed.end|tgl }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="p-3 rounded bg-light h-100">
+          <div class="text-muted small">Hari ada penjualan</div>
+          <div class="fs-5 fw-bold">{{ parsed.n_hari }}</div></div></div>
+        <div class="col-6 col-md-3"><div class="p-3 rounded bg-light h-100">
+          <div class="text-muted small">Total Omzet (terbaca)</div>
+          <div class="fs-5 fw-bold text-success">{{ parsed.total|rp }}</div></div></div>
+      </div>
+      <div class="small text-muted">Sumber: {{ parsed.sheet }}{% if src_name %} &middot; {{ src_name }}{% endif %}</div>
+      {% if not parsed.is_dibayar %}
+      <div class="alert alert-warning small py-2 mt-2 mb-0"><i class="fas fa-circle-info me-1"></i>
+        Omzet diambil dari sheet <b>{{ parsed.sheet }}</b> (bukan "Pesanan Dibayar"), jadi bisa termasuk
+        order yang belum dibayar atau batal. Periksa nominalnya sebelum posting.</div>
+      {% endif %}
+      {% if n_dup %}
+      <div class="alert alert-warning mt-3 mb-0"><i class="fas fa-triangle-exclamation me-1"></i>
+        <b>{{ n_dup }} hari</b> sudah pernah diimport (ditandai &amp; tidak dicentang otomatis).
+        Centang "paksa import ulang" di bawah bila memang ingin mencatat lagi.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('import_marketplace_posting') }}" id="mpForm">
+    <input type="hidden" name="payload" value='{{ payload|e }}'>
+    <input type="hidden" name="row_count" value="{{ parsed.days|length }}">
+
+    <div class="card mb-3">
+      <div class="card-header d-flex flex-wrap gap-2 align-items-center justify-content-between">
+        <span class="section-title">Rincian Harian ({{ parsed.n_hari }})</span>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <label class="form-label mb-0 small fw-semibold">Masuk ke akun</label>
+          <select name="akun_kas" class="form-select form-select-sm" style="width:auto">
+            {% for a in akun_kas %}
+            <option value="{{ a.kode }}" {% if a.kode==kas_default %}selected{% endif %}>{{ a.kode }} &middot; {{ a.nama }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="btn btn-sm btn-light" onclick="mpCheckAll(true)">Centang semua</button>
+          <button type="button" class="btn btn-sm btn-light" onclick="mpCheckAll(false)">Kosongkan</button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive" style="max-height:58vh;overflow:auto">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="position-sticky top-0 bg-body" style="z-index:1"><tr>
+              <th style="width:42px" class="text-center"><i class="fas fa-check" aria-label="Pilih"></i></th>
+              <th style="width:170px">Tanggal</th>
+              <th>Keterangan</th>
+              <th class="text-end" style="width:190px">Omzet (Rp)</th>
+            </tr></thead>
+            <tbody>
+              {% for d in parsed.days %}
+              {% set is_dup = d.tgl in dup_dates %}
+              <tr class="{% if is_dup %}table-warning{% endif %}">
+                <td class="text-center">
+                  <input class="form-check-input mp-inc" type="checkbox" name="inc_{{ loop.index0 }}" value="1"
+                         data-dup="{{ '1' if is_dup else '0' }}" aria-label="Centang {{ d.tgl }}"
+                         {% if not is_dup %}checked{% endif %} onchange="mpRecalc()">
+                </td>
+                <td><input type="date" class="form-control form-control-sm" name="tgl_{{ loop.index0 }}"
+                           value="{{ d.tgl }}" aria-label="Tanggal"></td>
+                <td><input type="text" class="form-control form-control-sm" name="ket_{{ loop.index0 }}"
+                           value="{{ default_ket }}" maxlength="200" aria-label="Keterangan">
+                  {% if is_dup %}<span class="badge bg-warning text-dark mt-1">sudah diimport</span>{% endif %}</td>
+                <td><input type="number" min="0" step="any" inputmode="numeric"
+                           class="form-control form-control-sm text-end mp-nom" aria-label="Omzet rupiah"
+                           name="nom_{{ loop.index0 }}" value="{{ '%.0f'|format(d.omzet) }}" oninput="mpRecalc()"></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot><tr class="fw-bold table-light">
+              <td colspan="3" class="text-end">Total dipilih</td>
+              <td class="text-end"><span id="mpTotal">Rp 0</span></td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    {% if produk_list %}
+    <div class="card mb-3">
+      <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <span class="section-title"><i class="fas fa-boxes-stacked me-1"></i> Kurangi stok / HPP (opsional)</span>
+        <button type="button" class="btn btn-sm btn-light" onclick="mpAddProd()"><i class="fas fa-plus me-1"></i> Tambah produk</button>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-light border small mb-3">
+          Isi kalau mau stok produk ikut berkurang. <b>Kosongkan saja kalau stok kamu catat di tempat lain.</b>
+          Tiap produk: HPP = qty &times; harga rata-rata. Saat posting dibuat <b>1 jurnal terpisah</b>:
+          Dr 5100 HPP / Cr 1130 Persediaan, dan stok produk turun.
+          <span class="d-block mt-1 text-muted">Jangan input penjualan yang sama lewat POS atau pemasukan produk lagi,
+          supaya stok tidak berkurang dua kali.</span>
+        </div>
+        <div id="mpProdRows">
+          <div class="mp-prod-row row g-2 mb-2 align-items-center">
+            <div class="col-12 col-md-7">
+              <select name="prod_id[]" class="form-select form-select-sm mp-prod" onchange="mpHppCalc()" aria-label="Produk">
+                <option value="">Pilih produk...</option>
+                {% for p in produk_list %}
+                <option value="{{ p.id }}" data-cost="{{ p.harga_beli|int }}">{{ p.nama }} (stok {{ p.stok|int }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-7 col-md-3">
+              <input type="text" inputmode="numeric" name="prod_qty[]" class="form-control form-control-sm mp-qty"
+                     placeholder="qty terjual" oninput="mpHppCalc()" aria-label="Qty terjual">
+            </div>
+            <div class="col-5 col-md-2 text-end small text-muted mp-rowhpp">Rp 0</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-link px-0" onclick="mpAddProd()">
+          <i class="fas fa-plus me-1"></i> Tambah produk lain</button>
+        <div class="row g-2 mt-2 align-items-center border-top pt-2">
+          <div class="col-auto"><label class="small fw-semibold mb-0" for="hppTgl">Tanggal jurnal HPP</label></div>
+          <div class="col-auto"><input type="date" id="hppTgl" name="hpp_tgl" value="{{ parsed.end }}"
+                     class="form-control form-control-sm" style="width:160px"></div>
+          <div class="col text-end">Total HPP: <b id="mpHppTotal">Rp 0</b></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-body">
+        {% if n_dup %}
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" name="force" value="1" id="forceChk" onchange="mpRecalc()">
+          <label class="form-check-label" for="forceChk">Paksa import ulang hari yang sudah pernah dicatat</label>
+        </div>
+        {% endif %}
+        <div class="alert alert-light border small mb-3">
+          Setiap hari yang dicentang &rarr; <b>1 jurnal</b>: Debit akun kas terpilih, Kredit
+          <b>4100 &middot; Pendapatan Penjualan</b> sebesar omzet hari itu.
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i>
+            Posting <span id="mpCnt">0</span> Jurnal</button>
+          <a href="{{ url_for('import_marketplace') }}" class="btn btn-light">Ulangi / Ganti File</a>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <script>
+  function mpFmt(n){ try { return 'Rp ' + Math.round(n).toLocaleString('id-ID'); } catch(e){ return 'Rp ' + Math.round(n); } }
+  function mpForced(){ var f = document.getElementById('forceChk'); return !!(f && f.checked); }
+  function mpRecalc(){
+    var tot = 0, cnt = 0, forced = mpForced();
+    document.querySelectorAll('#mpForm tbody tr').forEach(function(tr){
+      var inc = tr.querySelector('.mp-inc');
+      var nomEl = tr.querySelector('.mp-nom');
+      // numFmt mem-format "53000" jadi "53.000" -> buang titik ribuan sebelum dijumlah
+      var nom = nomEl ? (parseFloat(String(nomEl.value || '0').replace(/\./g, '').replace(',', '.')) || 0) : 0;
+      var isDup = inc && inc.getAttribute('data-dup') === '1';
+      // baris dup hanya benar-benar diposting bila "force" dicentang (server juga melewatinya)
+      if (inc && inc.checked && nom > 0 && (!isDup || forced)){ tot += nom; cnt++; }
+    });
+    var t = document.getElementById('mpTotal'); if (t) t.textContent = mpFmt(tot);
+    var c = document.getElementById('mpCnt'); if (c) c.textContent = cnt;
+  }
+  function mpCheckAll(v){
+    document.querySelectorAll('#mpForm .mp-inc').forEach(function(x){ x.checked = v; });
+    mpRecalc();
+  }
+  function mpAddProd(){
+    var box = document.getElementById('mpProdRows');
+    if (!box || !box.firstElementChild) return;
+    var clone = box.firstElementChild.cloneNode(true);
+    var sel = clone.querySelector('.mp-prod'); if (sel) sel.value = '';
+    var qty = clone.querySelector('.mp-qty'); if (qty) qty.value = '';
+    var hp = clone.querySelector('.mp-rowhpp'); if (hp) hp.textContent = 'Rp 0';
+    box.appendChild(clone);
+  }
+  function mpHppCalc(){
+    var tot = 0;
+    document.querySelectorAll('#mpProdRows .mp-prod-row').forEach(function(row){
+      var sel = row.querySelector('.mp-prod');
+      var qel = row.querySelector('.mp-qty');
+      var opt = sel ? sel.options[sel.selectedIndex] : null;
+      var cost = opt ? (parseFloat(opt.getAttribute('data-cost') || '0') || 0) : 0;
+      var qty = qel ? (parseFloat(String(qel.value || '0').replace(',', '.')) || 0) : 0;
+      var line = cost * qty;
+      var hp = row.querySelector('.mp-rowhpp'); if (hp) hp.textContent = mpFmt(line);
+      tot += line;
+    });
+    var t = document.getElementById('mpHppTotal'); if (t) t.textContent = mpFmt(tot);
+  }
+  document.addEventListener('DOMContentLoaded', function(){ mpRecalc(); mpHppCalc(); });
+  </script>
+{% endif %}
+
+</div>
+</div>
+{% endblock %}

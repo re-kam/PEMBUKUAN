@@ -1,0 +1,1233 @@
+{% extends "base.html" %}
+{% block title %}Inventory - FinansialApp{% endblock %}
+{% block page_title %}Inventory / Produk{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalStokHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_stok_help_modal.html' %}
+<style>
+  /* ── Non-SKU Hub: modern card UI ─────────────────────────────────────── */
+  #modalNonSkuHub .modal-content { border:0; border-radius:18px; overflow:hidden; box-shadow:0 24px 60px -12px rgba(15,23,42,.25); background:var(--card); }
+  #modalNonSkuHub .modal-header {
+    background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);
+    border-bottom:0; padding:1.1rem 1.5rem;
+  }
+  #modalNonSkuHub .modal-title { font-size:1.15rem; font-weight:800; letter-spacing:-.01em; color:#78350f; }
+  #modalNonSkuHub .modal-header .text-amber-sub { color:#92400e; font-weight:500; font-size:.85rem; }
+  #modalNonSkuHub .modal-title .hub-emoji { font-size:1.5rem; vertical-align:-.2rem; }
+  #modalNonSkuHub .modal-body { padding:1.25rem 1.5rem; background:var(--card); color:var(--tx); }
+  #modalNonSkuHub .modal-footer { background:var(--card); border-top:1px solid var(--bdr); }
+  #modalNonSkuHub .hub-desc { font-size:.82rem; color:var(--tx2); max-width:520px; line-height:1.5; }
+  #modalNonSkuHub .hub-saldo {
+    display:inline-flex; align-items:center; gap:.4rem;
+    background:var(--card-h); border:1px solid var(--bdr-md); border-radius:999px;
+    padding:.25rem .7rem; font-size:.78rem; color:var(--tx2); font-weight:600;
+  }
+  #modalNonSkuHub .hub-saldo strong { color:var(--tx); }
+  /* Dark mode: header gradient tetap amber tapi sedikit lebih gelap supaya teks coklat tetap kontras */
+  [data-theme="dark"] #modalNonSkuHub .modal-header { background:linear-gradient(135deg,#fde68a 0%,#fbbf24 100%); }
+  [data-theme="dark"] #modalNonSkuHub .modal-title { color:#451a03; }
+  [data-theme="dark"] #modalNonSkuHub .modal-header .text-amber-sub { color:#7c2d12; }
+
+  .nonsku-card {
+    cursor:pointer; position:relative; overflow:hidden;
+    text-align:left; width:100%; height:100%;
+    border-radius:14px; padding:1.1rem 1.15rem 1rem;
+    background:#fff; border:1.5px solid transparent;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    text-decoration:none;
+  }
+  .nonsku-card:hover {
+    transform:translateY(-3px);
+    box-shadow:0 14px 32px -10px rgba(15,23,42,.18);
+  }
+  .nonsku-card:focus-visible { outline:3px solid #0ea5e9; outline-offset:2px; }
+  .nonsku-card .nonsku-icon {
+    width:56px; height:56px; border-radius:14px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.55rem; color:#fff; margin-bottom:.7rem;
+    box-shadow:0 6px 14px -4px rgba(15,23,42,.25);
+  }
+  .nonsku-card .nonsku-title {
+    font-size:1.1rem; font-weight:800; letter-spacing:-.01em;
+    line-height:1.2; margin-bottom:.3rem;
+  }
+  .nonsku-card .nonsku-desc { font-size:.83rem; line-height:1.45; opacity:.85; }
+  .nonsku-card .nonsku-meta {
+    margin-top:.85rem; padding:.55rem .7rem;
+    background:rgba(255,255,255,.7); backdrop-filter:blur(4px);
+    border:1px dashed currentColor; border-radius:9px;
+    font-size:.7rem; line-height:1.5; opacity:.85;
+  }
+  .nonsku-card .nonsku-meta strong { font-weight:700; }
+  .nonsku-card .nonsku-arrow {
+    position:absolute; top:1rem; right:1rem;
+    width:28px; height:28px; border-radius:50%;
+    background:rgba(255,255,255,.6); color:currentColor;
+    display:flex; align-items:center; justify-content:center;
+    font-size:.78rem; opacity:0; transform:translateX(-4px);
+    transition:opacity .18s ease, transform .18s ease;
+  }
+  .nonsku-card:hover .nonsku-arrow { opacity:1; transform:translateX(0); }
+
+  /* Color variants */
+  .nonsku-card.v-buy   { background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%); border-color:#bbf7d0; color:#14532d; }
+  .nonsku-card.v-buy   .nonsku-icon { background:linear-gradient(135deg,#22c55e,#16a34a); }
+  .nonsku-card.v-open  { background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%); border-color:#bfdbfe; color:#1e3a8a; }
+  .nonsku-card.v-open  .nonsku-icon { background:linear-gradient(135deg,#3b82f6,#2563eb); }
+  .nonsku-card.v-loss  { background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%); border-color:#fecaca; color:#7f1d1d; }
+  .nonsku-card.v-loss  .nonsku-icon { background:linear-gradient(135deg,#ef4444,#dc2626); }
+  .nonsku-card.v-found { background:linear-gradient(135deg,#f0fdfa 0%,#ccfbf1 100%); border-color:#99f6e4; color:#134e4a; }
+  .nonsku-card.v-found .nonsku-icon { background:linear-gradient(135deg,#14b8a6,#0d9488); }
+
+  /* Trigger button, pop a bit */
+  .btn-nonsku-hub {
+    background:linear-gradient(135deg,#f59e0b,#d97706);
+    color:#fff; border:0; font-weight:600;
+    box-shadow:0 4px 10px -3px rgba(245,158,11,.45);
+  }
+  .btn-nonsku-hub:hover { background:linear-gradient(135deg,#d97706,#b45309); color:#fff; }
+
+  @media (max-width: 576px) {
+    .nonsku-card { padding:1rem; }
+    .nonsku-card .nonsku-icon { width:48px; height:48px; font-size:1.3rem; border-radius:12px; }
+    .nonsku-card .nonsku-title { font-size:1rem; }
+  }
+
+  /* Grouping varian: baris induk + anak collapsible */
+  .variant-parent { background:var(--card-h,#f8fafc); }
+  .variant-parent:hover { background:var(--bdr-md,#eef2f7); }
+  .variant-parent .grp-chevron { transition:transform .15s ease; font-size:.7rem; }
+  .variant-child > td:first-child { padding-left:2.4rem !important; }
+  .variant-child { font-size:.95em; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <form class="d-flex gap-2 flex-wrap" method="GET">
+    {% if kategori %}<input type="hidden" name="kategori" value="{{ kategori }}">{% endif %}
+    <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm"
+           placeholder="Cari produk..." style="width:220px">
+    <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-search"></i></button>
+    <select name="sort" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()" title="Urutkan produk">
+      <option value="nama" {% if sort == 'nama' %}selected{% endif %}>Nama (A-Z)</option>
+      <option value="kode" {% if sort == 'kode' %}selected{% endif %}>Kode Barang</option>
+      <option value="stok" {% if sort == 'stok' %}selected{% endif %}>Stok Terbanyak</option>
+      <option value="tgl_beli" {% if sort == 'tgl_beli' %}selected{% endif %}>Tgl Pembelian (terbaru)</option>
+    </select>
+    <select name="per_page" class="form-select form-select-sm" style="width:auto" onchange="this.form.submit()" title="Jumlah produk per halaman">
+      {% for n in (50, 100, 500, 1000) %}
+      <option value="{{ n }}" {% if pg.per_page == n %}selected{% endif %}>{{ n }} / halaman</option>
+      {% endfor %}
+    </select>
+    <div class="dropdown">
+      <button type="button" class="btn btn-sm {% if kategori %}btn-primary{% else %}btn-outline-primary{% endif %} dropdown-toggle"
+              data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fas fa-tags me-1"></i>
+        {% if kategori == '__tanpa__' %}Tanpa Kategori{% elif kategori %}{{ kategori }}{% else %}Kategori{% endif %}
+      </button>
+      <ul class="dropdown-menu shadow-sm" style="font-size:.82rem;min-width:190px">
+        <li>
+          <a class="dropdown-item {% if not kategori %}active{% endif %}"
+             href="{{ url_for('stok_list', q=q, sort=sort, per_page=pg.per_page) }}">
+            <i class="fas fa-boxes-stacked me-2"></i>Semua Kategori
+          </a>
+        </li>
+        {% for c in kategori_produk %}
+        <li>
+          <a class="dropdown-item {% if kategori == c %}active{% endif %}"
+             href="{{ url_for('stok_list', q=q, kategori=c, sort=sort, per_page=pg.per_page) }}">
+            <i class="fas fa-tag me-2"></i>{{ c }}
+          </a>
+        </li>
+        {% endfor %}
+        <li><hr class="dropdown-divider"></li>
+        <li>
+          <a class="dropdown-item {% if kategori == '__tanpa__' %}active{% endif %}"
+             href="{{ url_for('stok_list', q=q, kategori='__tanpa__', sort=sort, per_page=pg.per_page) }}">
+            <i class="fas fa-tag me-2 text-muted"></i>Tanpa Kategori
+          </a>
+        </li>
+      </ul>
+    </div>
+    {% if q %}<a href="{{ url_for('stok_list', kategori=kategori, sort=sort, per_page=pg.per_page) }}" class="btn btn-sm btn-outline-secondary">Reset Cari</a>{% endif %}
+    {% if kategori %}<a href="{{ url_for('stok_list', q=q, sort=sort, per_page=pg.per_page) }}" class="btn btn-sm btn-outline-secondary">Hapus Filter</a>{% endif %}
+  </form>
+  {% if can.inventory_input %}
+  <div class="d-flex gap-2 flex-wrap align-items-center">
+    {% if can.inventory_hpp %}
+    <span class="text-muted text-end" style="font-size:.72rem;line-height:1.3;max-width:230px">
+      Jika ingin input banyak barang sekaligus, isi via Excel lalu upload ulang ke tabel
+    </span>
+    <a href="{{ url_for('stok_export', q=q, kategori=kategori, arsip=('1' if show_arsip else None)) }}"
+       class="btn btn-outline-dark btn-sm" title="Export stok saat ini ke Excel untuk lembar kerja opname fisik">
+      <i class="fas fa-clipboard-list me-1"></i>Export Stok Opname</a>
+    <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalStokAwalInfo" title="Download template Excel untuk input stok awal">
+      <i class="fas fa-file-arrow-down me-1"></i>Download Template</button>
+    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalImport">
+      <i class="fas fa-file-arrow-up me-1"></i>Upload Excel</button>
+    {% endif %}
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalBaru">
+      <i class="fas fa-plus me-1"></i>Tambah Produk</button>
+    {% if can.inventory_hpp %}
+    <button type="button" class="btn btn-nonsku-hub btn-sm" data-bs-toggle="modal" data-bs-target="#modalNonSkuHub" title="Catat bahan/persediaan tanpa SKU: beli, saldo awal, rusak, atau ditemukan">
+      <i class="fas fa-flask me-1"></i>Non-SKU</button>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% if can.inventory_hpp %}
+<div class="row g-2 mb-3">
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="text-muted" style="font-size:.72rem">PRODUK TERLACAK</div>
+      <div class="fw-bold text-rp">{{ nilai_produk|rp }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="text-muted" style="font-size:.72rem">PERSEDIAAN NON-SKU</div>
+      <div class="fw-bold text-rp">{{ nilai_non_sku|rp }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="text-muted" style="font-size:.72rem">TOTAL VALUASI</div>
+      <div class="fw-bold text-rp">{{ nilai_inventory|rp }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card h-100"><div class="card-body py-2">
+      <div class="text-muted" style="font-size:.72rem">LEDGER PERSEDIAAN 113*</div>
+      <div class="fw-bold text-rp">{{ saldo_persediaan|rp }}</div>
+    </div></div>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info py-2 mb-3" style="font-size:.82rem">
+  <i class="fas fa-lock me-1"></i>
+  Harga beli, HPP, valuasi persediaan, dan nilai non-SKU disembunyikan oleh pengaturan hak akses.
+</div>
+{% endif %}
+
+{% if can.inventory_hpp and selisih_persediaan|abs >= 0.01 %}
+<div class="alert alert-warning py-2 mb-3" style="font-size:.8rem">
+  <i class="fas fa-triangle-exclamation me-1"></i>
+  {% if saldo_persediaan < -0.01 %}
+  <strong>Nilai persediaan tercatat minus.</strong>
+  Nilai HPP yang dicatat lebih besar daripada nilai persediaan yang tersedia.
+  Silakan periksa kembali dan tambahkan transaksi pembelian bahan baku / produk yang belum tercatat.
+  {% else %}
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    <div class="flex-grow-1" style="min-width:260px">
+      <strong>Ada selisih nilai persediaan.</strong>
+      Total produk terlacak dan persediaan non-SKU {{ nilai_inventory|rp }}, sedangkan nilai persediaan yang tercatat {{ saldo_persediaan|rp }}.
+      Biasanya karena harga beli rata-rata sebagian produk sudah usang (transaksi lama diinput belakangan).
+      Jika diperlukan, gunakan Upload Excel dengan mode <strong>Koreksi Stok Terkini Hasil Opname</strong>.
+    </div>
+    {% if can.inventory_hpp %}
+    <form method="POST" action="{{ url_for('stok_perbaiki_hpp') }}"
+          onsubmit="return confirm('Perbaiki HPP rata-rata produk yang harganya usang supaya nilai persediaan cocok dengan pembukuan?\n\nJurnal TIDAK diubah -- Neraca dan Laba Rugi tetap sama. Produk dengan stok yang memang tidak cocok riwayat (bukan cuma nilainya) tidak akan disentuh.')">
+      <button type="submit" class="btn btn-sm btn-warning">
+        <i class="fas fa-wand-magic-sparkles me-1"></i>Perbaiki HPP
+      </button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── Peringatan stok (bisa diciutkan): stok minus + di bawah minimum ──
+   low_list dikirim route (dihitung dari SELURUH data, bukan cuma halaman ini) --
+   JANGAN dihitung ulang di sini dari `produk`, itu cuma isi satu halaman sejak
+   paginasi aktif dan angkanya akan diam-diam salah (mengecil). #}
+{% if negative_produk or low_list %}
+<style>
+  #stokWarnToggle .chev{ transform:rotate(0deg) }
+  #stokWarnToggle[aria-expanded="true"] .chev{ transform:rotate(180deg) }
+</style>
+<div class="mb-3" id="stokWarnWrap">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+    <button class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-2 fw-semibold"
+            type="button" data-bs-toggle="collapse" data-bs-target="#stokWarnBody"
+            aria-expanded="true" aria-controls="stokWarnBody" id="stokWarnToggle">
+      <i class="fas fa-triangle-exclamation text-warning"></i>
+      <span>Peringatan Stok</span>
+      {% if negative_produk %}<span class="badge bg-danger">{{ negative_produk|length }} minus</span>{% endif %}
+      {% if low_list %}<span class="badge bg-warning text-dark">{{ low_list|length }} di bawah min</span>{% endif %}
+      <i class="fas fa-chevron-down small chev"></i>
+    </button>
+    {% if negative_produk and low_list %}
+    <div class="form-check form-switch m-0">
+      <input class="form-check-input" type="checkbox" id="minusOnlyToggle" onchange="toggleMinusOnly(this)">
+      <label class="form-check-label small fw-semibold" for="minusOnlyToggle">Stok minus saja</label>
+    </div>
+    {% endif %}
+  </div>
+  <div class="collapse show" id="stokWarnBody">
+    {% if negative_produk %}
+    <div class="alert alert-danger py-2 mb-2" id="warnMinus">
+      <i class="fas fa-triangle-exclamation me-2"></i>
+      <strong>{{ negative_produk|length }} produk</strong> memiliki stok minus. Penjualan tetap dicatat, tetapi pembelian atau koreksi stok yang tertinggal perlu dilengkapi:
+      {% for p in negative_produk %}<span class="badge bg-danger ms-1">{{ p.nama }} ({{ p.stok|qty }} {{ p.satuan }})</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% if low_list %}
+    <div class="alert alert-warning py-2 mb-0" id="warnLow">
+      <i class="fas fa-triangle-exclamation me-2"></i>
+      <strong>{{ low_list|length }} produk</strong> memiliki stok di bawah minimum:
+      {% for p in low_list %}<span class="badge bg-warning text-dark ms-1">{{ p.nama }} ({{ p.stok|qty }} {{ p.satuan }})</span>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% if can.inventory_input and can.inventory_hpp %}
+<!-- Modal Peringatan Stok Awal (muncul sebelum download template) -->
+<div class="modal fade" id="modalStokAwalInfo" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:#fffbeb;border-bottom:1px solid #fde68a">
+        <h6 class="modal-title fw-bold" style="color:#92400e">
+          <i class="fas fa-triangle-exclamation me-2"></i>Penting, Baca Dulu</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body py-3" style="font-size:.85rem">
+        <p class="mb-2">Template Excel ini untuk <strong>STOK AWAL</strong>, barang yang
+          <strong>sudah Anda miliki sebelum mulai memakai aplikasi ini</strong>.</p>
+        <div class="rounded-3 px-3 py-2 mb-2" style="background:#f0fdf4;border:1px solid #bbf7d0">
+          <div class="mb-1"><i class="fas fa-circle-xmark text-danger me-1"></i>
+            <strong>TIDAK</strong> menambah Pengeluaran baru, pembeliannya sudah terjadi di masa lalu.</div>
+          <div><i class="fas fa-circle-check text-success me-1"></i>
+            <strong>TETAP</strong> menambah valuasi Persediaan (aset) Anda.</div>
+        </div>
+        <div class="rounded-3 px-3 py-2" style="background:#eff6ff;border:1px solid #bfdbfe">
+          <i class="fas fa-circle-info text-primary me-1"></i>
+          Kalau stok ini <strong>baru saja Anda beli</strong> (uang baru keluar) dan ingin
+          ikut tercatat sebagai pembelian, jangan pakai template ini.
+          gunakan menu <strong>Pembelian</strong>.
+        </div>
+      </div>
+      <div class="modal-footer py-2 d-flex justify-content-between flex-nowrap gap-2">
+        <a href="/pembelian?kategori=BAHAN_BAKU&focus_non_sku=1" class="btn btn-sm btn-outline-info">
+          <i class="fas fa-cart-shopping me-1"></i>Ke Pembelian</a>
+        <a href="/stok/template" class="btn btn-sm btn-success"
+           onclick="setTimeout(function(){var m=bootstrap.Modal.getInstance(document.getElementById('modalStokAwalInfo'));if(m)m.hide();},300)">
+          <i class="fas fa-file-arrow-down me-1"></i>Lanjut Download (Stok Awal)</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Import Excel -->
+<div class="modal fade" id="modalImport" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
+    <div class="modal-content">
+      <form method="POST" action="/stok/import" enctype="multipart/form-data" onsubmit="return confirmInventoryImport()">
+        <div class="modal-header py-2">
+          <h6 class="modal-title"><i class="fas fa-file-excel text-success me-2"></i>Import Produk dari Excel</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body py-3">
+          <div class="rounded-3 px-3 py-2 mb-3" style="background:#f0fdf4;border:1px solid #bbf7d0;font-size:.78rem;color:#166534">
+            <i class="fas fa-circle-info me-1"></i>
+            Belum punya file? <a href="/stok/template" class="fw-semibold" style="color:#15803d">Download Template</a> dulu,
+            isi datanya, lalu upload di sini.
+          </div>
+          <label class="form-label small fw-semibold mb-1">Pilih file Excel (.xlsx)</label>
+          <input type="file" name="file" accept=".xlsx" class="form-control form-control-sm" required>
+          <label class="form-label small fw-semibold mt-3 mb-1">Tujuan Upload</label>
+          <select name="mode" id="importMode" class="form-select form-select-sm" onchange="updateImportMode()">
+            <option value="MASTER">Tambah / Update Master Produk</option>
+            <option value="SALDO_AWAL">Input Saldo Awal / Stok Saat Ini</option>
+            <option value="KOREKSI">Koreksi Stok Terkini Hasil Opname</option>
+          </select>
+          <div id="importModeInfo" class="alert alert-info py-2 px-2 mt-2 mb-0" style="font-size:.72rem"></div>
+          <div id="importAlasanWrap" class="mt-2" style="display:none">
+            <label class="form-label small fw-semibold mb-1">Alasan Koreksi *</label>
+            <input type="text" name="alasan" id="importAlasan" class="form-control form-control-sm"
+                   placeholder="Mis: stok opname akhir bulan">
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-sm btn-success">
+            <i class="fas fa-upload me-1"></i>Upload &amp; Import</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Panel "stok minus" & "di bawah minimum" digabung ke Peringatan Stok collapsible di atas #}
+
+{% if can.inventory_hpp and (nilai_non_sku or non_sku_rows or can.inventory_input) %}
+<div class="card mb-3" id="nonSkuPanel">
+  <div class="card-body py-2">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <div>
+        <div class="fw-semibold">
+          <i class="fas fa-flask me-2 text-warning"></i>Persediaan Non-SKU
+          <span class="badge bg-info text-dark ms-1">{{ nilai_non_sku|rp }}</span>
+        </div>
+        <div class="text-muted" style="font-size:.74rem">
+          Bahan umum tanpa stok per-unit. Panel ini sengaja ditaruh di atas supaya tidak tenggelam oleh daftar SKU.
+        </div>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        {% if can.inventory_input %}
+        <a href="/pembelian?kategori=BAHAN_BAKU&focus_non_sku=1" class="btn btn-outline-success btn-sm">
+          <i class="fas fa-cart-shopping me-1"></i>Beli Non-SKU</a>
+        <button type="button" class="btn btn-nonsku-hub btn-sm" data-bs-toggle="modal" data-bs-target="#modalNonSkuHub">
+          <i class="fas fa-scale-balanced me-1"></i>Catat / Koreksi</button>
+        {% endif %}
+        {% if non_sku_rows %}
+        <a href="#nonSkuHistory" class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-clock-rotate-left me-1"></i>Riwayat Lengkap</a>
+        {% endif %}
+      </div>
+    </div>
+    {% if non_sku_rows %}
+    <div class="table-responsive mt-2">
+      <table class="table table-sm mb-0" style="font-size:.8rem">
+        <tbody>
+          {% for n in non_sku_rows[:3] %}
+          <tr>
+            <td class="text-muted" style="width:110px">{{ n.tanggal|tgl }}</td>
+            <td>{{ n.deskripsi }}</td>
+            <td class="text-end text-rp {% if n.nilai_delta < 0 %}text-danger{% else %}text-success{% endif %}">
+              {{ '+' if n.nilai_delta > 0 else '' }}{{ n.nilai_delta|rp }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# Section Non-SKU dipindah ke bawah list SKU, lihat akhir file #}
+
+{% macro stok_row_cells(p, can, session, show_arsip=false) %}
+            <td class="ps-3 text-muted">{{ p.kode }}</td>
+            <td class="fw-semibold">{{ p.nama }}</td>
+            <td>
+              {% if p.kategori %}
+              <span class="badge bg-secondary"><i class="fas fa-tag me-1"></i>{{ p.kategori }}</span>
+              {% else %}
+              <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td class="text-muted">{{ p.varian or '-' }}</td>
+            <td>{{ p.satuan }}</td>
+            {% if can.inventory_hpp %}
+            <td class="text-end text-rp">{{ p.harga_beli|rp }}</td>
+            {% endif %}
+            <td class="text-end text-rp text-success">{{ p.harga_jual|rp }}</td>
+            <td class="text-center">
+              <span class="fw-bold {% if p.stok < 0 or (p.min_stok > 0 and p.stok <= p.min_stok) %}text-danger{% elif p.stok == 0 %}text-muted{% else %}text-success{% endif %}">
+                {{ p.stok|qty }}</span>
+              {% if p.stok < 0 or (p.min_stok > 0 and p.stok <= p.min_stok) %}
+                <i class="fas fa-triangle-exclamation text-warning ms-1" title="{% if p.stok < 0 %}Stok minus{% else %}Stok di bawah minimum{% endif %}"></i>
+              {% endif %}
+            </td>
+            <td class="text-center text-muted">{{ p.min_stok|qty }}</td>
+            <td class="text-end pe-3">
+              <div class="d-flex gap-1 justify-content-end">
+                {% if can.inventory_input %}
+                <a href="/stok/{{ p.id }}/edit" class="btn btn-xs btn-outline-primary" title="Edit">
+                  <i class="fas fa-edit"></i></a>
+                {% endif %}
+                {% if can.expense_input %}
+                <a href="/pembelian?kategori=BAHAN_BAKU&produk_id={{ p.id }}"
+                   class="btn btn-xs btn-outline-success" title="Beli / Tambah Stok">
+                  <i class="fas fa-cart-plus"></i></a>
+                {% endif %}
+                {% if can.inventory_input %}
+                <button class="btn btn-xs btn-outline-secondary"
+                        onclick="gerakanStok({{ p.id }}, '{{ p.nama|replace("'","\\'")|replace('"','&quot;') }}', {{ p.stok }}, {% if can.inventory_hpp %}{{ p.harga_beli }}{% else %}0{% endif %})" title="Atur Stok{% if can.inventory_hpp %} (Stok Awal / Opname){% else %} (Opname){% endif %}">
+                  <i class="fas fa-scale-balanced"></i></button>
+                {% endif %}
+                <a href="/stok/{{ p.id }}/riwayat" class="btn btn-xs btn-outline-secondary" title="Riwayat">
+                  <i class="fas fa-history"></i></a>
+                {% if can.inventory_input and session.role in ('ADMIN','FINANCE') %}
+                  {% if p.terpakai and not show_arsip %}
+                  {# Produk sudah punya riwayat transaksi: tak bisa dihapus permanen, hanya diarsipkan. #}
+                  <form method="POST" action="/stok/{{ p.id }}/hapus" style="display:inline"
+                        onsubmit="return confirm('Produk ini punya riwayat transaksi, jadi akan diarsipkan (disembunyikan dari daftar), bukan dihapus permanen. Datanya tetap tersimpan dan bisa dipulihkan. Lanjut arsipkan?')">
+                    <button class="btn btn-xs btn-outline-secondary" title="Arsipkan (produk punya riwayat, tidak bisa dihapus permanen)"><i class="fas fa-box-archive"></i></button>
+                  </form>
+                  {% else %}
+                  <form method="POST" action="/stok/{{ p.id }}/hapus" style="display:inline"
+                        onsubmit="return confirm('Hapus produk ini permanen?')">
+                    <button class="btn btn-xs btn-outline-danger" title="Hapus"><i class="fas fa-trash"></i></button>
+                  </form>
+                  {% endif %}
+                {% endif %}
+              </div>
+            </td>
+{% endmacro %}
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Kode</th>
+            <th>Nama Produk</th>
+            <th>Kategori</th>
+            <th>Varian</th>
+            <th>Satuan</th>
+            {% if can.inventory_hpp %}
+            <th class="text-end">Harga Beli</th>
+            {% endif %}
+            <th class="text-end">Harga Jual</th>
+            <th class="text-center">Stok</th>
+            <th class="text-center">Min. Stok</th>
+            <th class="text-end pe-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for nama, members in grouped %}
+            {% if members|length == 1 %}
+              {% set p = members[0] %}
+          <tr class="{% if p.stok < 0 %}table-danger{% elif p.min_stok > 0 and p.stok <= p.min_stok %}table-warning{% endif %}">
+            {{ stok_row_cells(p, can, session, show_arsip) }}
+          </tr>
+            {% else %}
+              {% set gidx = loop.index %}
+              {% set hj = members|map(attribute='harga_jual')|list %}
+              {% set hb = members|map(attribute='harga_beli')|list %}
+              {% set total_stok = members|sum(attribute='stok') %}
+              {% set ns = namespace(neg=false, low=false) %}
+              {% for m in members %}{% if m.stok < 0 %}{% set ns.neg = true %}{% endif %}{% if m.min_stok > 0 and m.stok <= m.min_stok %}{% set ns.low = true %}{% endif %}{% endfor %}
+          <tr class="variant-parent{% if ns.neg %} table-danger{% elif ns.low %} table-warning{% endif %}" onclick="toggleGrp({{ gidx }}, this)" style="cursor:pointer">
+            <td class="ps-3 text-muted"><i class="fas fa-chevron-right grp-chevron me-1"></i></td>
+            <td class="fw-semibold">{{ nama }} <span class="badge bg-light text-dark border ms-1" style="font-weight:600">{{ members|length }} varian</span></td>
+            <td>{% if members[0].kategori %}<span class="badge bg-secondary"><i class="fas fa-tag me-1"></i>{{ members[0].kategori }}</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+            <td class="text-muted">{{ members|length }} varian</td>
+            <td class="text-muted">-</td>
+            {% if can.inventory_hpp %}
+            <td class="text-end text-rp text-muted">{% if hb|min == hb|max %}{{ hb|min|rp }}{% else %}{{ hb|min|rp }} - {{ hb|max|rp }}{% endif %}</td>
+            {% endif %}
+            <td class="text-end text-rp text-success">{% if hj|min == hj|max %}{{ hj|min|rp }}{% else %}{{ hj|min|rp }} - {{ hj|max|rp }}{% endif %}</td>
+            <td class="text-center">
+              <span class="fw-bold {% if ns.neg or ns.low %}text-danger{% elif total_stok == 0 %}text-muted{% else %}text-success{% endif %}">{{ total_stok|qty }}</span>
+              {% if ns.neg or ns.low %}<i class="fas fa-triangle-exclamation text-warning ms-1" title="Ada varian stok minus atau di bawah minimum"></i>{% endif %}
+            </td>
+            <td class="text-center text-muted">-</td>
+            <td class="text-end pe-3"><span class="text-muted" style="font-size:.7rem">klik untuk buka</span></td>
+          </tr>
+              {% for p in members %}
+          <tr class="variant-child grp-{{ gidx }}{% if p.stok < 0 %} table-danger{% elif p.min_stok > 0 and p.stok <= p.min_stok %} table-warning{% endif %}" style="display:none">
+            {{ stok_row_cells(p, can, session, show_arsip) }}
+          </tr>
+              {% endfor %}
+            {% endif %}
+          {% else %}
+          <tr><td colspan="{% if can.inventory_hpp %}10{% else %}9{% endif %}" class="text-center text-muted py-4">
+            {% if q or kategori %}Tidak ada produk untuk filter yang dipilih{% else %}Belum ada produk{% endif %}
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{# ── Riwayat Non-SKU (di BAWAH list produk, collapsed by default) ── #}
+{% if can.inventory_hpp and non_sku_rows %}
+<div class="card mt-3" id="nonSkuHistory">
+  <div class="card-header py-2 d-flex justify-content-between align-items-center"
+       style="cursor:pointer" data-bs-toggle="collapse" data-bs-target="#nonSkuBody"
+       aria-expanded="false" aria-controls="nonSkuBody">
+    <span class="fw-semibold">
+      <i class="fas fa-flask me-2 text-warning"></i>Riwayat Persediaan Non-SKU
+      <span class="badge bg-secondary ms-1">{{ non_sku_rows|length }}</span>
+    </span>
+    <span class="d-flex align-items-center gap-2">
+      <small class="text-muted">10 mutasi terbaru</small>
+      <i class="fas fa-chevron-down text-muted" style="font-size:.7rem"></i>
+    </span>
+  </div>
+  <div id="nonSkuBody" class="collapse">
+    <div class="table-responsive" style="max-height:280px;overflow-y:auto">
+      <table class="table table-sm mb-0" style="font-size:.82rem">
+        <thead class="table-light"><tr><th class="ps-3">Tanggal</th><th>Deskripsi</th><th>Transaksi</th><th class="text-end pe-3">Perubahan Nilai</th></tr></thead>
+        <tbody>
+          {% for n in non_sku_rows %}
+          <tr>
+            <td class="ps-3 text-muted">{{ n.tanggal|tgl }}</td>
+            <td>{{ n.deskripsi }}</td>
+            <td>{% if n.jurnal_id %}<a href="/transaksi/{{ n.jurnal_id }}">{{ n.nomor_tx or ('#' ~ n.jurnal_id) }}</a>{% else %}-{% endif %}</td>
+            <td class="text-end pe-3 text-rp {% if n.nilai_delta < 0 %}text-danger{% else %}text-success{% endif %}">
+              {{ '+' if n.nilai_delta > 0 else '' }}{{ n.nilai_delta|rp }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if can.inventory_input %}
+<!-- Modal Tambah Produk -->
+<div class="modal fade" id="modalBaru" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-plus me-2"></i>Tambah Produk Baru</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/stok/produk/baru" id="formTambahProduk">
+        <div class="modal-body">
+          {% if can.inventory_hpp %}
+          <div class="alert alert-info py-2" style="font-size:.78rem">
+            <strong>Stok Awal</strong> hanya untuk barang yang sudah dimiliki sebelum mulai memakai aplikasi.
+            Nilainya otomatis masuk ke persediaan dan modal awal tanpa mengurangi kas. Untuk pembelian baru,
+            buat produk dengan stok 0 lalu gunakan tombol keranjang.
+          </div>
+          {% else %}
+          <div class="alert alert-info py-2" style="font-size:.78rem">
+            <i class="fas fa-lock me-1"></i>
+            User ini dapat menambah master produk, tetapi stok awal dan HPP hanya bisa diisi oleh user yang punya hak HPP Inventory.
+          </div>
+          {% endif %}
+
+          <!-- Info produk (shared) -->
+          <div class="row g-2 mb-3">
+            <div class="col-md-2">
+              <label class="form-label small fw-semibold">Kode Produk *</label>
+              <input type="text" name="kode" class="form-control form-control-sm" required placeholder="P001"
+                     title="Jika lebih dari 1 varian, kode akan otomatis jadi P001-1, P001-2, dst.">
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small fw-semibold">Nama Produk *</label>
+              <input type="text" name="nama" class="form-control form-control-sm" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label small fw-semibold">Kategori</label>
+              <input type="text" name="kategori" class="form-control form-control-sm"
+                     list="kategoriProdukList" placeholder="Misal: Elektronik, Pakaian">
+              <datalist id="kategoriProdukList">
+                {% for c in kategori_produk %}<option value="{{ c }}">{% endfor %}
+              </datalist>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button type="button" id="btnTambahVarian" class="btn btn-outline-success btn-sm w-100">
+                <i class="fas fa-plus me-1"></i>Tambah Varian
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Produk tunggal (default) ── -->
+          <div id="singleProductSection">
+            <input type="hidden" name="varian[]" value="">
+            <div class="row g-2">
+              <div class="col-md-2">
+                <label class="form-label small fw-semibold">Satuan</label>
+                <input type="text" name="satuan[]" id="main_satuan" class="form-control form-control-sm" placeholder="pcs" value="pcs">
+              </div>
+              {% if can.inventory_hpp %}
+              <div class="col-md-2">
+                <label class="form-label small fw-semibold">Stok Saat Ini <span class="text-muted fw-normal">(saldo awal)</span></label>
+                <input type="number" name="stok_awal[]" id="main_stok" class="form-control form-control-sm text-center" min="0" step="0.01" value="0">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-semibold">Harga Beli (HPP)</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text px-1">Rp</span>
+                  <input type="number" name="harga_beli[]" id="main_harga_beli" class="form-control" min="0" step="1" value="0">
+                </div>
+              </div>
+              {% else %}
+              <input type="hidden" name="stok_awal[]" id="main_stok" value="0">
+              <input type="hidden" name="harga_beli[]" id="main_harga_beli" value="0">
+              {% endif %}
+              <div class="col-md-3">
+                <label class="form-label small fw-semibold">Harga Jual</label>
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text px-1">Rp</span>
+                  <input type="number" name="harga_jual[]" id="main_harga_jual" class="form-control" min="0" step="1" value="0">
+                </div>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small fw-semibold">Min. Stok</label>
+                <input type="number" name="min_stok[]" id="main_min_stok" class="form-control form-control-sm text-center" min="0" step="0.01" value="0">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label small fw-semibold">
+                  Barcode <span class="text-muted fw-normal">(opsional)</span>
+                </label>
+                {# type="text", BUKAN number: barcode boleh berawalan nol dan nol itu
+                   hilang kalau dianggap bilangan. #}
+                <input type="text" name="barcode[]" id="main_barcode" class="form-control form-control-sm"
+                       inputmode="numeric" placeholder="Scan atau ketik" autocomplete="off">
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Varian (tersembunyi, muncul saat diklik) ── -->
+          <div id="variantSection" style="display:none">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <span style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#64748b">
+                <i class="fas fa-layer-group me-1"></i>Varian
+                <span id="varianCount" class="badge bg-secondary ms-1" style="font-size:.65rem">0</span>
+              </span>
+              <button type="button" id="btnKembaliTunggal" class="btn btn-link btn-sm text-muted p-0" style="font-size:.75rem">
+                <i class="fas fa-arrow-left me-1"></i>Kembali ke produk tunggal
+              </button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-bordered mb-0" style="font-size:.82rem">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:140px">Nama Varian *</th>
+                    <th style="width:80px">Satuan</th>
+                    {% if can.inventory_hpp %}
+                    <th style="width:90px" class="text-center">Stok Saat Ini</th>
+                    <th style="width:120px">Harga Beli (HPP)</th>
+                    {% endif %}
+                    <th style="width:120px">Harga Jual</th>
+                    <th style="width:70px" class="text-center">Min. Stok</th>
+                    <th style="width:36px"></th>
+                  </tr>
+                </thead>
+                <tbody id="varianBody"></tbody>
+              </table>
+            </div>
+            <div class="text-muted mt-1" id="kodeInfo" style="font-size:.72rem;display:none">
+              <i class="fas fa-circle-info me-1"></i>Kode akan otomatis: <span id="kodeInfoText"></span>
+            </div>
+          </div>
+
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-save me-1"></i>Simpan Produk</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+{% if can.inventory_hpp %}
+<!-- Modal Hub Non-SKU: 4 pilihan dengan dampak akuntansi yang jelas -->
+<div class="modal fade" id="modalNonSkuHub" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title mb-1">
+            <span class="hub-emoji">🧪</span> Persediaan Non-SKU
+          </h5>
+          <div class="text-amber-sub">
+            Pilih tindakan, jurnal &amp; dampak laba rugi otomatis disusun
+          </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div class="hub-desc">
+            Non-SKU = bahan baku / olahan yang <strong>tidak dilacak per-unit</strong>
+            (mis. bumbu, topping, susu cair, bahan campuran).
+          </div>
+          <span class="hub-saldo">
+            <i class="fas fa-wallet text-warning"></i>
+            Saldo saat ini: <strong>{{ nilai_non_sku|rp }}</strong>
+          </span>
+        </div>
+
+        <div class="row g-3">
+          <!-- 1) Beli Baru -->
+          <div class="col-md-6">
+            <a href="/pembelian?kategori=BAHAN_BAKU&focus_non_sku=1"
+               class="nonsku-card v-buy d-block">
+              <div class="nonsku-arrow"><i class="fas fa-arrow-right"></i></div>
+              <div class="nonsku-icon"><i class="fas fa-cart-shopping"></i></div>
+              <div class="nonsku-title">Beli Sekarang</div>
+              <div class="nonsku-desc">Pembelian baru, ada uang keluar atau hutang ke pemasok.</div>
+              <div class="nonsku-meta">
+                <strong>Jurnal:</strong> Dr 1130 Persediaan&nbsp;/&nbsp;Cr Kas atau Hutang<br>
+                <strong>Laba Rugi:</strong> belum kena (dicatat sebagai aset)
+              </div>
+            </a>
+          </div>
+
+          <!-- 2) Saldo Awal -->
+          <div class="col-md-6">
+            <button type="button" class="nonsku-card v-open"
+                    onclick="openNonSkuMode('SALDO_AWAL')">
+              <div class="nonsku-arrow"><i class="fas fa-arrow-right"></i></div>
+              <div class="nonsku-icon"><i class="fas fa-box-open"></i></div>
+              <div class="nonsku-title">Saldo Awal</div>
+              <div class="nonsku-desc">Sudah dimiliki sebelum memakai app, <strong>tidak ada uang keluar</strong>.</div>
+              <div class="nonsku-meta">
+                <strong>Jurnal:</strong> Dr 1130 Persediaan&nbsp;/&nbsp;Cr 3100 Modal Pemilik<br>
+                <strong>Laba Rugi:</strong> tidak ada dampak (masuk neraca saja)
+              </div>
+            </button>
+          </div>
+
+          <!-- 3) Rusak / Kadaluarsa -->
+          <div class="col-md-6">
+            <button type="button" class="nonsku-card v-loss"
+                    onclick="openNonSkuMode('KOREKSI_MINUS')">
+              <div class="nonsku-arrow"><i class="fas fa-arrow-right"></i></div>
+              <div class="nonsku-icon"><i class="fas fa-triangle-exclamation"></i></div>
+              <div class="nonsku-title">Rusak / Kadaluarsa</div>
+              <div class="nonsku-desc">Persediaan berkurang karena tidak terpakai, <strong>menggerus laba kotor</strong>.</div>
+              <div class="nonsku-meta">
+                <strong>Jurnal:</strong> Dr 5190 Koreksi Persediaan&nbsp;/&nbsp;Cr 1130 Persediaan<br>
+                <strong>Laba Rugi:</strong> menambah HPP → Gross Profit turun
+              </div>
+            </button>
+          </div>
+
+          <!-- 4) Ditemukan / Lebih -->
+          <div class="col-md-6">
+            <button type="button" class="nonsku-card v-found"
+                    onclick="openNonSkuMode('KOREKSI_PLUS')">
+              <div class="nonsku-arrow"><i class="fas fa-arrow-right"></i></div>
+              <div class="nonsku-icon"><i class="fas fa-circle-plus"></i></div>
+              <div class="nonsku-title">Ditemukan / Surplus</div>
+              <div class="nonsku-desc">Opname fisik lebih banyak dari catatan, <strong>menambah laba kotor</strong>.</div>
+              <div class="nonsku-meta">
+                <strong>Jurnal:</strong> Dr 1130 Persediaan&nbsp;/&nbsp;Cr 5190 Koreksi Persediaan<br>
+                <strong>Laba Rugi:</strong> mengurangi HPP → Gross Profit naik
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+          <i class="fas fa-xmark me-1"></i>Tutup
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Gerakan Non-SKU -->
+<div class="modal fade" id="modalNonSkuGerakan" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title" id="nonSkuTitle"><i class="fas fa-flask me-2 text-warning"></i>Persediaan Non-SKU</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="/stok/non-sku/gerakan" id="formNonSkuGerakan" onsubmit="return confirmNonSkuGerakan()">
+        <div class="modal-body">
+          <input type="hidden" name="mode" id="nonSkuMode" value="SALDO_AWAL">
+          <div class="btn-group w-100 mb-3" role="group">
+            <button type="button" id="nsm_awal" class="btn btn-outline-secondary btn-sm" onclick="setNonSkuMode('SALDO_AWAL')">
+              <i class="fas fa-box-open me-1"></i>Saldo Awal</button>
+            <button type="button" id="nsm_minus" class="btn btn-outline-warning btn-sm" onclick="setNonSkuMode('KOREKSI_MINUS')">
+              <i class="fas fa-triangle-exclamation me-1"></i>Rusak / Kadaluarsa</button>
+            <button type="button" id="nsm_plus" class="btn btn-outline-success btn-sm" onclick="setNonSkuMode('KOREKSI_PLUS')">
+              <i class="fas fa-circle-plus me-1"></i>Ditemukan</button>
+          </div>
+          <div id="nonSkuInfo" class="alert py-2 px-2 mb-3" style="font-size:.78rem"></div>
+          <div class="row g-2">
+            <div class="col-md-5">
+              <label class="form-label small">Tanggal</label>
+              <input type="date" name="tanggal" class="form-control form-control-sm" value="{{ today.strftime('%Y-%m-%d') }}">
+            </div>
+            <div class="col-md-7">
+              <label class="form-label small">Deskripsi</label>
+              <input type="text" name="deskripsi" id="nonSkuDesc" class="form-control form-control-sm" placeholder="Mis: susu cair, topping, bahan olahan" required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small">Nilai</label>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Rp</span>
+                <input type="number" name="nilai" id="nonSkuNilaiGerakan" class="form-control" min="1" step="1" placeholder="0" required oninput="updateNonSkuPreview()">
+              </div>
+              <div class="form-text" style="font-size:.68rem">Saldo non-SKU saat ini: <strong>{{ nilai_non_sku|rp }}</strong></div>
+            </div>
+            <div class="col-md-7" id="nonSkuAlasanWrap">
+              <label class="form-label small">Alasan</label>
+              <input type="text" name="alasan" id="nonSkuAlasan" class="form-control form-control-sm" placeholder="Mis: kadaluarsa, rusak, hasil opname">
+            </div>
+          </div>
+          <div class="journal-preview-wrap rounded-3 mt-3 p-2" style="font-size:.78rem">
+            <div class="preview-title fw-semibold mb-1"><i class="fas fa-scale-balanced me-1"></i>Preview Jurnal</div>
+            <div id="nonSkuPreview"></div>
+          </div>
+        </div>
+        <div class="modal-footer py-2 d-flex justify-content-between">
+          <a href="/pembelian?kategori=BAHAN_BAKU&focus_non_sku=1" class="btn btn-outline-success btn-sm">
+            <i class="fas fa-cart-plus me-1"></i>Keranjang / Pembelian Baru</a>
+          <div>
+            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" class="btn btn-warning btn-sm" id="nonSkuSubmitBtn">
+              <i class="fas fa-save me-1"></i>Simpan</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Modal Koreksi Stok -->
+<div class="modal fade" id="modalGerakan" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title" id="gerakanTitle"><i class="fas fa-scale-balanced me-2"></i>Atur Stok</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="formGerakan">
+        <div class="modal-body">
+          <!-- Mode toggle -->
+          {% if can.inventory_hpp %}
+          <div class="btn-group w-100 mb-3" role="group">
+            <input type="radio" class="btn-check" name="gerakan_mode" id="gm_awal" value="awal" checked onchange="updateGerakanMode()">
+            <label class="btn btn-outline-success btn-sm" for="gm_awal">
+              <i class="fas fa-box-open me-1"></i>Stok Awal</label>
+            <input type="radio" class="btn-check" name="gerakan_mode" id="gm_opname" value="opname" onchange="updateGerakanMode()">
+            <label class="btn btn-outline-warning btn-sm" for="gm_opname">
+              <i class="fas fa-clipboard-check me-1"></i>Koreksi Opname</label>
+          </div>
+          {% else %}
+          <input type="radio" class="btn-check" name="gerakan_mode" id="gm_awal" value="awal">
+          <input type="radio" class="btn-check" name="gerakan_mode" id="gm_opname" value="opname" checked>
+          <div class="alert alert-info py-2 px-2 mb-3" style="font-size:.74rem">
+            <i class="fas fa-lock me-1"></i>Mode Stok Awal dan input HPP hanya tersedia untuk user yang punya hak HPP Inventory.
+          </div>
+          {% endif %}
+          <div id="gerakanModeInfo" class="alert py-2 px-2 mb-3" style="font-size:.74rem"></div>
+          <input type="hidden" name="jenis" value="OPNAME">
+          <div class="mb-3">
+            <label class="form-label small">Tanggal</label>
+            <input type="date" name="tanggal" class="form-control form-control-sm"
+                   value="{{ today.strftime('%Y-%m-%d') }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small" id="gerakanQtyLabel">Jumlah Stok</label>
+            <input type="number" name="qty" id="opnameQty" class="form-control form-control-sm" min="0" step="0.01" required>
+          </div>
+          <div class="mb-2" id="gerakanHargaWrap" {% if not can.inventory_hpp %}style="display:none"{% endif %}>
+            <label class="form-label small">Harga Beli per Unit <span class="text-danger">*</span></label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="harga_satuan" id="gerakanHarga" class="form-control" min="0" step="1" placeholder="0">
+            </div>
+            <div class="form-text" style="font-size:.7rem">Untuk menghitung valuasi persediaan. Pakai perkiraan harga kulakan jika tidak ingat.</div>
+          </div>
+          <div class="mb-0" id="gerakanAlasanWrap" style="display:none">
+            <label class="form-label small">Alasan Koreksi <span class="text-danger">*</span></label>
+            <input type="text" name="keterangan" id="gerakanKet" class="form-control form-control-sm"
+                   placeholder="Mis: stok opname bulanan">
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-success btn-sm" id="gerakanSubmitBtn">
+            <i class="fas fa-save me-1"></i>Simpan Stok Awal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endif %}
+
+{{ pagination(pg) }}
+{% endblock %}
+{% block scripts %}
+<script>
+// Toggle baris varian (induk -> anak) di daftar Stok
+function toggleGrp(idx, rowEl){
+  var open = rowEl.classList.toggle('open');
+  document.querySelectorAll('.variant-child.grp-' + idx).forEach(function(r){
+    r.style.display = open ? '' : 'none';
+  });
+  var ico = rowEl.querySelector('.grp-chevron');
+  if(ico){ ico.style.transform = open ? 'rotate(90deg)' : ''; }
+}
+// Peringatan stok: filter "Stok minus saja" → sembunyikan panel di bawah minimum
+function toggleMinusOnly(cb){
+  var low = document.getElementById('warnLow');
+  if(low) low.style.display = cb.checked ? 'none' : '';
+}
+</script>
+{% if session.role in ('ADMIN','FINANCE','OPERATOR') %}
+<script>
+const CAN_INVENTORY_HPP = {{ 'true' if can.inventory_hpp else 'false' }};
+function updateImportMode() {
+  const importMode = document.getElementById('importMode');
+  if (!importMode) return;
+  const mode = importMode.value;
+  const info = document.getElementById('importModeInfo');
+  const wrap = document.getElementById('importAlasanWrap');
+  const alasan = document.getElementById('importAlasan');
+  info.className = 'alert py-2 px-2 mt-2 mb-0';
+  if (mode === 'MASTER') {
+    info.className += ' alert-secondary';
+    info.innerHTML = '<strong><i class="fas fa-tags me-1"></i>Master Produk:</strong> hanya membuat/memperbarui katalog produk. '
+      + '<u>Qty stok diabaikan</u> (walau diisi) dan tidak ada jurnal. Pilih ini hanya untuk menambah daftar produk.';
+    wrap.style.display = 'none'; alasan.required = false;
+  } else if (mode === 'SALDO_AWAL') {
+    info.className += ' alert-warning';
+    info.innerHTML = '<strong><i class="fas fa-box-open me-1"></i>Stok Awal:</strong> untuk barang yang <strong>sudah Anda miliki sebelum memakai aplikasi ini</strong>.'
+      + '<hr class="my-1">'
+      + '<i class="fas fa-circle-xmark text-danger me-1"></i><strong>TIDAK</strong> menambah pengeluaran, barang sudah dibeli di masa lalu.<br>'
+      + '<i class="fas fa-circle-check text-success me-1"></i><strong>MENAMBAH</strong> valuasi Persediaan (aset). Jurnal: Persediaan <span style="opacity:.7">(debit)</span> vs Modal Pemilik <span style="opacity:.7">(kredit)</span>.'
+      + '<hr class="my-1">'
+      + '<i class="fas fa-triangle-exclamation me-1"></i>Kolom <strong>Harga Beli WAJIB diisi</strong>, tanpa harga, persediaan tak bisa dinilai dan baris dilewati.';
+    wrap.style.display = 'none'; alasan.required = false;
+  } else {
+    info.className += ' alert-info';
+    info.innerHTML = '<strong><i class="fas fa-clipboard-check me-1"></i>Hasil Opname:</strong> kolom Stok Saat Ini menggantikan posisi stok aplikasi. '
+      + 'Selisih qty/HPP dijurnal ke Koreksi Persediaan. Harga Beli wajib diisi untuk baris berstok.';
+    wrap.style.display = ''; alasan.required = true;
+  }
+}
+function confirmInventoryImport() {
+  const mode = document.getElementById('importMode').value;
+  if (mode === 'SALDO_AWAL') {
+    return confirm('Input Saldo Awal akan menyesuaikan stok dan membuat jurnal Persediaan vs Modal Pemilik. Pastikan file berisi posisi awal yang benar. Lanjutkan?');
+  }
+  if (mode === 'KOREKSI') {
+    return confirm('Koreksi Hasil Opname akan mengganti posisi stok sesuai file dan membuat jurnal selisih nilai persediaan. Lanjutkan?');
+  }
+  return true;
+}
+document.addEventListener('DOMContentLoaded', updateImportMode);
+
+function gerakanStok(id, nama, stok, hargaBeli) {
+  document.getElementById('formGerakan').action = '/stok/' + id + '/gerakan';
+  document.getElementById('gerakanTitle').innerHTML = '<i class="fas fa-scale-balanced me-2"></i>Atur Stok: ' + nama;
+  window.numFmtSet(document.getElementById('opnameQty'), stok);
+  if (document.getElementById('gerakanHarga'))
+    window.numFmtSet(document.getElementById('gerakanHarga'), hargaBeli || 0);
+  // default ke mode Stok Awal jika stok masih 0, Koreksi Opname jika sudah ada stok
+  var modeAwal  = document.getElementById('gm_awal');
+  var modeOpname= document.getElementById('gm_opname');
+  if (!CAN_INVENTORY_HPP) { modeOpname.checked = true; }
+  else if (stok > 0) { modeOpname.checked = true; } else { modeAwal.checked = true; }
+  updateGerakanMode();
+  new bootstrap.Modal(document.getElementById('modalGerakan')).show();
+}
+
+function updateGerakanMode() {
+  var isAwal = document.getElementById('gm_awal').checked;
+  var info   = document.getElementById('gerakanModeInfo');
+  var hargaWrap  = document.getElementById('gerakanHargaWrap');
+  var alasanWrap = document.getElementById('gerakanAlasanWrap');
+  var submitBtn  = document.getElementById('gerakanSubmitBtn');
+  var qtyLabel   = document.getElementById('gerakanQtyLabel');
+  var ketInput   = document.getElementById('gerakanKet');
+  if (isAwal) {
+    info.className = 'alert alert-success py-2 px-2 mb-3';
+    info.innerHTML = '<i class="fas fa-box-open me-1"></i><strong>Stok Awal:</strong> untuk barang yang sudah kamu punya sebelum pakai app ini. Tidak dicatat sebagai pengeluaran baru.';
+    qtyLabel.textContent = 'Jumlah Stok yang Kamu Punya Sekarang';
+    hargaWrap.style.display  = '';
+    alasanWrap.style.display = 'none';
+    if (ketInput) { ketInput.required = false; ketInput.value = 'Saldo awal stok'; }
+    submitBtn.textContent = '';
+    submitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Simpan Stok Awal';
+    submitBtn.className = 'btn btn-success btn-sm';
+    document.querySelector('[name=jenis]').value = 'SALDO_AWAL';
+  } else {
+    info.className = 'alert alert-warning py-2 px-2 mb-3';
+    info.innerHTML = '<i class="fas fa-clipboard-check me-1"></i><strong>Koreksi Opname:</strong> untuk menyesuaikan stok hasil hitung fisik. Selisih dijurnal ke Koreksi Persediaan.';
+    qtyLabel.textContent = 'Stok Fisik Hasil Opname';
+    hargaWrap.style.display  = 'none';
+    alasanWrap.style.display = '';
+    if (ketInput) { ketInput.required = true; ketInput.value = ''; }
+    submitBtn.innerHTML = '<i class="fas fa-save me-1"></i>Simpan Koreksi';
+    submitBtn.className = 'btn btn-warning btn-sm';
+    document.querySelector('[name=jenis]').value = 'OPNAME';
+  }
+}
+
+// ── Multi-variant product modal ──────────────────────────────────────────────
+
+const NON_SKU_CURRENT = {% if can.inventory_hpp %}{{ nilai_non_sku|default(0)|tojson }}{% else %}0{% endif %};
+{% if can.inventory_hpp %}
+function rpAbs(n){ return window.rpAbsFmt ? window.rpAbsFmt(n) : 'Rp ' + Math.round(Math.abs(n || 0)).toLocaleString('id-ID'); }
+function openNonSkuMode(mode){
+  const hubEl = document.getElementById('modalNonSkuHub');
+  const hub = bootstrap.Modal.getInstance(hubEl) || new bootstrap.Modal(hubEl);
+  hubEl.addEventListener('hidden.bs.modal', function _h(){
+    hubEl.removeEventListener('hidden.bs.modal', _h);
+    setNonSkuMode(mode);
+    new bootstrap.Modal(document.getElementById('modalNonSkuGerakan')).show();
+  }, { once: true });
+  hub.hide();
+}
+function nonSkuVal(){ return window.numVal ? window.numVal(document.getElementById('nonSkuNilaiGerakan')) : (parseFloat(document.getElementById('nonSkuNilaiGerakan').value) || 0); }
+function setNonSkuMode(mode){
+  document.getElementById('nonSkuMode').value = mode;
+  document.getElementById('nsm_awal').className = 'btn btn-sm ' + (mode === 'SALDO_AWAL' ? 'btn-secondary' : 'btn-outline-secondary');
+  document.getElementById('nsm_minus').className = 'btn btn-sm ' + (mode === 'KOREKSI_MINUS' ? 'btn-warning' : 'btn-outline-warning');
+  document.getElementById('nsm_plus').className = 'btn btn-sm ' + (mode === 'KOREKSI_PLUS' ? 'btn-success' : 'btn-outline-success');
+  const info = document.getElementById('nonSkuInfo');
+  const alasan = document.getElementById('nonSkuAlasan');
+  const alasanWrap = document.getElementById('nonSkuAlasanWrap');
+  const submit = document.getElementById('nonSkuSubmitBtn');
+  if(mode === 'SALDO_AWAL'){
+    document.getElementById('nonSkuTitle').innerHTML = '<i class="fas fa-box-open me-2 text-secondary"></i>Persediaan Awal Non-SKU';
+    info.className = 'alert alert-secondary py-2 px-2 mb-3';
+    info.innerHTML = '<strong>Saldo awal:</strong> untuk bahan non-SKU yang sudah dimiliki sebelum memakai aplikasi. Tidak menambah pengeluaran atau mengurangi kas.';
+    alasan.required = false; alasanWrap.style.display = 'none'; submit.className = 'btn btn-secondary btn-sm';
+  } else if(mode === 'KOREKSI_MINUS'){
+    document.getElementById('nonSkuTitle').innerHTML = '<i class="fas fa-triangle-exclamation me-2 text-warning"></i>Koreksi Non-SKU Berkurang';
+    info.className = 'alert alert-warning py-2 px-2 mb-3';
+    info.innerHTML = '<strong>Rusak/kadaluarsa/hilang:</strong> nilai persediaan turun dan menjadi Koreksi Persediaan di laba rugi.';
+    alasan.required = true; alasanWrap.style.display = ''; submit.className = 'btn btn-warning btn-sm';
+  } else {
+    document.getElementById('nonSkuTitle').innerHTML = '<i class="fas fa-circle-plus me-2 text-success"></i>Koreksi Non-SKU Bertambah';
+    info.className = 'alert alert-success py-2 px-2 mb-3';
+    info.innerHTML = '<strong>Ditemukan/bertambah:</strong> nilai persediaan naik dan mengurangi akun Koreksi Persediaan.';
+    alasan.required = true; alasanWrap.style.display = ''; submit.className = 'btn btn-success btn-sm';
+  }
+  updateNonSkuPreview();
+}
+function updateNonSkuPreview(){
+  const mode = document.getElementById('nonSkuMode').value;
+  const nilai = nonSkuVal();
+  const v = nilai ? rpAbs(nilai) : 'Rp 0';
+  let rows = [];
+  if(mode === 'SALDO_AWAL') rows = [['Dr 1130 Persediaan Barang', v], ['Cr 3100 Modal Pemilik', v]];
+  else if(mode === 'KOREKSI_PLUS') rows = [['Dr 1130 Persediaan Barang', v], ['Cr 5190 Koreksi Persediaan', v]];
+  else rows = [['Dr 5190 Koreksi Persediaan', v], ['Cr 1130 Persediaan Barang', v]];
+  document.getElementById('nonSkuPreview').innerHTML = rows.map(r => '<div class="d-flex justify-content-between"><span>'+r[0]+'</span><strong>'+r[1]+'</strong></div>').join('');
+}
+function confirmNonSkuGerakan(){
+  const mode = document.getElementById('nonSkuMode').value;
+  const nilai = nonSkuVal();
+  if(mode === 'KOREKSI_MINUS' && nilai > Number(NON_SKU_CURRENT || 0) + 0.01){
+    alert('Nilai koreksi melebihi saldo persediaan non-SKU saat ini.');
+    return false;
+  }
+  if(mode === 'SALDO_AWAL') return confirm('Catat persediaan awal non-SKU? Jurnal: Dr Persediaan, Cr Modal Pemilik.');
+  if(mode === 'KOREKSI_MINUS') return confirm('Catat koreksi non-SKU berkurang? Jurnal: Dr Koreksi Persediaan, Cr Persediaan.');
+  return confirm('Catat koreksi non-SKU bertambah? Jurnal: Dr Persediaan, Cr Koreksi Persediaan.');
+}
+document.addEventListener('DOMContentLoaded', function(){ setNonSkuMode('SALDO_AWAL'); updateNonSkuPreview(); });
+{% endif %}
+
+(function () {
+  const body        = document.getElementById('varianBody');
+  const badge       = document.getElementById('varianCount');
+  const kodeIn      = document.querySelector('#formTambahProduk [name="kode"]');
+  const kodeInfo    = document.getElementById('kodeInfo');
+  const kodeInfoTxt = document.getElementById('kodeInfoText');
+  const singleSec   = document.getElementById('singleProductSection');
+  const variantSec  = document.getElementById('variantSection');
+  let variantMode   = false;
+
+  function rowCount() { return body ? body.querySelectorAll('tr').length : 0; }
+
+  function setSingleDisabled(disabled) {
+    if (!singleSec) return;
+    singleSec.querySelectorAll('input').forEach(el => el.disabled = disabled);
+  }
+
+  function updateUI() {
+    const n = rowCount();
+    if (badge) badge.textContent = n;
+    if (!kodeInfo || !kodeInfoTxt || !kodeIn) return;
+    if (n > 1) {
+      const base = kodeIn.value.trim() || 'KODE';
+      const samples = Array.from({length: Math.min(n, 3)}, (_, i) => `${base}-${i+1}`).join(', ');
+      kodeInfoTxt.textContent = samples + (n > 3 ? ', …' : '');
+      kodeInfo.style.display = '';
+    } else {
+      kodeInfo.style.display = 'none';
+    }
+  }
+
+  function makeRow() {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" name="varian[]" class="form-control form-control-sm" placeholder="mis. Merah / L / 500ml" required></td>
+      <td><input type="text" name="satuan[]" class="form-control form-control-sm" placeholder="pcs" value="pcs"></td>
+      {% if can.inventory_hpp %}
+      <td><input type="number" name="stok_awal[]" class="form-control form-control-sm text-center" min="0" step="0.01" value="0"></td>
+      <td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span>
+          <input type="number" name="harga_beli[]" class="form-control" min="0" step="1" value="0"></div></td>
+      {% else %}
+      <input type="hidden" name="stok_awal[]" value="0">
+      <input type="hidden" name="harga_beli[]" value="0">
+      {% endif %}
+      <td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span>
+          <input type="number" name="harga_jual[]" class="form-control" min="0" step="1" value="0"></div></td>
+      <td><input type="number" name="min_stok[]" class="form-control form-control-sm text-center" min="0" step="0.01" value="0"></td>
+      <td class="text-center"><button type="button" class="btn btn-xs btn-outline-danger del-row" title="Hapus baris">
+          <i class="fas fa-times"></i></button></td>`;
+    return tr;
+  }
+
+  function enterVariantMode() {
+    variantMode = true;
+    setSingleDisabled(true);
+    singleSec.style.display = 'none';
+    variantSec.style.display = '';
+    if (rowCount() === 0) body.appendChild(makeRow());
+    updateUI();
+  }
+
+  function exitVariantMode() {
+    variantMode = false;
+    body.innerHTML = '';
+    setSingleDisabled(false);
+    singleSec.style.display = '';
+    variantSec.style.display = 'none';
+    updateUI();
+  }
+
+  // "Tambah Varian" button
+  const btnAdd = document.getElementById('btnTambahVarian');
+  if (btnAdd) btnAdd.addEventListener('click', () => {
+    if (!variantMode) { enterVariantMode(); }
+    else { body.appendChild(makeRow()); updateUI(); }
+  });
+
+  // "Kembali ke produk tunggal" button
+  const btnBack = document.getElementById('btnKembaliTunggal');
+  if (btnBack) btnBack.addEventListener('click', exitVariantMode);
+
+  // delete row (event delegation), jika hapus baris terakhir, kembali ke mode tunggal
+  if (body) body.addEventListener('click', e => {
+    const btn = e.target.closest('.del-row');
+    if (!btn) return;
+    if (rowCount() <= 1) { exitVariantMode(); return; }
+    btn.closest('tr').remove();
+    updateUI();
+  });
+
+  // update kode hint on kode input change
+  if (kodeIn) kodeIn.addEventListener('input', updateUI);
+
+  // reset modal on close
+  const modalEl = document.getElementById('modalBaru');
+  if (modalEl) modalEl.addEventListener('hidden.bs.modal', () => {
+    exitVariantMode();
+    document.getElementById('formTambahProduk').reset();
+    const mainSatuan = document.getElementById('main_satuan');
+    if (mainSatuan) mainSatuan.value = 'pcs';
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

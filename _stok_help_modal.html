@@ -1,0 +1,70 @@
+{# Modal petunjuk Inventory / Stok. Di-include di stok.html; dipicu tombol [data-bs-target="#modalStokHelp"]. #}
+<div class="modal fade" id="modalStokHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Inventory / Stok</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Halaman ini mengelola produk, jumlah stok, dan harganya. Nilai persediaan dihitung
+          sendiri oleh sistem dan langsung nyambung ke Neraca dan Laba Rugi.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>Stok itu aset, bukan biaya.</strong>
+            Saat Anda beli stok, uang berubah bentuk jadi barang. Itu cuma pindah pos di Neraca,
+            belum jadi pengeluaran. Biaya baru muncul saat barang terjual, lewat HPP di Laba Rugi.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-calculator me-1" style="color:var(--ink)"></i>Nilai stok dihitung bagaimana</div>
+        <p class="mb-2" style="font-size:.82rem">
+          Nilai persediaan = jumlah barang dikali biaya rata-rata. Sistem memakai metode
+          rata-rata bergerak. Tiap pembelian baru dengan harga berbeda akan menyesuaikan
+          biaya rata-rata per unit secara otomatis.
+        </p>
+
+        <div class="fw-bold mb-1"><i class="fas fa-book me-1" style="color:var(--ink)"></i>Kaitan dengan pembukuan</div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1"><i class="fas fa-scale-balanced me-1" style="color:#15803d"></i>Neraca</div>
+              Total nilai stok muncul sebagai akun Persediaan di sisi aset. Beli stok menambah,
+              jual atau pakai stok mengurangi.
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1"><i class="fas fa-chart-bar me-1" style="color:#ef4444"></i>Laba Rugi</div>
+              Saat barang terjual, biaya rata-ratanya pindah ke HPP. HPP inilah yang mengurangi
+              laba kotor, bukan harga belinya saat masih jadi stok.
+            </div>
+          </div>
+        </div>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Anda beli 10 unit, harga beli Rp10.000 per unit, total Rp100.000.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Setelah beli: Persediaan di Neraca jadi Rp100.000. Laba Rugi belum kena apa-apa.</li>
+            <li>Anda jual 4 unit seharga Rp15.000: Pendapatan Rp60.000, HPP Rp40.000 (4 dikali Rp10.000).</li>
+            <li>Laba kotor transaksi itu Rp20.000. Persediaan di Neraca turun jadi Rp60.000 (sisa 6 unit).</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Koreksi stok (barang hilang, rusak, atau selisih opname)
+          juga otomatis menyesuaikan nilai Persediaan di Neraca dan mencatat selisihnya ke pembukuan.
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

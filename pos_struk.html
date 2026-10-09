@@ -1,0 +1,181 @@
+{% extends "pos_base.html" %}
+{% block title %}Struk {{ sale.nomor_struk }}{% endblock %}
+{% block head %}
+<style>
+/* ── STRUK SELALU HITAM PEKAT, DI LAYAR MAUPUN DI KERTAS ────────────────────
+   Printer thermal (dan dot matrix) itu 1 bit: tiap titik cuma bisa gosong atau
+   tidak, TIDAK ADA abu-abu. Warna abu dipaksa jadi dithering, yaitu titik-titik
+   tersebar untuk meniru abu, dan pada huruf sekecil ini pola itu MEMAKAN bentuk
+   hurufnya sehingga barisnya pudar tak terbaca. Terbukti di struk cetakan klien:
+   baris tebal terbaca jelas, baris abu hilang.
+
+   Warnanya disamakan juga DI LAYAR, bukan cuma saat mencetak, supaya yang dilihat
+   kasir sama persis dengan yang keluar dari printer. Versi sebelumnya sempat
+   membiarkan layar tetap berwarna, dan itu justru membingungkan: orang melihat abu
+   di layar lalu mengira perbaikannya gagal, padahal cetakannya sudah hitam.
+
+   Perbedaan antar bagian tetap ada, tapi lewat UKURAN dan KETEBALAN huruf, bukan
+   lewat warna. Itu juga satu-satunya cara yang benar-benar tercetak di thermal. */
+.receipt-wrap{display:flex;justify-content:center;padding:1.5rem}
+/* --pad-cetak = padding saat DICETAK. Satu-satunya tempat nilainya; JavaScript di bawah
+   membacanya saat mengukur tinggi kertas. Padding layar 1rem terlalu boros di kertas:
+   di area cetak 48 mm ia memakan sekitar 18% lebar. */
+.receipt{width:360px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:1rem;color:#000;--pad-cetak:2mm 1.5mm}
+.receipt *{color:#000}
+.r-title{text-align:center;font-weight:900;font-size:1.05rem}
+.r-sub{text-align:center;font-size:.76rem;font-weight:500}
+.r-line{border-top:1px dashed #000;margin:.75rem 0}
+.r-row{display:flex;justify-content:space-between;gap:1rem;font-size:.82rem;margin:.2rem 0}
+/* Di kertas 58 mm, NILAI yang panjang (nomor struk POS-YYYYMMDD-NNNN, nama customer)
+   boleh turun ke baris baru supaya tidak terpotong. LABEL (No, Tanggal, Total) dan
+   nominal di kanan baris item SENGAJA tidak boleh menyusut: kalau semua anak flex
+   diberi min-width:0, flexbox ikut memecah kata pendek seperti "Total" di tengah. */
+.r-row>:first-child,.r-item .meta>:last-child{flex-shrink:0}
+.r-row>:last-child,.r-item .meta>:first-child{min-width:0;overflow-wrap:anywhere}
+.r-row>:last-child{text-align:right}
+.r-item{font-size:.82rem;margin-bottom:.55rem}
+.r-item .name{font-weight:700}
+/* Baris qty x harga + nominal: kalau tak muat satu baris (kertas 58 mm), nominal kanan
+   turun ke baris sendiri dan tetap rata kanan. Nominal uang (.r-uang) tidak boleh
+   terbelah, supaya "Rp" tidak tertinggal di ujung baris terpisah dari angkanya. */
+.r-item .meta{display:flex;flex-wrap:wrap;justify-content:space-between;column-gap:.5rem;font-weight:600}
+.r-item .meta>:last-child{margin-left:auto;white-space:nowrap}
+.r-uang{white-space:nowrap}
+.r-total{font-size:1rem;font-weight:900}
+/* Warna yang dipasang lewat atribut style inline di badan struk (harga coret &
+   harga setelah diskon) dimatikan di sini. !important WAJIB karena kekhususan
+   style inline mengalahkan selektor biasa. Maknanya tidak hilang: harga sebelum
+   diskon tetap dikenali dari CORETAN, harga akhir dari huruf TEBAL. */
+.receipt [style*="color"]{color:#000!important}
+/* Lebar cetak mengikuti ukuran kertas yang dipilih di Pengaturan (58mm atau 80mm).
+   Nilainya adalah lebar AREA CETAK, bukan lebar kertas: 58mm hanya bisa dicetak
+   selebar 48mm dan 80mm selebar 76mm karena ada margin mekanis printer.
+   @page ikut diatur supaya browser tidak memaksa ukuran kertas A4 dan menyisakan
+   ruang kosong besar di kanan struk. */
+/* Ukuran kertas (@page size) diatur JavaScript di bawah, LENGKAP dengan tinggi hasil
+   ukur. Jangan kembali ke bentuk "size: lebar mm auto": campuran panjang + auto
+   tidak sah, sehingga Chrome membuang deklarasinya dan diam-diam memakai kertas
+   bawaan (A4 kalau tak ada printer). Tanpa JS, printer memakai kertas drivernya. */
+@page{margin:0}
+@media print{
+  .receipt-wrap{padding:0}
+  .receipt{border:0;border-radius:0;width:{{ pos_s.pos_struk_lebar_mm }}mm;padding:var(--pad-cetak)}
+  .no-print{display:none!important}
+  /* Jaring pengaman: warna sudah hitam sejak di layar, tapi ditegaskan ulang di
+     sini supaya tema gelap atau gaya bawaan browser tidak menyelipkan warna lain
+     tepat saat mencetak. */
+  .receipt, .receipt *{color:#000!important}
+  .r-line{border-top-color:#000!important}
+}
+/* Pratinjau di layar ikut menyempit untuk kertas 58mm supaya kasir bisa melihat
+   perkiraan hasil cetaknya sebelum benar-benar mencetak. */
+{% if pos_s.pos_struk_kertas == '58' %}
+/* HANYA di layar. Aturan ini letaknya SESUDAH blok @media print dengan kekhususan yang
+   sama, jadi tanpa @media screen ia MENIMPA lebar cetak 48 mm: struk tercetak sekitar
+   74 mm di atas kertas 48 mm dan terpotong di KEDUA sisi. Terjadi sejak setelan kertas
+   58 mm dibuat; ketahuan dari PDF sungguhan, bukan dari mengukur gaya di layar. */
+@media screen{.receipt{width:280px}}
+{% endif %}
+</style>
+{% endblock %}
+{% block content %}
+<div class="receipt-wrap">
+  <div>
+    <div class="d-flex gap-2 mb-3 no-print">
+      <a href="/pos/kasir" class="btn btn-outline-secondary btn-sm btn-pos"><i class="fas fa-arrow-left me-1"></i>Kembali</a>
+      <button onclick="window.print()" class="btn btn-success btn-sm btn-pos"><i class="fas fa-print me-1"></i>Cetak</button>
+    </div>
+    <div class="receipt" data-lebar-mm="{{ pos_s.pos_struk_lebar_mm }}">
+      <div class="r-title">{{ pos_s.pos_struk_nama }}</div>
+      {% if pos_s.pos_struk_subtitle %}<div class="r-sub">{{ pos_s.pos_struk_subtitle }}</div>{% endif %}
+      {% if pos_s.pos_struk_alamat %}<div class="r-sub" style="margin-top:.15rem;white-space:pre-line">{{ pos_s.pos_struk_alamat }}</div>{% endif %}
+      {% if pos_s.pos_struk_telepon %}<div class="r-sub">{{ pos_s.pos_struk_telepon }}</div>{% endif %}
+      <div class="r-line"></div>
+      {% if pos_s.pos_struk_header %}
+      <div class="text-center" style="font-size:.76rem;color:#475569;white-space:pre-line">{{ pos_s.pos_struk_header }}</div>
+      <div class="r-line"></div>
+      {% endif %}
+      <div class="r-row"><span>No</span><strong>{{ sale.nomor_struk }}</strong></div>
+      <div class="r-row"><span>Tanggal</span><strong>{{ sale.tanggal|tgl }}</strong></div>
+      <div class="r-row"><span>{{ pos_s.pos_struk_label_kasir or 'Kasir' }}</span><strong>{{ sale.kasir_nama or '-' }}</strong></div>
+      {% if pos_s.pos_struk_show_customer and sale.customer %}<div class="r-row"><span>Customer</span><strong>{{ sale.customer }}</strong></div>{% endif %}
+      {% if pos_s.pos_struk_show_payment %}<div class="r-row"><span>Bayar</span><strong>{{ sale.metode_bayar }}</strong></div>{% endif %}
+      <div class="r-line"></div>
+      {% for it in items %}
+      {% set _net = it.subtotal_net if it.subtotal_net is not none else it.subtotal %}
+      {% set _disc = it.subtotal - _net %}
+      <div class="r-item">
+        <div class="name">{{ it.deskripsi }}</div>
+        {% if _disc > 0.5 %}
+        {# Baris 1 = qty x harga SEBELUM diskon (abu, harga & subtotal di-coret; qty TIDAK) #}
+        <div class="meta" style="color:#94a3b8">
+          <span>{{ it.qty|qty }} {{ it.satuan }} x <span class="r-uang" style="text-decoration:line-through">{{ it.harga|rp }}</span></span>
+          <span style="text-decoration:line-through">{{ it.subtotal|rp }}</span>
+        </div>
+        {# Baris 2 = qty x harga per pcs SETELAH diskon (hijau) #}
+        <div class="meta" style="color:#16a34a">
+          <span>{{ it.qty|qty }} {{ it.satuan }} x <span class="r-uang">{{ it.harga_net|rp }}</span></span>
+          <strong>{{ _net|rp }}</strong>
+        </div>
+        {% else %}
+        <div class="meta">
+          <span>{{ it.qty|qty }} {{ it.satuan }} x <span class="r-uang">{{ it.harga|rp }}</span></span>
+          <strong>{{ it.subtotal|rp }}</strong>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <div class="r-line"></div>
+      {% set item_total = namespace(v=0) %}
+      {% for it in items %}{% set item_total.v = item_total.v + it.subtotal %}{% endfor %}
+      {% if item_total.v > sale.total %}
+      <div class="r-row"><span>Subtotal</span><strong>{{ item_total.v|rp }}</strong></div>
+      <div class="r-row"><span>Diskon</span><strong>- {{ (item_total.v - sale.total)|rp }}</strong></div>
+      {% endif %}
+      <div class="r-row r-total"><span>Total</span><span>{{ sale.total|rp }}</span></div>
+      {% if sale.metode_bayar == 'TUNAI' %}
+      <div class="r-row"><span>Tunai</span><strong>{{ sale.bayar|rp }}</strong></div>
+      <div class="r-row"><span>Kembalian</span><strong>{{ sale.kembalian|rp }}</strong></div>
+      {% endif %}
+      <div class="r-line"></div>
+      {% if pos_s.pos_struk_footer %}
+      <div class="text-center" style="font-size:.76rem;color:#64748b;white-space:pre-line">{{ pos_s.pos_struk_footer }}</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+// ── Ukuran kertas struk saat dicetak ─────────────────────────────────────────
+// Tinggi halaman WAJIB berupa panjang, lihat komentar @page di atas.
+// Tinggi diukur pada LEBAR CETAK (48/76 mm), BUKAN lebar pratinjau layar (280/360 px):
+// di kertas teks membungkus lebih banyak, jadi ukuran layar akan terlalu pendek dan
+// sisa struk tumpah ke halaman kedua.
+(function () {
+  var r = document.querySelector('.receipt');
+  if (!r) return;
+  var lebar = parseFloat(r.dataset.lebarMm) || 76;
+  function aturKertas() {
+    // Tiru gaya CETAK saat mengukur: lebar area cetak, tanpa bingkai, padding cetak
+    // (dibaca dari --pad-cetak, jadi nilainya tetap hidup di satu tempat saja).
+    var w0 = r.style.width, b0 = r.style.borderWidth, p0 = r.style.padding;
+    r.style.width = lebar + 'mm';
+    r.style.borderWidth = '0';
+    r.style.padding = getComputedStyle(r).getPropertyValue('--pad-cetak').trim() || p0;
+    var tinggi = Math.ceil(r.getBoundingClientRect().height * 25.4 / 96) + 10;
+    r.style.width = w0;
+    r.style.borderWidth = b0;
+    r.style.padding = p0;
+    var s = document.getElementById('struk-page-size');
+    if (!s) { s = document.createElement('style'); s.id = 'struk-page-size'; document.head.appendChild(s); }
+    s.textContent = '@media print{@page{size:' + lebar + 'mm ' + tinggi + 'mm;margin:0}}';
+  }
+  aturKertas();
+  // Ukur ulang saat huruf & halaman selesai dimuat dan tepat sebelum mencetak.
+  window.addEventListener('load', aturKertas);
+  window.addEventListener('beforeprint', aturKertas);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(aturKertas);
+})();
+</script>
+{% endblock %}

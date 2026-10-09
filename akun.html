@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}Bagan Akun - FinansialApp{% endblock %}
+{% block page_title %}Bagan Akun (Chart of Accounts){% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalBaru">
+    <i class="fas fa-plus me-1"></i>Tambah Akun
+  </button>
+  <span class="text-muted" style="font-size:.78rem">
+    <i class="fas fa-lock me-1"></i>Akun yang sudah dipakai di jurnal: nama &amp; subtipe bisa diubah,
+    tapi kode/tipe/saldo normal dikunci agar laporan historis tetap valid.
+  </span>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Kode</th>
+            <th>Nama Akun</th>
+            <th>Tipe</th>
+            <th>Subtipe</th>
+            <th>Saldo Normal</th>
+            <th class="text-center">Dipakai</th>
+            <th class="text-end pe-3" style="width:110px">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set tipe_sebelumnya = namespace(v='') %}
+          {% for r in rows %}
+          {% if r.tipe != tipe_sebelumnya.v %}
+          {% set tipe_sebelumnya.v = r.tipe %}
+          <tr class="table-secondary">
+            <td colspan="7" class="ps-3 fw-bold" style="font-size:.8rem;letter-spacing:.05em">
+              {{ r.tipe }}
+            </td>
+          </tr>
+          {% endif %}
+          <tr>
+            <td class="ps-4 text-muted fw-semibold">{{ r.kode }}</td>
+            <td>
+              {{ r.nama }}
+              {% if r.is_rekening %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle ms-1"
+                    style="font-size:.62rem;font-weight:700"
+                    title="Bisa dipilih sebagai rekening saat terima atau bayar uang">
+                <i class="fas fa-wallet me-1"></i>REKENING</span>
+              {% endif %}
+              {% if r.kode in AKUN_DEFAULT_KODE %}
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1"
+                    style="font-size:.62rem;font-weight:700"
+                    title="Akun bawaan sistem. Dipakai otomatis saat mencatat transaksi, jadi tidak bisa dihapus dan kodenya tidak bisa diubah. Namanya boleh disesuaikan.">
+                <i class="fas fa-shield-halved me-1"></i>BAWAAN</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if r.tipe == 'ASET' %}<span class="badge bg-primary">Aset</span>
+              {% elif r.tipe == 'LIABILITAS' %}<span class="badge bg-danger">Liabilitas</span>
+              {% elif r.tipe == 'EKUITAS' %}<span class="badge bg-success">Ekuitas</span>
+              {% elif r.tipe == 'PENDAPATAN' %}<span class="badge bg-info text-dark">Pendapatan</span>
+              {% else %}<span class="badge bg-warning text-dark">Beban</span>{% endif %}
+            </td>
+            <td class="text-muted">{{ r.subtipe or '-' }}</td>
+            <td>
+              {% if r.saldo_normal == 'DEBIT' %}
+              <span class="badge bg-light text-dark border">Debit</span>
+              {% else %}
+              <span class="badge bg-light text-dark border">Kredit</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if r.pakai > 0 %}
+                <span class="badge bg-secondary" title="Jumlah entri jurnal yang memakai akun ini">{{ r.pakai }} entri</span>
+              {% else %}
+                <span class="text-muted" style="font-size:.78rem">-</span>
+              {% endif %}
+            </td>
+            <td class="text-end pe-3">
+              <div class="d-flex gap-1 justify-content-end">
+                <button type="button" class="btn btn-outline-primary btn-xs" title="Edit"
+                        onclick='openEditAkun({{ r.id }}, {{ r.kode|tojson }}, {{ r.nama|tojson }}, {{ r.tipe|tojson }}, {{ (r.subtipe or "")|tojson }}, {{ r.saldo_normal|tojson }}, {{ r.pakai }}, {{ 1 if r.is_rekening else 0 }}, {{ (r.peran or "")|tojson }})'>
+                  <i class="fas fa-edit"></i></button>
+                {% if r.kode in AKUN_DEFAULT_KODE %}
+                <button class="btn btn-outline-secondary btn-xs" disabled
+                        title="Akun bawaan sistem, tidak bisa dihapus. Akun ini dipakai otomatis saat mencatat transaksi.">
+                  <i class="fas fa-lock"></i></button>
+                {% elif r.pakai == 0 %}
+                <form method="post" action="/akun/{{ r.id }}/hapus" style="display:inline"
+                      onsubmit="return confirm('Hapus akun {{ r.nama }}?')">
+                  <button class="btn btn-outline-danger btn-xs" title="Hapus"><i class="fas fa-trash"></i></button>
+                </form>
+                {% else %}
+                <button class="btn btn-outline-secondary btn-xs" disabled title="Tidak bisa dihapus, sudah dipakai di {{ r.pakai }} entri jurnal">
+                  <i class="fas fa-lock"></i></button>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Akun Baru -->
+<div class="modal fade" id="modalBaru" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="/akun/baru">
+        <div class="modal-header">
+          <h6 class="modal-title"><i class="fas fa-plus me-2"></i>Tambah Akun Baru</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-4">
+              <label class="form-label">Kode <span class="text-danger">*</span></label>
+              <input type="text" name="kode" id="inputKodeBaru" class="form-control" required placeholder="1xxx">
+            </div>
+            <div class="col-8">
+              <label class="form-label">Nama Akun <span class="text-danger">*</span></label>
+              <input type="text" name="nama" class="form-control" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Tipe <span class="text-danger">*</span></label>
+              <select name="tipe" class="form-select" id="selTipe" required>
+                <option value="ASET">Aset</option>
+                <option value="LIABILITAS">Liabilitas</option>
+                <option value="EKUITAS">Ekuitas</option>
+                <option value="PENDAPATAN">Pendapatan</option>
+                <option value="BEBAN">Beban</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Saldo Normal</label>
+              <select name="saldo_normal" class="form-select" id="selSaldo">
+                <option value="DEBIT">Debit</option>
+                <option value="KREDIT">Kredit</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Subtipe / Kelompok</label>
+              <input type="text" name="subtipe" class="form-control" id="inputSubtipe"
+                placeholder="mis. Aset Lancar, Beban Operasional...">
+            </div>
+            <div class="col-12" id="boxRekBaru">
+              <div class="rounded-3 px-3 py-2" style="background:var(--card-h);border:1px dashed var(--bdr-md)">
+                <div class="form-check mb-0">
+                  <input class="form-check-input" type="checkbox" name="is_rekening" value="1" id="chkRekBaru">
+                  <label class="form-check-label fw-semibold" for="chkRekBaru" style="font-size:.85rem">
+                    <i class="fas fa-wallet me-1 text-success"></i>Jadikan rekening kas/bank
+                  </label>
+                  <div class="text-muted" style="font-size:.74rem;line-height:1.5">
+                    Centang kalau ini rekening bank, dompet digital, atau kas fisik. Akun yang dicentang
+                    bisa dipilih saat terima atau bayar uang, dan ikut dihitung sebagai Kas &amp; Bank.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Akun -->
+<div class="modal fade" id="modalEdit" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" id="formEditAkun">
+        <div class="modal-header">
+          <h6 class="modal-title"><i class="fas fa-pen-to-square me-2"></i>Edit Akun
+            <small class="text-muted ms-2" id="editAkunKodeLabel" style="font-weight:400"></small>
+          </h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div id="editLockInfo" class="alert alert-warning py-2 px-2 mb-3" style="font-size:.78rem;display:none">
+            <i class="fas fa-lock me-1"></i>
+            Akun ini sudah dipakai di <strong><span id="editLockCount">0</span> entri jurnal</strong>.
+            Kode, tipe, dan saldo normal <strong>dikunci</strong> agar laporan historis tetap valid.
+            Hanya <strong>Nama</strong> &amp; <strong>Subtipe</strong> yang bisa diubah.
+          </div>
+          <div class="row g-3">
+            <div class="col-4">
+              <label class="form-label">Kode <span class="text-danger">*</span></label>
+              <input type="text" name="kode" id="editKode" class="form-control" required>
+            </div>
+            <div class="col-8">
+              <label class="form-label">Nama Akun <span class="text-danger">*</span></label>
+              <input type="text" name="nama" id="editNama" class="form-control" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Tipe <span class="text-danger">*</span></label>
+              <select name="tipe" id="editTipe" class="form-select" required>
+                <option value="ASET">Aset</option>
+                <option value="LIABILITAS">Liabilitas</option>
+                <option value="EKUITAS">Ekuitas</option>
+                <option value="PENDAPATAN">Pendapatan</option>
+                <option value="BEBAN">Beban</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">Saldo Normal</label>
+              <select name="saldo_normal" id="editSaldo" class="form-select">
+                <option value="DEBIT">Debit</option>
+                <option value="KREDIT">Kredit</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Subtipe / Kelompok</label>
+              <input type="text" name="subtipe" id="editSubtipe" class="form-control"
+                placeholder="mis. Aset Lancar, Beban Operasional...">
+            </div>
+            <div class="col-12" id="boxPeranEdit" style="display:none">
+              <label class="form-label">Peran di Laba Rugi</label>
+              <select name="peran" id="editPeran" class="form-select">
+                <option value="">Beban Operasional biasa</option>
+                <option value="PENYUSUTAN">Penyusutan</option>
+                <option value="BUNGA">Bunga</option>
+                <option value="PAJAK">Pajak</option>
+              </select>
+              <div class="form-text">
+                Penyusutan, Bunga, dan Pajak ditampilkan sebagai baris tersendiri di Laba Rugi dan
+                tidak ikut mengurangi Laba Usaha. Pilih salah satu hanya kalau akun ini memang
+                untuk itu. Kalau akun ini biaya usaha sehari-hari, biarkan pada pilihan pertama.
+              </div>
+            </div>
+            <div class="col-12" id="boxRekEdit">
+              <div class="rounded-3 px-3 py-2" style="background:var(--card-h);border:1px dashed var(--bdr-md)">
+                <div class="form-check mb-0">
+                  <input class="form-check-input" type="checkbox" name="is_rekening" value="1" id="chkRekEdit">
+                  <label class="form-check-label fw-semibold" for="chkRekEdit" style="font-size:.85rem">
+                    <i class="fas fa-wallet me-1 text-success"></i>Jadikan rekening kas/bank
+                  </label>
+                  <div class="text-muted" style="font-size:.74rem;line-height:1.5">
+                    Akun yang dicentang bisa dipilih saat terima atau bayar uang, dan ikut dihitung
+                    sebagai Kas &amp; Bank. Saldo yang sudah tercatat langsung ikut terhitung.
+                  </div>
+                  <div class="text-muted mt-1" id="editRekLock" style="font-size:.74rem;display:none">
+                    <i class="fas fa-lock me-1"></i>Kas dan Bank utama selalu aktif sebagai rekening.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const defaults = {
+  'ASET': { saldo: 'DEBIT', subtipe: 'Aset Lancar' },
+  'LIABILITAS': { saldo: 'KREDIT', subtipe: 'Liabilitas Lancar' },
+  'EKUITAS': { saldo: 'KREDIT', subtipe: 'Ekuitas' },
+  'PENDAPATAN': { saldo: 'KREDIT', subtipe: 'Pendapatan Usaha' },
+  'BEBAN': { saldo: 'DEBIT', subtipe: 'Beban Operasional' },
+};
+// Pilihan "rekening kas/bank" hanya masuk akal untuk akun ASET bersaldo normal Debit
+// DAN bukan akun sistem seperti Piutang / Persediaan / PPN Masukan (daftarnya diambil
+// dari server, aturan yang sama persis dipakai saat menyimpan). Kotaknya disembunyikan
+// + centangnya dilepas untuk akun lain supaya tak ada yang salah ditandai.
+const AKUN_SISTEM_NON_REKENING = {{ AKUN_SISTEM_NON_REKENING|tojson }};
+function bolehJadiRekening(kode, tipe, saldo){
+  return tipe === 'ASET' && saldo === 'DEBIT'
+         && AKUN_SISTEM_NON_REKENING.indexOf(String(kode || '').trim()) === -1;
+}
+function syncRekBox(kodeEl, tipeEl, saldoEl, boxEl, chkEl){
+  const boleh = bolehJadiRekening(kodeEl.value, tipeEl.value, saldoEl.value);
+  boxEl.style.display = boleh ? '' : 'none';
+  if (!boleh) chkEl.checked = false;
+  return boleh;
+}
+function wireRekBox(kodeId, tipeId, saldoId, boxId, chkId){
+  const k = document.getElementById(kodeId),  t = document.getElementById(tipeId),
+        s = document.getElementById(saldoId), b = document.getElementById(boxId),
+        c = document.getElementById(chkId);
+  const run = function(){ syncRekBox(k, t, s, b, c); };
+  ['change','input'].forEach(function(ev){
+    k.addEventListener(ev, run); t.addEventListener(ev, run); s.addEventListener(ev, run);
+  });
+  return run;
+}
+
+document.getElementById('selTipe').addEventListener('change', function() {
+  const d = defaults[this.value];
+  document.getElementById('selSaldo').value = d.saldo;
+  document.getElementById('inputSubtipe').value = d.subtipe;
+});
+const syncRekBaru = wireRekBox('inputKodeBaru', 'selTipe', 'selSaldo', 'boxRekBaru', 'chkRekBaru');
+syncRekBaru();
+const syncRekEdit = wireRekBox('editKode', 'editTipe', 'editSaldo', 'boxRekEdit', 'chkRekEdit');
+
+function openEditAkun(id, kode, nama, tipe, subtipe, saldo, pakai, isRekening, peran){
+  document.getElementById('formEditAkun').action = '/akun/' + id + '/edit';
+  document.getElementById('editKode').value = kode;
+  document.getElementById('editNama').value = nama;
+  document.getElementById('editTipe').value = tipe;
+  document.getElementById('editSubtipe').value = subtipe || '';
+  document.getElementById('editSaldo').value = saldo;
+  // Peran hanya relevan untuk akun BEBAN (menentukan baris Laba Rugi).
+  var boxPeran = document.getElementById('boxPeranEdit');
+  var selPeran = document.getElementById('editPeran');
+  if (boxPeran && selPeran) {
+    boxPeran.style.display = (tipe === 'BEBAN') ? '' : 'none';
+    selPeran.value = peran || '';
+  }
+  document.getElementById('editAkunKodeLabel').textContent = '#' + kode;
+  const locked = pakai > 0;
+  document.getElementById('editLockInfo').style.display = locked ? '' : 'none';
+  document.getElementById('editLockCount').textContent = pakai;
+  document.getElementById('editKode').readOnly  = locked;
+  document.getElementById('editTipe').disabled  = locked;
+  document.getElementById('editSaldo').disabled = locked;
+  // Status rekening kas/bank. Kas 1100 & Bank 1110 dikunci tetap aktif supaya
+  // form pembayaran tidak pernah kehabisan pilihan rekening.
+  const inti = (kode === '1100' || kode === '1110');
+  const chk  = document.getElementById('chkRekEdit');
+  chk.checked  = !!isRekening || inti;
+  chk.disabled = inti;
+  document.getElementById('editRekLock').style.display = inti ? '' : 'none';
+  syncRekEdit();
+  new bootstrap.Modal(document.getElementById('modalEdit')).show();
+}
+</script>
+{% endblock %}

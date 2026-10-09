@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+{% block title %}{{ p.kode }} - Proyek - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-diagram-project me-2" style="color:#7c3aed"></i>Proyek {{ p.kode }}{% endblock %}
+{% block content %}
+
+<div class="row g-3">
+<div class="col-12">
+
+  <!-- Header proyek -->
+  <div class="card mb-3">
+    <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <span class="fw-semibold">
+        <i class="fas fa-diagram-project me-2" style="color:#7c3aed"></i>{{ p.kode }} · {{ p.nama }}
+        {% if p.status == 'AKTIF' %}<span class="badge bg-success ms-2">Aktif</span>
+        {% elif p.status == 'SELESAI' %}<span class="badge bg-secondary ms-2">Selesai</span>
+        {% else %}<span class="badge bg-danger ms-2">Batal</span>{% endif %}
+      </span>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="/proyek" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Kembali</a>
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalProyekHelp">
+          <i class="fas fa-circle-question me-1" style="color:#7c3aed"></i>Petunjuk</button>
+        {% if p.status == 'AKTIF' %}
+        <form method="POST" action="/proyek" onsubmit="return confirm('Tandai proyek SELESAI? Proyek tidak lagi muncul di dropdown input transaksi.')">
+          <input type="hidden" name="action" value="status">
+          <input type="hidden" name="id" value="{{ p.id }}">
+          <input type="hidden" name="status" value="SELESAI">
+          <button class="btn btn-success btn-sm"><i class="fas fa-flag-checkered me-1"></i>Tandai Selesai</button>
+        </form>
+        <form method="POST" action="/proyek" onsubmit="return confirm('Batalkan proyek ini?')">
+          <input type="hidden" name="action" value="status">
+          <input type="hidden" name="id" value="{{ p.id }}">
+          <input type="hidden" name="status" value="BATAL">
+          <button class="btn btn-outline-danger btn-sm"><i class="fas fa-ban me-1"></i>Batalkan</button>
+        </form>
+        {% else %}
+        <form method="POST" action="/proyek">
+          <input type="hidden" name="action" value="status">
+          <input type="hidden" name="id" value="{{ p.id }}">
+          <input type="hidden" name="status" value="AKTIF">
+          <button class="btn btn-outline-success btn-sm"><i class="fas fa-rotate-left me-1"></i>Aktifkan Lagi</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card-body py-3">
+      <div class="row g-3">
+        <div class="col-sm-3">
+          <div class="text-muted" style="font-size:.72rem">PELANGGAN</div>
+          <div class="fw-semibold">{{ p.pelanggan or '-' }}</div>
+        </div>
+        <div class="col-sm-3">
+          <div class="text-muted" style="font-size:.72rem">PERIODE</div>
+          <div class="fw-semibold" style="font-size:.85rem">
+            {{ p.tanggal_mulai|tgl if p.tanggal_mulai else '-' }} &rarr; {{ p.target_selesai|tgl if p.target_selesai else '-' }}</div>
+        </div>
+        <div class="col-sm-3">
+          <div class="text-muted" style="font-size:.72rem">NILAI KONTRAK</div>
+          <div class="fw-semibold text-rp">{{ p.nilai_kontrak|rp }}</div>
+        </div>
+        <div class="col-sm-3">
+          <div class="text-muted" style="font-size:.72rem">ANGGARAN BIAYA</div>
+          <div class="fw-semibold text-rp">{{ p.anggaran_biaya|rp }}</div>
+        </div>
+        {% if p.catatan %}
+        <div class="col-12">
+          <div class="text-muted" style="font-size:.72rem">CATATAN</div>
+          <div style="font-size:.85rem">{{ p.catatan }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI laba rugi proyek -->
+  <div class="row g-2 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="card h-100"><div class="card-body py-2 px-3">
+        <div class="text-muted" style="font-size:.7rem;font-weight:700;letter-spacing:.05em">PENDAPATAN</div>
+        <div class="fw-bold text-success text-rp" style="font-size:1.05rem">{{ s.pendapatan|rp }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100"><div class="card-body py-2 px-3">
+        <div class="text-muted" style="font-size:.7rem;font-weight:700;letter-spacing:.05em">BIAYA (HPP + BEBAN)</div>
+        <div class="fw-bold text-danger text-rp" style="font-size:1.05rem">{{ s.biaya|rp }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100"><div class="card-body py-2 px-3">
+        <div class="text-muted" style="font-size:.7rem;font-weight:700;letter-spacing:.05em">LABA PROYEK</div>
+        <div class="fw-bold text-rp {% if s.laba > 0 %}text-success{% elif s.laba < 0 %}text-danger{% endif %}"
+             style="font-size:1.05rem">{{ s.laba|rp }}</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card h-100"><div class="card-body py-2 px-3">
+        <div class="text-muted" style="font-size:.7rem;font-weight:700;letter-spacing:.05em">MARGIN</div>
+        <div class="fw-bold {% if s.margin >= 0 %}text-success{% else %}text-danger{% endif %}"
+             style="font-size:1.05rem">{{ '%.1f'|format(s.margin) }}%</div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- Warning: proyek ditutup tapi masih ada piutang/hutang aktif -->
+  {% if p.status != 'AKTIF' and (arap.piutang_outstanding > 0 or arap.hutang_outstanding > 0) %}
+  <div class="alert alert-warning d-flex align-items-start gap-2 py-2 px-3 mb-3" style="font-size:.85rem">
+    <i class="fas fa-triangle-exclamation mt-1"></i>
+    <div>
+      <strong>Proyek sudah {{ 'selesai' if p.status == 'SELESAI' else 'dibatalkan' }}, tapi masih ada tagihan terbuka.</strong>
+      {% if arap.piutang_outstanding > 0 %}Piutang belum tertagih <strong>{{ arap.piutang_outstanding|rp }}</strong>.{% endif %}
+      {% if arap.hutang_outstanding > 0 %}Hutang vendor belum dibayar <strong>{{ arap.hutang_outstanding|rp }}</strong>.{% endif %}
+      Selesaikan penagihan/pembayaran atau aktifkan kembali proyek bila masih berjalan.
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Posisi penagihan (cash): beda dari laba accrual di atas -->
+  <div class="row g-2 mb-3">
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+          <div>
+            <div class="text-muted" style="font-size:.7rem;font-weight:700;letter-spacing:.05em">PIUTANG BELUM TERTAGIH</div>
+            <div class="fw-bold text-rp" style="font-size:1.05rem;color:#0369a1">{{ arap.piutang_outstanding|rp }}</div>
+            <div class="text-muted" style="font-size:.68rem">Tagihan ke pelanggan yang belum lunas</div>
+          </div>
+          <i class="fas fa-hand-holding-dollar fa-lg" style="color:#0369a1;opacity:.4"></i>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-body py-2 px-3 d-flex justify-content-between align-items-center">
+          <div>
+            <div class="text-muted" style="font-size:.7rem;font-weight:700;letter-spacing:.05em">HUTANG VENDOR BELUM DIBAYAR</div>
+            <div class="fw-bold text-rp" style="font-size:1.05rem;color:#ef4444">{{ arap.hutang_outstanding|rp }}</div>
+            <div class="text-muted" style="font-size:.68rem">Kewajiban ke vendor/supplier proyek ini</div>
+          </div>
+          <i class="fas fa-file-invoice-dollar fa-lg" style="color:#ef4444;opacity:.4"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rincian piutang & hutang outstanding proyek -->
+  {% if arap.ar_rows or arap.ap_rows %}
+  <div class="row g-2 mb-3">
+    {% if arap.ar_rows %}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header py-2 px-3" style="font-size:.78rem"><i class="fas fa-hand-holding-dollar me-1" style="color:#0369a1"></i>Piutang Belum Tertagih</div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0" style="font-size:.78rem">
+            <tbody>
+              {% for r in arap.ar_rows %}
+              <tr>
+                <td class="ps-3">{{ r.pihak or '-' }}<div class="text-muted" style="font-size:.68rem">{{ r.keterangan }}{% if r.jatuh_tempo %} · jt {{ r.jatuh_tempo|tgl }}{% endif %}</div></td>
+                <td class="text-end pe-3 text-rp" style="white-space:nowrap">{{ r.sisa|rp }}{% if r.terbayar > 0 %}<div class="text-muted" style="font-size:.66rem">dari {{ r.jumlah|rp }}</div>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% if arap.ap_rows %}
+    <div class="col-md-6">
+      <div class="card h-100">
+        <div class="card-header py-2 px-3" style="font-size:.78rem"><i class="fas fa-file-invoice-dollar me-1" style="color:#ef4444"></i>Hutang Vendor Belum Dibayar</div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0" style="font-size:.78rem">
+            <tbody>
+              {% for r in arap.ap_rows %}
+              <tr>
+                <td class="ps-3">{{ r.pihak or '-' }}<div class="text-muted" style="font-size:.68rem">{{ r.keterangan }}{% if r.jatuh_tempo %} · jt {{ r.jatuh_tempo|tgl }}{% endif %}</div></td>
+                <td class="text-end pe-3 text-rp" style="white-space:nowrap">{{ r.sisa|rp }}{% if r.terbayar > 0 %}<div class="text-muted" style="font-size:.66rem">dari {{ r.jumlah|rp }}</div>{% endif %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Progress vs kontrak & anggaran -->
+  {% if p.nilai_kontrak > 0 or p.anggaran_biaya > 0 %}
+  <div class="card mb-3"><div class="card-body py-3">
+    <div class="row g-3">
+      {% if p.nilai_kontrak > 0 %}
+      {% set pct_rev = (s.pendapatan / p.nilai_kontrak * 100) %}
+      <div class="col-md-6">
+        <div class="d-flex justify-content-between" style="font-size:.78rem">
+          <span class="fw-semibold">Realisasi Pendapatan vs Kontrak</span>
+          <span>{{ '%.0f'|format(pct_rev) }}%</span>
+        </div>
+        <div class="progress mt-1" style="height:8px">
+          <div class="progress-bar bg-success" style="width:{{ [pct_rev, 100]|min }}%"></div>
+        </div>
+        <div class="text-muted mt-1" style="font-size:.72rem">{{ s.pendapatan|rp }} dari {{ p.nilai_kontrak|rp }}</div>
+      </div>
+      {% endif %}
+      {% if p.anggaran_biaya > 0 %}
+      {% set pct_cost = (s.biaya / p.anggaran_biaya * 100) %}
+      <div class="col-md-6">
+        <div class="d-flex justify-content-between" style="font-size:.78rem">
+          <span class="fw-semibold">Realisasi Biaya vs Anggaran</span>
+          <span class="{% if pct_cost > 100 %}text-danger fw-bold{% endif %}">{{ '%.0f'|format(pct_cost) }}%</span>
+        </div>
+        <div class="progress mt-1" style="height:8px">
+          <div class="progress-bar {% if pct_cost > 100 %}bg-danger{% elif pct_cost > 80 %}bg-warning{% else %}bg-info{% endif %}"
+               style="width:{{ [pct_cost, 100]|min }}%"></div>
+        </div>
+        <div class="text-muted mt-1" style="font-size:.72rem">
+          {{ s.biaya|rp }} dari {{ p.anggaran_biaya|rp }}
+          {% if pct_cost > 100 %} &middot; <span class="text-danger fw-semibold">over budget {{ (s.biaya - p.anggaran_biaya)|rp }}</span>{% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div></div>
+  {% endif %}
+
+  <div class="row g-3">
+    <!-- Rincian biaya per akun -->
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="fas fa-chart-pie text-danger"></i>
+          <span class="section-title">Biaya per Akun</span>
+        </div>
+        <div class="card-body p-0">
+          {% if biaya_per_akun %}
+          <table class="table table-sm mb-0" style="font-size:.8rem">
+            <tbody>
+              {% for b in biaya_per_akun %}
+              <tr>
+                <td class="ps-3"><span class="text-muted">{{ b.kode }}</span> {{ b.nama }}</td>
+                <td class="text-end pe-3 text-rp">{{ b.total|rp }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="text-center text-muted py-4" style="font-size:.8rem">Belum ada biaya tercatat.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Daftar transaksi proyek -->
+    <div class="col-lg-8">
+      <div class="card h-100">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="fas fa-receipt" style="color:#7c3aed"></i>
+          <span class="section-title">Transaksi Proyek</span>
+          <span class="badge bg-secondary ms-1" style="font-size:.65rem">{{ tx_rows|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          {% if tx_rows %}
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" style="font-size:.8rem">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-3">Tanggal</th>
+                  <th>No</th>
+                  <th>Keterangan</th>
+                  <th class="text-end">Pendapatan</th>
+                  <th class="text-end pe-3">Biaya</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for t in tx_rows %}
+                <tr>
+                  <td class="ps-3 text-muted">{{ t.tanggal|tgl }}</td>
+                  <td><a href="/transaksi/{{ t.id }}" class="text-decoration-none">{{ t.nomor_tx or ('#' ~ t.id) }}</a></td>
+                  <td>{{ t.keterangan }}{% if t.pihak %} <small class="text-muted">({{ t.pihak }})</small>{% endif %}</td>
+                  <td class="text-end text-success text-rp">{% if t.pendapatan > 0.005 %}{{ t.pendapatan|rp }}{% else %}-{% endif %}</td>
+                  <td class="text-end pe-3 text-danger text-rp">{% if t.biaya > 0.005 %}{{ t.biaya|rp }}{% else %}-{% endif %}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5" style="font-size:.82rem">
+            Belum ada transaksi. Tag transaksi ke proyek ini lewat dropdown <strong>Proyek</strong>
+            di form Pemasukan / Pengeluaran.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+{% include '_proyek_help_modal.html' %}
+{% endblock %}

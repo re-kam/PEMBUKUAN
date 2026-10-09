@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Bukti Potong PPh 23 - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-file-contract text-info me-2"></i>Bukti Potong PPh 23{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="d-flex gap-2 mb-3">
+  <a href="/pajak" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Hub Pajak</a>
+</div>
+
+<div class="alert alert-info py-2 mb-3" style="font-size:.82rem">
+  <i class="fas fa-circle-info me-1"></i>
+  Daftar semua invoice yang punya potongan PPh 23. Klik <strong>Cetak</strong> untuk generate Bukti Potong yang bisa diberikan ke customer sebagai dokumen pajak resmi.
+</div>
+
+<div class="card">
+  <div class="card-header py-2 fw-semibold" style="font-size:.88rem">
+    Total: {{ rows|length }} bukti potong
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0">
+        <thead class="table-light"><tr>
+          <th class="ps-3">No. BP</th>
+          <th>Tanggal</th>
+          <th>Customer (Pemotong)</th>
+          <th class="text-end">Tarif</th>
+          <th class="text-end">Nominal PPh 23</th>
+          <th>Status Jurnal</th>
+          <th class="pe-3">Aksi</th>
+        </tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td class="ps-3" style="font-family:monospace">BP-{{ r.tanggal.replace('-','')[:6] }}-{{ '%03d'|format(r.id) }}</td>
+            <td>{{ r.tanggal|tgl }}</td>
+            <td>
+              <div class="fw-semibold">{{ r.pelanggan }}</div>
+              {% if r.alamat_pelanggan %}<div class="text-muted small">{{ r.alamat_pelanggan }}</div>{% endif %}
+            </td>
+            <td class="text-end">{{ r.pph23_persen|round(2) }}%</td>
+            <td class="text-end fw-bold text-rp text-warning">{{ r.pph23_nominal|rp }}</td>
+            <td>
+              {% if r.jurnal_id %}
+              <span class="badge bg-success">Tercatat</span>
+              {% else %}
+              <span class="badge bg-secondary">Belum di-jurnal</span>
+              {% endif %}
+            </td>
+            <td class="pe-3">
+              <a href="/pajak/bukti-potong/{{ r.id }}/cetak" target="_blank" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-print me-1"></i>Cetak
+              </a>
+              <a href="/invoice/{{ r.id }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-eye me-1"></i>Invoice
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-4">
+            Belum ada bukti potong. Buat invoice dengan PPh 23 di menu <a href="/invoice/baru">Invoice &gt; Baru</a>.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% if rows %}
+<div class="mt-3 p-3" style="background:var(--card-h);border-radius:8px;font-size:.82rem">
+  <strong><i class="fas fa-lightbulb me-1 text-warning"></i>Tips:</strong>
+  Total PPh 23 yang dipotong customer = saldo akun <strong>1181 PPh 23 Dibayar Dimuka</strong> di neraca.
+  Saat lapor SPT Tahunan, total ini bisa dikreditkan terhadap PPh badan terutang.
+</div>
+{% endif %}
+
+{{ pagination(pg) }}
+{% endblock %}

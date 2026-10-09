@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block title %}Neraca - FinansialApp{% endblock %}
+{% block page_title %}Neraca (Balance Sheet){% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalNeracaHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_neraca_help_modal.html' %}
+
+<div class="d-flex gap-2 mb-3 align-items-center">
+  <form class="d-flex gap-2" method="get">
+    <label class="form-label mb-0 align-self-center fw-semibold">Per tanggal:</label>
+    <input type="date" name="ed" value="{{ ed }}" class="form-control form-control-sm" style="width:160px">
+    <button class="btn btn-primary btn-sm"><i class="fas fa-sync me-1"></i>Tampilkan</button>
+  </form>
+  <a href="/export/laporan-keuangan?sd={{ ed[:4] }}-01-01&ed={{ ed }}"
+     class="btn btn-outline-success btn-sm">
+    <i class="fas fa-file-excel me-1"></i>Export Excel
+  </a>
+  <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+    <i class="fas fa-print me-1"></i>Cetak
+  </button>
+</div>
+
+<div class="row g-3">
+  <!-- ASET -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <i class="fas fa-building me-2"></i><span style="font-size:.95rem;font-weight:700">ASET</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for subtipe, items in aset.items() %}
+          <tr class="table-light">
+            <td colspan="2" class="fw-semibold ps-3 py-1" style="font-size:.8rem;color:#475569">
+              {{ subtipe|upper }}
+            </td>
+          </tr>
+          {% for item in items %}
+          <tr>
+            <td class="ps-4">
+              <span class="text-muted me-2" style="font-size:.75rem">{{ item.kode }}</span>{{ item.nama }}
+            </td>
+            <td class="text-end pe-3 text-rp {% if item.saldo < 0 %}text-danger{% endif %}">
+              {{ item.saldo|rp }}
+            </td>
+          </tr>
+          {% endfor %}
+          {% set sub_total = namespace(v=0) %}
+          {% for item in items %}{% set sub_total.v = sub_total.v + item.saldo %}{% endfor %}
+          <tr class="border-top">
+            <td class="ps-4 fw-semibold text-muted" style="font-size:.8rem">Total {{ subtipe }}</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ sub_total.v|rp }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="table-primary">
+            <td class="ps-3 fw-bold">TOTAL ASET</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ total_aset|rp }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIABILITAS + EKUITAS -->
+  <div class="col-lg-6">
+    <div class="card mb-3">
+      <div class="card-header bg-danger text-white">
+        <i class="fas fa-file-invoice me-2"></i><span style="font-size:.95rem;font-weight:700">LIABILITAS</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for subtipe, items in liab.items() %}
+          <tr class="table-light">
+            <td colspan="2" class="fw-semibold ps-3 py-1" style="font-size:.8rem;color:#475569">
+              {{ subtipe|upper }}
+            </td>
+          </tr>
+          {% for item in items %}
+          <tr>
+            <td class="ps-4">
+              <span class="text-muted me-2" style="font-size:.75rem">{{ item.kode }}</span>{{ item.nama }}
+            </td>
+            <td class="text-end pe-3 text-rp">{{ item.saldo|rp }}</td>
+          </tr>
+          {% endfor %}
+          {% set sub_total = namespace(v=0) %}
+          {% for item in items %}{% set sub_total.v = sub_total.v + item.saldo %}{% endfor %}
+          <tr class="border-top">
+            <td class="ps-4 fw-semibold text-muted" style="font-size:.8rem">Total {{ subtipe }}</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ sub_total.v|rp }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="table-danger">
+            <td class="ps-3 fw-bold">TOTAL LIABILITAS</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ total_liab|rp }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header bg-success text-white">
+        <i class="fas fa-coins me-2"></i><span style="font-size:.95rem;font-weight:700">EKUITAS</span>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          {% for item in ekuitas_list %}
+          <tr {% if loop.last %}class="border-top fw-semibold"{% endif %}>
+            <td class="ps-4 {% if loop.last %}fw-bold{% endif %}">
+              {% if not loop.last %}<span class="text-muted me-2" style="font-size:.75rem">{{ item.kode }}</span>{% endif %}
+              {{ item.nama }}
+            </td>
+            <td class="text-end pe-3 text-rp {% if item.saldo < 0 %}text-danger{% endif %}">
+              {{ item.saldo|rp }}
+            </td>
+          </tr>
+          {% endfor %}
+          <tr class="table-success">
+            <td class="ps-3 fw-bold">TOTAL EKUITAS</td>
+            <td class="text-end pe-3 fw-bold text-rp">{{ total_ekuitas|rp }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="card mt-3 {% if (total_liab + total_ekuitas - total_aset)|abs < 1 %}border-success{% else %}border-danger{% endif %}">
+      <div class="card-body py-2 px-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <span class="fw-bold">TOTAL LIABILITAS + EKUITAS</span>
+          <span class="fw-bold text-rp fs-5">{{ (total_liab + total_ekuitas)|rp }}</span>
+        </div>
+        {% if (total_liab + total_ekuitas - total_aset)|abs > 1 %}
+        <div class="alert alert-danger mt-2 mb-0 py-2 px-3" style="font-size:.82rem">
+          <i class="fas fa-triangle-exclamation me-1"></i>
+          <strong>NERACA TIDAK SEIMBANG!</strong> Selisih Aset vs (Liabilitas + Ekuitas):
+          <strong class="text-rp">{{ (total_aset - total_liab - total_ekuitas)|rp }}</strong>.
+          <div class="mt-1"><strong>Saran perbaikan:</strong></div>
+          <ol class="mb-0 ps-3">
+            <li>Lihat panel <strong>Diagnostik</strong> di bawah untuk jurnal tak seimbang atau merujuk akun terhapus.</li>
+            <li>Periksa transaksi ber-HPP yang baru diedit/dihapus; stok dan rata-rata HPP barang dihitung ulang otomatis dari sisa.</li>
+            <li>Perbaiki lewat <strong>Edit Transaksi</strong> atau buat <strong>jurnal koreksi</strong>; bila ragu, urungkan perubahan terakhir.</li>
+          </ol>
+        </div>
+        {% else %}
+        <small class="text-success"><i class="fas fa-check me-1"></i>Neraca seimbang</small>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if unbalanced or global_diff|abs > 0.01 %}
+<div class="card border-danger mt-3">
+  <div class="card-header bg-danger text-white py-2">
+    <i class="fas fa-bug me-2"></i><strong>Diagnostik: Jurnal Tidak Seimbang</strong>
+    <span class="ms-2 badge bg-light text-danger">{{ unbalanced|length }} entri bermasalah</span>
+  </div>
+  <div class="card-body p-0">
+    {% if global_diff|abs > 0.01 %}
+    <div class="alert alert-danger mb-0 rounded-0 py-2 px-3" style="font-size:.85rem">
+      <i class="fas fa-circle-exclamation me-1"></i>
+      <strong>Total global tidak seimbang:</strong> seluruh debit lebih {% if global_diff > 0 %}besar{% else %}kecil{% endif %}
+      dari kredit sebesar <strong>{{ global_diff|abs|rp }}</strong>.
+      Ini berarti ada jurnal yang dibuat tanpa pasangan debit/kredit yang lengkap.
+    </div>
+    {% endif %}
+    {% if unbalanced %}
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0" style="font-size:.82rem">
+        <thead class="table-light">
+          <tr>
+            <th style="width:50px">ID</th>
+            <th style="width:100px">Tanggal</th>
+            <th>Keterangan</th>
+            <th style="width:80px">Tipe</th>
+            <th class="text-end" style="width:130px">Total Debit</th>
+            <th class="text-end" style="width:130px">Total Kredit</th>
+            <th class="text-end" style="width:130px">Selisih</th>
+            <th style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in unbalanced %}
+          <tr>
+            <td class="text-muted">#{{ r.id }}</td>
+            <td>{{ r.tanggal|tgl }}</td>
+            <td>{{ r.keterangan }}</td>
+            <td><span class="badge bg-secondary" style="font-size:.68rem">{{ r.tipe_tx }}</span></td>
+            <td class="text-end">{{ r.total_debit|rp }}</td>
+            <td class="text-end">{{ r.total_kredit|rp }}</td>
+            <td class="text-end fw-bold text-danger">{{ r.selisih|rp }}</td>
+            <td class="text-center">
+              <a href="/transaksi/{{ r.id }}" class="btn btn-xs btn-outline-primary" title="Lihat detail">
+                <i class="fas fa-eye"></i></a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-2 text-muted" style="font-size:.75rem">
+      <i class="fas fa-info-circle me-1"></i>
+      Klik ikon mata untuk melihat detail jurnal. Gunakan menu <strong>Transaksi → Edit</strong> untuk memperbaiki, atau hubungi admin.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% if orphaned %}
+<div class="card border-warning mt-3">
+  <div class="card-header bg-warning text-dark py-2">
+    <i class="fas fa-ghost me-2"></i><strong>Diagnostik: Entri Jurnal Merujuk Akun yang Sudah Dihapus</strong>
+    <span class="ms-2 badge bg-dark text-warning">{{ orphaned|length }} jurnal terdampak</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="alert alert-warning mb-0 rounded-0 py-2 px-3" style="font-size:.85rem">
+      <i class="fas fa-circle-exclamation me-1"></i>
+      Jurnal berikut punya baris yang merujuk <strong>akun yang sudah dihapus</strong>.
+      Baris itu tidak masuk ke neraca, sehingga satu sisi transaksi "hilang" dan menyebabkan selisih.
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0" style="font-size:.82rem">
+        <thead class="table-light">
+          <tr>
+            <th style="width:50px">ID</th>
+            <th style="width:100px">Tanggal</th>
+            <th>Keterangan</th>
+            <th style="width:80px">Tipe</th>
+            <th class="text-end" style="width:130px">Debit Hilang</th>
+            <th class="text-end" style="width:130px">Kredit Hilang</th>
+            <th style="width:60px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in orphaned %}
+          <tr class="table-warning">
+            <td class="text-muted">#{{ r.id }}</td>
+            <td>{{ r.tanggal|tgl }}</td>
+            <td>{{ r.keterangan }}</td>
+            <td><span class="badge bg-secondary" style="font-size:.68rem">{{ r.tipe_tx }}</span></td>
+            <td class="text-end fw-bold text-danger">{% if r.orphan_debit %}{{ r.orphan_debit|rp }}{% else %}-{% endif %}</td>
+            <td class="text-end fw-bold text-danger">{% if r.orphan_kredit %}{{ r.orphan_kredit|rp }}{% else %}-{% endif %}</td>
+            <td class="text-center">
+              <a href="/transaksi/{{ r.id }}" class="btn btn-xs btn-outline-primary" title="Lihat detail">
+                <i class="fas fa-eye"></i></a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="p-2 text-muted" style="font-size:.75rem">
+      <i class="fas fa-info-circle me-1"></i>
+      Untuk memperbaiki: buka detail transaksi, catat nilainya, hapus, lalu buat ulang dengan akun yang benar.
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

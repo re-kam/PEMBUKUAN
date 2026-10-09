@@ -1,0 +1,63 @@
+{# Modal petunjuk Buku Besar. Di-include di buku_besar.html; dipicu tombol [data-bs-target="#modalBukuBesarHelp"]. #}
+<div class="modal fade" id="modalBukuBesarHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Buku Besar</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Buku Besar menampilkan rincian semua transaksi dikelompokkan per akun, lengkap dengan
+          saldo berjalan tiap akun. Pilih satu akun, lihat seluruh mutasinya.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>Buku Besar adalah tulang punggung pembukuan.</strong>
+            Setiap transaksi masuk ke sini dulu sebagai debit dan kredit. Laba Rugi dan Neraca
+            sebenarnya hanya ringkasan dari angka-angka di Buku Besar.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-book me-1" style="color:var(--ink)"></i>Kaitan dengan laporan lain</div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1"><i class="fas fa-scale-balanced me-1" style="color:#15803d"></i>Neraca</div>
+              Saldo akhir akun kas, piutang, persediaan, hutang, dan modal di Buku Besar itulah yang
+              dijumlahkan jadi Neraca.
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="border rounded p-2 h-100" style="font-size:.8rem">
+              <div class="fw-semibold mb-1"><i class="fas fa-chart-bar me-1" style="color:#ef4444"></i>Laba Rugi</div>
+              Saldo akun pendapatan dan beban di Buku Besar yang dirangkum jadi Laba Rugi selama
+              periode.
+            </div>
+          </div>
+        </div>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Anda ingin tahu kenapa saldo Kas di Neraca segitu.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Buka Buku Besar, pilih akun Kas. Semua uang masuk dan keluar terlihat berurutan.</li>
+            <li>Saldo akhir akun Kas di sini sama persis dengan angka Kas di Neraca pada tanggal yang sama.</li>
+            <li>Kalau ada angka laporan yang Anda ragukan, Buku Besar tempat menelusurinya sampai ke transaksi asal.</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Karena semua bermuara ke sini, Buku Besar dipakai saat Anda perlu
+          mencocokkan atau memeriksa ulang sebuah angka di laporan.
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

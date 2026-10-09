@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - Finance by Cliff</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+<style>
+/* ════════ Cliff.gosipinbisnis Design System — login ════════ */
+:root{
+  --ink:#0A0A0A; --paper:#FFFFFF; --paper-soft:#F4F4F2;
+  --gray-600:#5C5C5C; --gray-500:#7C7C7C; --gray-400:#A0A0A0; --gray-300:#C9C9C9; --gray-200:#E2E2E0;
+  --line:rgba(10,10,10,.14);
+  --border-bold:2.5px solid #0A0A0A;
+  --font-display:'Anton','Arial Narrow',sans-serif;
+  --font-body:'Montserrat',system-ui,-apple-system,sans-serif;
+  --r-md:12px; --r-lg:20px; --r-pill:999px;
+  --shadow-lg:0 18px 50px rgba(10,10,10,.16);
+  --ease-out:cubic-bezier(.16,1,.3,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:var(--font-body);background:var(--paper-soft);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+.gb-login{display:grid;grid-template-columns:1.05fr 1fr;min-height:100vh;width:100%}
+
+/* ── Brand panel (left, ink plate) ── */
+.gb-brand{background:var(--ink);color:var(--paper);display:flex;flex-direction:column;justify-content:space-between;gap:32px;padding:52px;position:relative;overflow:hidden}
+.gb-brand .lockup{display:flex;align-items:center;gap:16px;position:relative;z-index:2}
+.gb-brand .markPlate{width:62px;height:62px;border-radius:var(--r-md);background:var(--paper);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.gb-brand .markPlate img{width:84%;height:84%;object-fit:contain}
+.gb-brand .lockup .word{font-family:var(--font-display);font-size:28px;text-transform:uppercase;line-height:1;letter-spacing:.01em}
+.gb-brand .lockup .handle{font-weight:600;font-size:12px;letter-spacing:.08em;color:rgba(255,255,255,.55);margin-top:3px}
+.gb-brand .hook{font-family:var(--font-display);font-size:clamp(34px,4.6vw,58px);line-height:1.32;letter-spacing:-.01em;text-transform:uppercase;position:relative;z-index:2}
+.gb-brand .hook .mark{background:var(--paper);color:var(--ink);padding:.02em .22em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.gb-brand .kicker{font-weight:700;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.5);max-width:380px;line-height:1.7;position:relative;z-index:2}
+.gb-brand .squiggle{position:absolute;right:-10px;bottom:18px;width:230px;color:rgba(255,255,255,.14);z-index:1}
+.gb-brand .bracket{position:absolute;top:40px;right:46px;width:54px;color:rgba(255,255,255,.18);z-index:1}
+
+/* ── Form panel (right, paper) ── */
+.gb-formSide{display:flex;align-items:center;justify-content:center;padding:32px;background:var(--paper)}
+.gb-card{width:100%;max-width:380px}
+.gb-card .kicker{font-weight:700;font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--gray-600);margin-bottom:10px}
+.gb-card h1{font-family:var(--font-body);font-weight:800;font-size:30px;line-height:1.15;margin:0 0 6px;color:var(--ink);letter-spacing:-.01em}
+.gb-card .lead{font-size:14px;color:var(--gray-600);margin:0 0 22px;line-height:1.55}
+
+/* segmented switcher */
+.gb-switch{display:flex;gap:4px;background:var(--paper-soft);border-radius:var(--r-pill);padding:4px;margin-bottom:22px;border:var(--border-hair, 1px solid var(--line))}
+.gb-switch a{flex:1;text-align:center;text-decoration:none;border-radius:var(--r-pill);padding:10px 10px;font-size:11.5px;font-weight:700;letter-spacing:.04em;color:var(--gray-600);transition:all .14s var(--ease-out)}
+.gb-switch a.active{background:var(--ink);color:var(--paper)}
+.gb-switch a:hover:not(.active){color:var(--ink)}
+
+/* fields */
+.gb-field{margin-bottom:16px}
+.gb-field label{display:block;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--gray-600);margin-bottom:7px}
+.gb-field input{width:100%;font:500 15px/1.4 var(--font-body);padding:13px 16px;border:1.5px solid var(--line);border-radius:var(--r-md);outline:none;transition:border-color .14s var(--ease-out),box-shadow .14s var(--ease-out),background .14s;background:var(--paper-soft);color:var(--ink)}
+.gb-field input:focus{border-color:var(--ink);box-shadow:0 0 0 3px rgba(10,10,10,.08);background:var(--paper)}
+.gb-field input::placeholder{color:var(--gray-400);font-weight:400}
+
+/* submit — pill, ink */
+.gb-submit{width:100%;font-family:var(--font-body);font-weight:700;font-size:15px;background:var(--ink);color:var(--paper);border:none;border-radius:var(--r-pill);padding:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:transform .14s var(--ease-out),box-shadow .14s var(--ease-out);margin-top:6px}
+.gb-submit:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.gb-submit .arr{font-size:16px;transition:transform .14s var(--ease-out)}
+.gb-submit:hover .arr{transform:translateX(3px)}
+
+/* alerts */
+.gb-alert{border-radius:var(--r-md);font-size:13px;font-weight:600;padding:12px 14px;margin-bottom:14px;border:1.5px solid transparent}
+.gb-alert.alert-danger{background:#FCEAEA;color:#7a1414;border-color:#f3c6c6}
+.gb-alert.alert-success{background:#E7F6EC;color:#0d5b2f;border-color:#bfe6cd}
+.gb-alert.alert-warning{background:#FCF3DC;color:#7a5b00;border-color:#f1e0ad}
+.gb-alert.alert-info{background:var(--paper-soft);color:var(--gray-600);border-color:var(--line)}
+
+/* dev-credential hint */
+.gb-hint{margin-top:22px;padding:13px 16px;border:1px dashed var(--gray-300);border-radius:var(--r-md);font-size:12px;color:var(--gray-600);text-align:center;background:var(--paper-soft);letter-spacing:.01em}
+.gb-hint strong{color:var(--ink);font-weight:800}
+
+@media (max-width:880px){
+  .gb-login{grid-template-columns:1fr}
+  .gb-brand{display:none}
+  .gb-formSide{padding:24px;min-height:100vh}
+}
+</style>
+</head>
+<body>
+<div class="gb-login">
+
+  <!-- Brand panel -->
+  <aside class="gb-brand">
+    <div class="lockup">
+      <div class="markPlate">
+        <img src="{{ url_for('static', filename='brand/finance-by-cliff-login.png') }}" alt="Finance by Cliff">
+      </div>
+      <div>
+        <div class="word">Finance</div>
+        <div class="handle">by Cliff &nbsp;·&nbsp; Sistem Akuntansi</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="hook">
+        Kelola<br>
+        <span class="mark">keuangan&nbsp;bisnis</span><br>
+        dengan&nbsp;percaya&nbsp;diri
+      </div>
+      <div class="kicker" style="margin-top:22px">
+        Pembukuan, laporan, pajak, dan kasir dalam satu sistem terpadu untuk UMKM hingga enterprise.
+      </div>
+    </div>
+
+    <div></div>
+
+    <svg class="bracket" viewBox="0 0 120 80" fill="none" aria-hidden="true">
+      <path d="M40 14 H22 V66 H40 M80 14 H98 V66 H80" stroke="currentColor" stroke-width="6" stroke-linecap="square"></path>
+    </svg>
+    <svg class="squiggle" viewBox="0 0 240 60" fill="none" aria-hidden="true">
+      <path d="M4 40 C 36 6, 64 6, 92 34 S 150 60, 176 30 S 224 8, 236 22" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path>
+    </svg>
+  </aside>
+
+  <!-- Form panel -->
+  <main class="gb-formSide">
+    <div class="gb-card">
+      <div class="kicker">Masuk ke Akun</div>
+      <h1>Selamat datang kembali</h1>
+      <p class="lead">Masuk untuk mengelola pembukuan, laporan, dan transaksi bisnis Anda.</p>
+
+      {% if modul_aktif and modul_aktif.POS_KASIR %}
+      <div class="gb-switch">
+        <a href="/login" class="active"><i class="fas fa-chart-line me-1"></i>Finance by Cliff</a>
+        <a href="/pos/login"><i class="fas fa-cash-register me-1"></i>POS Kasir</a>
+      </div>
+      {% endif %}
+
+      {% with msgs = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in msgs %}
+        <div class="gb-alert alert-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST">
+        <div class="gb-field">
+          <label><i class="fas fa-user me-1"></i>Username</label>
+          <input type="text" name="username" required autofocus placeholder="Masukkan username" autocomplete="username">
+        </div>
+        <div class="gb-field">
+          <label><i class="fas fa-lock me-1"></i>Password</label>
+          <input type="password" name="password" required placeholder="Masukkan password" autocomplete="current-password">
+        </div>
+        <button type="submit" class="gb-submit">Masuk <span class="arr">→</span></button>
+      </form>
+
+      {# Muncul di semua distribusi. Di aplikasi desktop halaman tujuannya bisa langsung
+         memulihkan; di pemasangan online halaman itu hanya berisi panduan, dan tombol
+         pemulihannya memang tidak ada di sana. #}
+      <div style="text-align:center;margin-top:14px">
+        <a href="/lupa-password"
+           style="font-size:12px;font-weight:600;color:var(--gray-600);text-decoration:none;border-bottom:1px solid var(--gray-300)">
+          Lupa password?
+        </a>
+      </div>
+
+      {% if not app_pref.hide_login_hint %}
+      <div class="gb-hint">
+        <i class="fas fa-circle-info me-1"></i>
+        Login default &nbsp;·&nbsp;
+        Username: <strong>admin</strong> &nbsp;·&nbsp;
+        Password: <strong>admin123</strong>
+      </div>
+      {% endif %}
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

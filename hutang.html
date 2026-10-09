@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Tracker Hutang - FinansialApp{% endblock %}
+{% block page_title %}Tracker Hutang{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div class="d-flex gap-2 flex-wrap">
+    <a href="/hutang" class="btn btn-sm {% if not sf %}btn-primary{% else %}btn-outline-secondary{% endif %}">Semua</a>
+    <a href="/hutang?status=BELUM LUNAS" class="btn btn-sm {% if sf=='BELUM LUNAS' %}btn-danger{% else %}btn-outline-danger{% endif %}">Belum Lunas</a>
+    <a href="/hutang?status=SEBAGIAN" class="btn btn-sm {% if sf=='SEBAGIAN' %}btn-warning{% else %}btn-outline-warning{% endif %}">Sebagian</a>
+    <a href="/hutang?status=LUNAS" class="btn btn-sm {% if sf=='LUNAS' %}btn-success{% else %}btn-outline-success{% endif %}">Lunas</a>
+    <form class="d-flex gap-1" method="GET">
+      {% if sf %}<input type="hidden" name="status" value="{{ sf }}">{% endif %}
+      <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Cari pemasok..." style="width:180px">
+      <button class="btn btn-sm btn-outline-secondary"><i class="fas fa-search"></i></button>
+    </form>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="/export/hutang" class="btn btn-outline-success btn-sm">
+      <i class="fas fa-file-excel me-1"></i>Export</a>
+    <span class="text-muted small" style="font-size:.78rem">
+      <i class="fas fa-info-circle me-1"></i>Hutang otomatis tercatat saat input Pengeluaran
+    </span>
+  </div>
+</div>
+
+<div class="row g-2 mb-3">
+  <div class="col-md-4">
+    <div class="card kpi pur p-3">
+      <div class="kpi-lbl">Total Hutang Aktif</div>
+      <div class="kpi-val text-rp" style="color:#7c3aed">{{ total|rp }}</div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi red p-3">
+      <div class="kpi-lbl">Lewat Jatuh Tempo</div>
+      <div class="kpi-val text-danger">
+        {{ n_overdue }} tagihan
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card kpi yel p-3">
+      <div class="kpi-lbl">Mendekati Jatuh Tempo (7 hari)</div>
+      <div class="kpi-val text-warning">
+        {{ n_duesoon }} tagihan
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Tanggal</th>
+            <th>Pemasok / Supplier</th>
+            <th>Keterangan</th>
+            <th class="text-end">Jumlah</th>
+            <th class="text-end">Terbayar</th>
+            <th class="text-end">Sisa</th>
+            <th>Jatuh Tempo</th>
+            <th>Status</th>
+            <th class="text-end pe-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row, lbl, cls in rows %}
+          <tr>
+            <td class="ps-3 text-muted">{{ row.tanggal|tgl }}</td>
+            <td class="fw-semibold">{{ row.pemasok }}</td>
+            <td class="text-muted">{{ row.keterangan or '-' }}
+              {% if row.dari_saldo_awal %}<span class="badge bg-warning text-dark ms-1" title="Hutang bawaan dari Setup Saldo Awal, bukan dari belanja"><i class="fas fa-flag-checkered me-1"></i>SALDO AWAL</span>{% endif %}
+              {% if row.tx_nomor %}<a href="/daftar-transaksi?tab=semua&amp;q={{ row.tx_nomor }}" class="badge bg-light text-dark border text-decoration-none ms-1" title="Transaksi asal">{{ row.tx_nomor }}</a>{% endif %}
+            </td>
+            <td class="text-end text-rp">{{ row.jumlah|rp }}</td>
+            <td class="text-end text-success text-rp">{{ row.terbayar|rp }}</td>
+            <td class="text-end fw-bold text-rp {% if (row.jumlah - row.terbayar) > 0 %}text-danger{% else %}text-muted{% endif %}">
+              {{ (row.jumlah - row.terbayar)|rp }}</td>
+            <td class="{% if lbl == 'LEWAT JATUH TEMPO' %}text-danger fw-bold{% endif %}">
+              {{ row.jatuh_tempo|tgl }}</td>
+            <td>
+              {% if lbl == 'LUNAS' %}<span class="badge badge-lunas">Lunas</span>
+              {% elif lbl == 'LEWAT JATUH TEMPO' %}<span class="badge badge-lewat">Lewat JT</span>
+              {% elif lbl == 'MENDEKATI JATUH TEMPO' %}<span class="badge badge-mendekati">Mendekati JT</span>
+              {% elif lbl == 'TANGGAL TIDAK VALID' %}<span class="badge bg-danger">Tanggal Tidak Valid</span>
+              {% elif row.status == 'SEBAGIAN' %}<span class="badge badge-sebagian">Sebagian</span>
+              {% else %}<span class="badge badge-belumjt">Belum Lunas</span>{% endif %}
+            </td>
+            <td class="text-end pe-3">
+              <div class="d-flex gap-1 justify-content-end">
+                {% if session.role in ('ADMIN','OPERATOR') %}
+                <a href="/hutang/{{ row.id }}/edit" class="btn btn-xs btn-outline-primary" title="Edit">
+                  <i class="fas fa-edit"></i></a>
+                {% if row.status != 'LUNAS' %}
+                <button class="btn btn-xs btn-outline-danger"
+                        onclick="bayarHutang({{ row.id }}, {{ (row.jumlah-row.terbayar)|tojson }})"
+                        title="Catat Pembayaran">
+                  <i class="fas fa-money-bill-wave"></i></button>
+                {% endif %}
+                {% endif %}
+                <a href="/hutang/{{ row.id }}/riwayat" class="btn btn-xs btn-outline-secondary" title="Riwayat">
+                  <i class="fas fa-history"></i></a>
+                {% if session.role in ('ADMIN','FINANCE') %}
+                <form method="POST" action="/hutang/{{ row.id }}/hapus" style="display:inline"
+                      onsubmit="return confirm('Hapus hutang ini?')">
+                  <button class="btn btn-xs btn-outline-danger" title="Hapus"><i class="fas fa-trash"></i></button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="text-center text-muted py-4">Tidak ada data hutang</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{{ pagination(pg) }}
+
+{% if session.role in ('ADMIN','OPERATOR') %}
+<!-- Modal Bayar -->
+<div class="modal fade" id="modalBayar" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-money-bill-wave me-2 text-danger"></i>Bayar Hutang</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="formBayar">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small">Tanggal</label>
+            <input type="date" name="tanggal" class="form-control form-control-sm"
+                   value="{{ today.strftime('%Y-%m-%d') }}" max="{{ today.strftime('%Y-%m-%d') }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Dibayar dari Akun</label>
+            <select name="akun_kas" class="form-select form-select-sm">
+              {% for ak in akun_kas %}
+              <option value="{{ ak.kode }}">{{ ak.kode }} – {{ ak.nama }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">Jumlah Pembayaran</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text">Rp</span>
+              <input type="number" name="jumlah" id="bayarJumlah" class="form-control" min="0.01" step="0.01" required>
+            </div>
+          </div>
+          <div class="mb-0">
+            <label class="form-label small">Catatan</label>
+            <input type="text" name="catatan" class="form-control form-control-sm">
+          </div>
+        </div>
+        <div class="modal-footer py-2">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-danger btn-sm">Catat Pembayaran</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+{% if session.role in ('ADMIN','OPERATOR') %}
+<script>
+function bayarHutang(id, sisa) {
+  document.getElementById('formBayar').action = '/hutang/' + id + '/bayar';
+  const jumlah = document.getElementById('bayarJumlah');
+  if (window.numFmtSet) window.numFmtSet(jumlah, sisa);
+  else jumlah.value = window.rpPlainFmt ? window.rpPlainFmt(sisa || 0) : Number(sisa || 0).toLocaleString('id-ID');
+  new bootstrap.Modal(document.getElementById('modalBayar')).show();
+}
+</script>
+{% endif %}
+{% endblock %}

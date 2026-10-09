@@ -1,0 +1,59 @@
+{# Modal petunjuk Arus Kas. Di-include di arus_kas.html; dipicu tombol [data-bs-target="#modalArusKasHelp"]. #}
+<div class="modal fade" id="modalArusKasHelp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header py-2" style="background:var(--ink);color:#fff">
+        <h6 class="modal-title"><i class="fas fa-circle-question me-2"></i>Cara Kerja Laporan Arus Kas</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body" style="font-size:.86rem;line-height:1.55">
+
+        <p class="mb-2">
+          Arus Kas menunjukkan ke mana uang tunai benar-benar mengalir selama satu periode.
+          Laporan ini disusun otomatis dari mutasi rekening kas dan bank Anda.
+        </p>
+
+        <div class="alert alert-light border d-flex gap-2 py-2 px-3 mb-3" style="font-size:.82rem">
+          <i class="fas fa-lightbulb mt-1" style="color:#f59e0b"></i>
+          <div>
+            <strong>Arus kas memakai dasar kas, beda dari Laba Rugi yang akrual.</strong>
+            Di sini cuma dihitung uang yang sungguh masuk atau keluar rekening. Penjualan kredit
+            yang belum dibayar tidak muncul di laporan ini, walaupun sudah jadi laba di Laba Rugi.
+          </div>
+        </div>
+
+        <div class="fw-bold mb-1"><i class="fas fa-sitemap me-1" style="color:var(--ink)"></i>Dibagi tiga aktivitas</div>
+        <ul class="ps-3 mb-3" style="font-size:.82rem">
+          <li class="mb-1"><strong>Operasi</strong>: uang dari jualan dan untuk biaya harian.</li>
+          <li class="mb-1"><strong>Investasi</strong>: beli atau jual aset tetap seperti kendaraan dan peralatan.</li>
+          <li><strong>Pendanaan</strong>: setor modal, ambil prive, terima atau bayar pinjaman.</li>
+        </ul>
+
+        <div class="fw-bold mb-1"><i class="fas fa-link me-1" style="color:var(--ink)"></i>Kaitan dengan laporan lain</div>
+        <p class="mb-3" style="font-size:.82rem">
+          Saldo akhir kas di laporan ini sama persis dengan total kas dan bank di Neraca pada
+          tanggal yang sama. Sementara selisih antara laba di Laba Rugi dan kas yang masuk di sini
+          biasanya tertahan di piutang, hutang, atau stok.
+        </p>
+
+        <div class="contoh-kasus mb-2">
+          <div class="ck-hd"><i class="fas fa-flask ic"></i>Contoh kasus</div>
+          <p class="mb-1">Laba Rugi bulan ini menunjukkan untung Rp2.000.000, tapi semua penjualan masih kredit dan belum dibayar.</p>
+          <ul class="ps-3 mb-1" style="font-size:.82rem">
+            <li>Arus kas dari operasi bisa malah negatif, karena belum ada uang tunai yang benar-benar masuk.</li>
+            <li>Anda tetap harus keluar uang untuk gaji dan sewa, jadi kas berkurang.</li>
+            <li>Inilah kondisi "untung di atas kertas, tapi kas menipis".</li>
+          </ul>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.8rem">
+          <i class="fas fa-circle-info me-1"></i>Karena itu usaha yang terlihat untung pun bisa kehabisan uang
+          kalau penagihan lambat. Arus Kas membantu Anda melihat masalah ini lebih awal.
+        </p>
+
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-dark" data-bs-dismiss="modal">Mengerti</button>
+      </div>
+    </div>
+  </div>
+</div>

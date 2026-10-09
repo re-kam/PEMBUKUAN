@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% block title %}Retur Penjualan - FinansialApp{% endblock %}
+{% block page_title %}Retur Penjualan{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="row justify-content-center">
+<div class="col-lg-9">
+
+{# Tab Retur MENYATU: tab utama pindah-halaman (kiri) + toggle mode Umum/Per-Produk JS (kanan) dalam 1 baris #}
+<div class="d-flex justify-content-between align-items-end flex-wrap gap-2 retur-tabbar">
+  <ul class="nav nav-tabs retur-page-tabs mb-0">
+    {% if show_feature.retur_penjualan %}
+    <li class="nav-item">
+      <a class="nav-link active" href="/retur-penjualan"><i class="fas fa-rotate-left me-1"></i>Retur Penjualan</a>
+    </li>
+    {% endif %}
+    {% if show_feature.retur_pembelian %}
+    <li class="nav-item">
+      <a class="nav-link" href="/retur-pembelian"><i class="fas fa-rotate-right me-1"></i>Retur Pembelian</a>
+    </li>
+    {% endif %}
+  </ul>
+  <ul class="nav nav-pills retur-mode-toggle mb-0" id="modeTabs">
+    <li class="nav-item">
+      <a class="nav-link active" id="tab-umum" href="#" onclick="switchMode('umum');return false"><i class="fas fa-file-invoice-dollar me-1"></i>Umum (Nominal)</a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link" id="tab-produk" href="#" onclick="switchMode('produk');return false"><i class="fas fa-boxes-stacked me-1"></i>Per Produk</a>
+    </li>
+  </ul>
+</div>
+
+<style>
+.retur-tabbar{margin-bottom:1rem}
+.retur-page-tabs{border-bottom:0}
+.retur-mode-toggle .nav-link{padding:.3rem .75rem;font-size:.8rem;border-radius:var(--r-pill)}
+.retur-mode-toggle .nav-link:not(.active){color:var(--tx2)}
+@media (max-width:575px){.retur-tabbar{align-items:stretch}.retur-mode-toggle{margin-top:.3rem}}
+.retur-journal-preview{background:var(--card-h);border:1px solid var(--bdr-md);border-radius:8px;color:var(--tx);padding:.85rem .95rem}
+.retur-journal-preview .rjp-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.55rem;color:var(--tx2);font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:0}
+.retur-journal-preview .rjp-note{color:var(--tx3);font-size:.74rem;line-height:1.45;margin-top:.55rem}
+.retur-journal-preview .rjp-row{display:grid;grid-template-columns:minmax(0,1fr) 120px 120px;gap:.65rem;align-items:center;padding:.38rem 0;border-top:1px solid var(--bdr)}
+.retur-journal-preview .rjp-row:first-of-type{border-top:0}
+.retur-journal-preview .rjp-akun{min-width:0;font-weight:650;font-size:.82rem;overflow-wrap:anywhere}
+.retur-journal-preview .rjp-amount{text-align:right;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.8rem;color:var(--tx)}
+.retur-journal-preview .rjp-empty{color:var(--tx3);font-size:.8rem;padding:.45rem 0}
+[data-theme=dark] .retur-journal-preview{background:rgba(15,23,42,.72);border-color:rgba(148,163,184,.26)}
+[data-theme=dark] .retur-journal-preview .rjp-row{border-color:rgba(148,163,184,.18)}
+@media (max-width:576px){.retur-journal-preview .rjp-row{grid-template-columns:1fr 1fr}.retur-journal-preview .rjp-akun{grid-column:1/-1}.retur-journal-preview .rjp-amount{text-align:left}}
+</style>
+
+<div class="alert alert-warning py-2 mb-3" style="font-size:.85rem">
+  <i class="fas fa-circle-info me-1"></i>
+  Retur penjualan mencatat barang/uang yang dikembalikan oleh pelanggan. Jurnalnya:
+  Debit <strong>4150 Retur Penjualan</strong> (kontra-pendapatan), Kredit Kas/Bank/Piutang.
+  Jika ada produk yang masuk balik ke stok, HPP juga ikut dibalik.
+</div>
+
+<!-- ════════════════ FORM RETUR UMUM ════════════════ -->
+<div id="form-umum">
+<div class="card">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-rotate-left text-warning"></i>
+    <span class="section-title">Retur Penjualan, Nominal</span>
+  </div>
+  <div class="card-body">
+  <form method="POST">
+    <input type="hidden" name="mode" value="umum">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
+        <input type="date" name="tanggal" class="form-control" value="{{ today }}" max="{{ today }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Sumber Pembayaran Retur <span class="text-danger">*</span></label>
+        <select name="sumber" class="form-select" onchange="toggleSumber(this, 'u')">
+          <option value="kas">Refund Tunai (Kas/Bank keluar)</option>
+          <option value="piutang">Potong Piutang (belum dibayar)</option>
+        </select>
+      </div>
+      <div class="col-md-6" id="u_kas_box">
+        <label class="form-label fw-semibold"><i class="fas fa-vault text-success me-1"></i>Rekening Kas/Bank</label>
+        <select name="akun_kas" class="form-select">
+          {% for a in akun_kas %}
+          <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Nama Pelanggan</label>
+        <input type="text" name="pelanggan" id="pelangganReturUmum" class="form-control" placeholder="Ketik / pilih pelanggan" autocomplete="off">
+        <div class="form-text">Wajib diisi jika sumber = potong piutang.</div>
+      </div>
+      <div class="col-md-6" id="u_piutang_box" style="display:none">
+        <label class="form-label fw-semibold">Piutang Sumber</label>
+        <select name="piutang_id" class="form-select">
+          <option value="">Auto cari dari nama + nominal</option>
+          {% for p in piutang_aktif %}
+          <option value="{{ p.id }}">{{ p.pelanggan }} - {{ p.keterangan or 'Piutang' }} - sisa {{ p.sisa|rp }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-text">Pilih jika ada beberapa invoice/piutang pelanggan yang mirip.</div>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Keterangan <span class="text-danger">*</span></label>
+        <input type="text" name="keterangan" class="form-control" placeholder="Mis: Retur invoice #001, produk rusak" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Nominal Retur <span class="text-danger">*</span></label>
+        <div class="input-group">
+          <span class="input-group-text">Rp</span>
+          <input type="number" name="nominal" class="form-control" min="1" step="1" required placeholder="0">
+        </div>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">HPP yang Dibalik (Opsional)</label>
+        <div class="input-group">
+          <span class="input-group-text">Rp</span>
+          <input type="number" name="hpp_balik" class="form-control" min="0" step="1" placeholder="0">
+        </div>
+        <div class="form-text">Isi jika barang fisik masuk balik ke stok. Akan: DR 1130, CR 5100.</div>
+      </div>
+      <div class="col-12">
+        <div class="retur-journal-preview" id="preview-jual-umum"></div>
+      </div>
+
+      <div class="col-12">
+        <button class="btn btn-warning" type="submit">
+          <i class="fas fa-rotate-left me-1"></i>Catat Retur Penjualan</button>
+      </div>
+    </div>
+  </form>
+  </div>
+</div>
+</div>
+
+<!-- ════════════════ FORM RETUR PER PRODUK ════════════════ -->
+<div id="form-produk" style="display:none">
+<div class="card">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="fas fa-boxes-stacked text-warning"></i>
+    <span class="section-title">Retur Penjualan, per Produk</span>
+  </div>
+  <div class="card-body">
+  <form method="POST">
+    <input type="hidden" name="mode" value="produk">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
+        <input type="date" name="tanggal" class="form-control" value="{{ today }}" max="{{ today }}" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Sumber Pembayaran Retur <span class="text-danger">*</span></label>
+        <select name="sumber" class="form-select" onchange="toggleSumber(this, 'p')">
+          <option value="kas">Refund Tunai (Kas/Bank keluar)</option>
+          <option value="piutang">Potong Piutang (belum dibayar)</option>
+        </select>
+      </div>
+      <div class="col-md-6" id="p_kas_box">
+        <label class="form-label fw-semibold"><i class="fas fa-vault text-success me-1"></i>Rekening Kas/Bank</label>
+        <select name="akun_kas" class="form-select">
+          {% for a in akun_kas %}
+          <option value="{{ a.kode }}">{{ a.kode }} - {{ a.nama }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label fw-semibold">Nama Pelanggan</label>
+        <input type="text" name="pelanggan" id="pelangganReturProduk" class="form-control" placeholder="Ketik / pilih pelanggan" autocomplete="off">
+      </div>
+      <div class="col-md-6" id="p_piutang_box" style="display:none">
+        <label class="form-label fw-semibold">Piutang Sumber</label>
+        <select name="piutang_id" class="form-select">
+          <option value="">Auto cari dari nama + nominal</option>
+          {% for p in piutang_aktif %}
+          <option value="{{ p.id }}">{{ p.pelanggan }} - {{ p.keterangan or 'Piutang' }} - sisa {{ p.sisa|rp }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label fw-semibold">Keterangan <span class="text-danger">*</span></label>
+        <input type="text" name="keterangan" class="form-control" placeholder="Mis: Retur invoice #001" required>
+      </div>
+
+      <div class="col-12">
+        <label class="form-label fw-semibold">Produk yang Diretur</label>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle table-sticky-actions mb-2" id="produk-table">
+            <thead><tr>
+              <th style="width:38%">Produk</th>
+              <th style="width:15%">Qty</th>
+              <th style="width:22%">Harga Jual</th>
+              <th style="width:20%">Subtotal</th>
+              <th></th>
+            </tr></thead>
+            <tbody id="rows-body">
+              <tr>
+                <td>
+                  <select name="produk_id[]" class="form-select form-select-sm" onchange="loadHarga(this)">
+                    <option value="">-- pilih produk --</option>
+                    {% for p in produk_list %}
+                    <option value="{{ p.id }}" data-harga="{{ p.harga_jual }}" data-hpp="{{ p.harga_beli }}">{{ p.kode }}, {{ p.nama }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><input type="number" name="qty[]" class="form-control form-control-sm" min="0.01" step="any" value="1" oninput="hitungSub(this)"></td>
+                <td>
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">Rp</span>
+                    <input type="number" name="harga_jual[]" class="form-control form-control-sm" min="0" step="1" oninput="hitungSub(this)">
+                  </div>
+                </td>
+                <td><span class="sub-display fw-semibold">Rp 0</span></td>
+                <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="hapusRow(this)"><i class="fas fa-trash"></i></button></td>
+              </tr>
+            </tbody>
+          </table>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="tambahRow()">
+            <i class="fas fa-plus me-1"></i>Tambah Produk</button>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="rounded-3 p-3" style="background:#fef3c7;border:1px solid #fde68a">
+          <div class="d-flex justify-content-between align-items-center">
+            <span class="fw-semibold text-warning-emphasis">Total Retur</span>
+            <span class="fs-5 fw-bold text-warning-emphasis" id="total-display">Rp 0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="retur-journal-preview" id="preview-jual-produk"></div>
+      </div>
+
+      <div class="col-12">
+        <button class="btn btn-warning" type="submit">
+          <i class="fas fa-rotate-left me-1"></i>Catat Retur per Produk</button>
+      </div>
+    </div>
+  </form>
+  </div>
+</div>
+</div>
+
+<script>
+const CUSTOMER_NAMES = {{ customer_names|default([])|tojson }};
+function fmtRp(n){ return window.rpAbsFmt ? window.rpAbsFmt(n) : 'Rp ' + Math.round(Math.abs(n || 0)).toLocaleString('id-ID'); }
+function readInput(el){
+  if(!el) return 0;
+  if(window.numVal) return window.numVal(el);
+  return parseFloat(String(el.value || '0').replace(/\./g,'').replace(',','.')) || 0;
+}
+function selectedText(sel, fallback){ return sel && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent.trim() : fallback; }
+function journalHtml(rows, note){
+  const active = rows.filter(r => (r.debit || 0) > 0 || (r.kredit || 0) > 0);
+  let html = '<div class="rjp-head"><span><i class="fas fa-book-open me-1"></i>Pratinjau Jurnal</span><span>Debit / Kredit</span></div>';
+  if(!active.length){
+    html += '<div class="rjp-empty">Isi nominal untuk melihat posisi jurnal otomatis.</div>';
+  } else {
+    active.forEach(r => {
+      html += '<div class="rjp-row"><div class="rjp-akun">'+r.akun+'</div><div class="rjp-amount">'+((r.debit||0)>0?fmtRp(r.debit):'-')+'</div><div class="rjp-amount">'+((r.kredit||0)>0?fmtRp(r.kredit):'-')+'</div></div>';
+    });
+    const td = active.reduce((s,r)=>s+(r.debit||0),0);
+    const tk = active.reduce((s,r)=>s+(r.kredit||0),0);
+    html += '<div class="rjp-row"><div class="rjp-akun">Total</div><div class="rjp-amount">'+fmtRp(td)+'</div><div class="rjp-amount">'+fmtRp(tk)+'</div></div>';
+  }
+  if(note) html += '<div class="rjp-note">'+note+'</div>';
+  return html;
+}
+function setPreview(id, rows, note){ const el = document.getElementById(id); if(el) el.innerHTML = journalHtml(rows, note); }
+function contraAkun(scope){
+  const sumber = scope.querySelector('select[name="sumber"]');
+  if(sumber && sumber.value === 'piutang') return '1120 - Piutang Usaha';
+  return selectedText(scope.querySelector('select[name="akun_kas"]'), '1100 - Kas');
+}
+function switchMode(m){
+  document.getElementById('form-umum').style.display   = m==='umum'?'block':'none';
+  document.getElementById('form-produk').style.display = m==='produk'?'block':'none';
+  document.getElementById('tab-umum').classList.toggle('active', m==='umum');
+  document.getElementById('tab-produk').classList.toggle('active', m==='produk');
+  updateReturPreview();
+}
+function toggleSumber(sel, prefix){
+  document.getElementById(prefix+'_kas_box').style.display = sel.value==='kas'?'block':'none';
+  const piutangBox = document.getElementById(prefix+'_piutang_box');
+  if(piutangBox) piutangBox.style.display = sel.value==='piutang'?'block':'none';
+  updateReturPreview();
+}
+function loadHarga(sel){
+  const opt = sel.options[sel.selectedIndex];
+  const harga = opt ? (opt.dataset.harga || 0) : 0;
+  const row = sel.closest('tr');
+  const input = row.querySelector('input[name="harga_jual[]"]');
+  if(window.numFmtSet) window.numFmtSet(input, harga); else input.value = harga;
+  hitungSub(sel);
+}
+function hitungSub(el){
+  const row = el.closest('tr');
+  const qty  = readInput(row.querySelector('input[name="qty[]"]'));
+  const harga= readInput(row.querySelector('input[name="harga_jual[]"]'));
+  const sub  = qty*harga;
+  row.querySelector('.sub-display').textContent = fmtRp(sub);
+  hitungTotal();
+}
+function productTotals(){
+  let total = 0, hpp = 0;
+  document.querySelectorAll('#rows-body tr').forEach(tr=>{
+    const q = readInput(tr.querySelector('input[name="qty[]"]'));
+    const h = readInput(tr.querySelector('input[name="harga_jual[]"]'));
+    const sel = tr.querySelector('select[name="produk_id[]"]');
+    const opt = sel && sel.options[sel.selectedIndex];
+    const hppUnit = opt ? (parseFloat(opt.dataset.hpp || '0') || 0) : 0;
+    total += q*h;
+    hpp += q*hppUnit;
+  });
+  return {total, hpp};
+}
+function hitungTotal(){
+  const totals = productTotals();
+  document.getElementById('total-display').textContent = fmtRp(totals.total);
+  updateReturJualProduk();
+}
+function updateReturJualUmum(){
+  const scope = document.getElementById('form-umum');
+  const nominal = readInput(scope.querySelector('input[name="nominal"]'));
+  const hpp = readInput(scope.querySelector('input[name="hpp_balik"]'));
+  const rows = [
+    {akun:'4150 - Retur Penjualan', debit:nominal, kredit:0},
+    {akun:contraAkun(scope), debit:0, kredit:nominal},
+    {akun:'1130 - Persediaan Barang', debit:hpp, kredit:0},
+    {akun:'5100 - Harga Pokok Penjualan', debit:0, kredit:hpp}
+  ];
+  setPreview('preview-jual-umum', rows, 'Retur penjualan mengurangi pendapatan. Jika HPP dibalik, persediaan naik dan HPP turun.');
+}
+function updateReturJualProduk(){
+  const scope = document.getElementById('form-produk');
+  const totals = productTotals();
+  const rows = [
+    {akun:'4150 - Retur Penjualan', debit:totals.total, kredit:0},
+    {akun:contraAkun(scope), debit:0, kredit:totals.total},
+    {akun:'1130 - Persediaan Barang', debit:totals.hpp, kredit:0},
+    {akun:'5100 - Harga Pokok Penjualan', debit:0, kredit:totals.hpp}
+  ];
+  setPreview('preview-jual-produk', rows, 'Mode per produk juga memasukkan stok kembali dan membalik HPP berdasarkan HPP produk saat ini.');
+}
+function updateReturPreview(){ updateReturJualUmum(); updateReturJualProduk(); }
+function tambahRow(){
+  const body = document.getElementById('rows-body');
+  const first = body.querySelector('tr');
+  const clone = first.cloneNode(true);
+  clone.querySelectorAll('input').forEach(i=>{i.value=i.name==='qty[]'?'1':'';});
+  clone.querySelector('select').value='';
+  clone.querySelector('.sub-display').textContent='Rp 0';
+  body.appendChild(clone);
+  if(window.numFmtInitAll) window.numFmtInitAll();
+  hitungTotal();
+}
+function hapusRow(btn){
+  const body = document.getElementById('rows-body');
+  const tr = btn.closest('tr');
+  if(body.querySelectorAll('tr').length<=1){
+    // Baris terakhir → kosongkan isinya (bukan diam saja) supaya tombol X selalu berfungsi.
+    tr.querySelectorAll('input').forEach(i=>{ i.value = (i.name==='qty[]' ? '1' : ''); });
+    const sel = tr.querySelector('select'); if(sel) sel.value='';
+    const sd = tr.querySelector('.sub-display'); if(sd) sd.textContent='Rp 0';
+    if(window.numFmtInitAll) window.numFmtInitAll();
+  } else {
+    tr.remove();
+  }
+  hitungTotal();
+}
+document.addEventListener('DOMContentLoaded', function(){
+  ['pelangganReturUmum','pelangganReturProduk'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el && window.initNamaCombo) window.initNamaCombo(el, CUSTOMER_NAMES);
+  });
+  document.querySelectorAll('#form-umum input,#form-umum select,#form-produk input,#form-produk select').forEach(el=>{
+    el.addEventListener('input', updateReturPreview);
+    el.addEventListener('change', updateReturPreview);
+  });
+  updateReturPreview();
+});
+</script>
+
+</div>
+</div>
+{{ pagination(pg) }}
+{% endblock %}

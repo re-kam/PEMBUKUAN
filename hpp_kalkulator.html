@@ -1,0 +1,538 @@
+{% extends "base.html" %}
+{% block title %}Master HPP - FinansialApp{% endblock %}
+{% block page_title %}Master HPP <small>Harga Pokok Produksi</small>{% endblock %}
+
+{% block content %}
+<style>
+/* Layout */
+.hpp-wrap{display:flex;gap:1rem;align-items:flex-start}
+.hpp-sidebar{width:230px;flex-shrink:0}
+.hpp-main{flex:1;min-width:0}
+
+/* Sidebar produk */
+.prod-item{display:flex;align-items:center;gap:.5rem;padding:.55rem .75rem;border-radius:8px;cursor:pointer;transition:background .15s;border:1px solid transparent}
+.prod-item:hover{background:var(--card-h)}
+.prod-item.active{background:var(--pg);border-color:var(--pgb)}
+.prod-item .prod-nama{font-size:.82rem;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prod-item .prod-meta{font-size:.67rem;color:var(--tx3);margin-top:.1rem}
+.prod-item .prod-del{flex-shrink:0;opacity:0;transition:opacity .15s;color:#ef4444;cursor:pointer;font-size:.75rem;padding:2px 4px;border-radius:4px}
+.prod-item:hover .prod-del{opacity:1}
+
+/* Table */
+/* Lebar minimum tabel dijaga: kalau layar sempit tabel DIGESER mendatar (scroll),
+   kolom isian TIDAK digencet sampai tulisan terpotong batas form. */
+.hpp-table{min-width:1495px}
+.hpp-table th{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;padding:.45rem .55rem;vertical-align:middle;color:var(--tx3)}
+.hpp-table td{padding:.28rem .45rem;vertical-align:middle}
+.hpp-table .form-control-sm{font-size:.82rem;padding:.3rem .5rem;border-radius:5px;min-width:0}
+.hpp-table input[type="number"]{text-align:right}
+.col-auto{color:var(--pgp);font-weight:700;font-size:.8rem;white-space:nowrap}
+.col-auto-dim{color:var(--tx3);font-size:.73rem}
+
+/* Summary boxes */
+.summary-box{border-radius:10px;padding:.8rem 1rem;text-align:center;flex:1}
+.summary-box .lbl{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem}
+.summary-box .val{font-size:1.2rem;font-weight:800}
+
+/* Unsaved badge */
+#unsavedBadge{display:none;font-size:.65rem;background:#c2410c;color:#fff;border-radius:4px;padding:1px 6px;font-weight:700;vertical-align:middle;margin-left:.4rem}
+
+@media print{
+  .sidebar,.topbar,.no-print{display:none!important}
+  .main{margin-left:0!important}
+  .hpp-sidebar{display:none!important}
+  .hpp-wrap{display:block}
+  .card{box-shadow:none!important;border:1px solid #e2e8f0!important}
+  .hpp-table{min-width:0!important}
+  .hpp-table .form-control-sm{border:none!important;background:transparent!important;padding:0!important}
+  .btn{display:none!important}
+}
+
+/* ── Mobile / tablet: layout dibikin numpuk biar kalkulator tidak gepeng,
+   dan tombol gampang dijangkau jari ── */
+@media (max-width:991.98px){
+  .hpp-wrap{flex-direction:column;gap:.75rem}
+  .hpp-main{order:1;width:100%}
+  .hpp-sidebar{order:2;width:100%}               /* daftar produk tersimpan pindah ke bawah kalkulator */
+  .hpp-sidebar .card-body{max-height:240px;overflow-y:auto}
+  .prod-item .prod-del{opacity:1}                /* tombol hapus selalu tampil (HP tidak punya hover) */
+}
+@media (max-width:575.98px){
+  .summary-box{min-width:140px}                  /* kotak ringkasan boleh turun baris, tidak gepeng */
+  .summary-box .val{font-size:1.05rem}
+  /* tombol toolbar (Cetak/Reset/Simpan) jadi lebih lebar & enak dipencet */
+  .hpp-toolbar>.d-flex{width:100%}
+  .hpp-toolbar .btn{flex:1;padding-top:.4rem;padding-bottom:.4rem}
+  /* kolom isian tetap cukup lebar terbaca; tabel digeser mendatar (angka tak terpotong batas form) */
+  .hpp-table .form-control-sm{min-width:6.4rem}
+  .hpp-table .f-frekuensi,.hpp-table .f-takaran{min-width:5rem}
+}
+</style>
+
+<div class="hpp-wrap">
+
+  <!-- ── SIDEBAR ── -->
+  <div class="hpp-sidebar no-print">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between py-2 px-3">
+        <span class="section-title" style="font-size:.82rem">
+          <i class="fas fa-layer-group me-1" style="color:#15803d"></i>Produk Tersimpan</span>
+        <button onclick="newProduk()" class="btn btn-success btn-xs py-0 px-2" style="font-size:.72rem" title="Produk baru">
+          <i class="fas fa-plus"></i></button>
+      </div>
+      <div class="card-body p-2" id="sidebarList">
+        {% if produk_list %}
+          {% for p in produk_list %}
+          <div class="prod-item" id="pi-{{ p.id }}" onclick="loadProduk({{ p.id }})" data-id="{{ p.id }}">
+            <div style="flex:1;min-width:0">
+              <div class="prod-nama">{{ p.nama }}</div>
+              <div class="prod-meta">{{ p.jenis|replace('_',' ') }} · Jual {{ p.harga_jual|rp }} · HPP {{ p.total_hpp|rp }}</div>
+            </div>
+            <span class="prod-del" onclick="event.stopPropagation();deleteProduk({{ p.id }},this)" title="Hapus">
+              <i class="fas fa-times"></i></span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div id="emptyMsg" class="text-center py-3 text-muted" style="font-size:.78rem">
+            <i class="fas fa-inbox d-block mb-1" style="font-size:1.2rem;opacity:.3"></i>Belum ada produk
+          </div>
+        {% endif %}
+      </div>
+      <div class="card-footer p-2">
+        <button onclick="newProduk()" class="btn btn-outline-success btn-sm w-100" style="font-size:.78rem">
+          <i class="fas fa-plus me-1"></i>Produk Baru</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN CALCULATOR ── -->
+  <div class="hpp-main">
+
+    <!-- Toolbar -->
+    <div class="hpp-toolbar d-flex justify-content-between align-items-center mb-3 no-print flex-wrap gap-2">
+      <p class="text-muted mb-0" style="font-size:.82rem;max-width:560px">
+        Hitung HPP produk non-SKU, jasa, paket, atau menu FNB. Kolom <span style="color:var(--pgp);font-weight:700">hijau</span> otomatis dihitung.
+        <span id="unsavedBadge">● Belum tersimpan</span>
+      </p>
+      <div class="d-flex gap-2">
+        <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-print me-1"></i>Cetak</button>
+        <button onclick="resetKalkulator()" class="btn btn-outline-danger btn-sm">
+          <i class="fas fa-rotate-left me-1"></i>Reset</button>
+        <button onclick="simpanProduk()" class="btn btn-primary btn-sm" id="btnSimpan">
+          <i class="fas fa-save me-1"></i>Simpan</button>
+      </div>
+    </div>
+
+    <!-- Info Produk + Summary -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <span class="section-title"><i class="fas fa-tag me-2" style="color:#15803d"></i>Info Produk</span>
+      </div>
+      <div class="card-body pb-3">
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label small fw-semibold mb-1">Nama Menu / Produk</label>
+            <input type="text" id="namaMenu" class="form-control" placeholder="contoh: Americano"
+                   oninput="markUnsaved()">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-semibold mb-1">Jenis</label>
+            <select id="jenisProduk" class="form-select" onchange="markUnsaved()">
+              <option value="FNB_MENU">FNB / Menu</option>
+              <option value="JASA">Jasa</option>
+              <option value="PAKET">Paket</option>
+              <option value="NON_SKU">Non-SKU</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-semibold mb-1">Satuan Jual</label>
+            <input type="text" id="satuanProduk" class="form-control" value="porsi"
+                   placeholder="porsi / jam / paket" oninput="markUnsaved()">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label small fw-semibold mb-1">Harga Jual (Rp)</label>
+            <input type="number" id="hargaJual" class="form-control text-end" placeholder="0"
+                   min="0" step="500" oninput="hitungSemua();markUnsaved()">
+          </div>
+          <div class="col-md-5">
+            <div class="d-flex gap-2 flex-wrap">
+              <div class="summary-box" style="background:var(--pg);border:1px solid var(--pgb)">
+                <div class="lbl" style="color:var(--pgt)">Total HPP</div>
+                <div class="val text-rp" id="sumHPP" style="color:var(--pgt)">Rp0</div>
+                <div style="font-size:.66rem;color:var(--pgp);margin-top:.1rem" id="sumHPPpct">dari harga jual</div>
+              </div>
+              <div class="summary-box" style="background:var(--csbg);border:1px solid var(--pbb)">
+                <div class="lbl" style="color:var(--csl)">Keuntungan / Produk</div>
+                <div class="val text-rp" id="sumUntung" style="color:var(--csv)">Rp0</div>
+                <div style="font-size:.66rem;color:var(--tx3);margin-top:.1rem">Harga jual − Total HPP</div>
+              </div>
+              <div class="summary-box" style="background:var(--pp);border:1px solid var(--ppb)">
+                <div class="lbl" style="color:var(--ppt)">Gross Profit Margin</div>
+                <div class="val" id="sumGPM" style="color:var(--ppt)">-</div>
+                <div style="font-size:.66rem;color:var(--tx3);margin-top:.1rem">Keuntungan ÷ Harga jual</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabel Bahan -->
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span class="section-title">
+          <i class="fas fa-list-ul me-2" style="color:#15803d"></i>Daftar Bahan
+        </span>
+        <button onclick="tambahBaris()" class="btn btn-success btn-sm no-print">
+          <i class="fas fa-plus me-1"></i>Tambah Bahan</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm hpp-table mb-0" id="tblBahan">
+            <colgroup>
+              <col style="width:30px">
+              <col style="width:220px">
+              <col style="width:140px">
+              <col style="width:110px">
+              <col style="width:125px">
+              <col style="width:110px">
+              <col style="width:125px">
+              <col style="width:112px">
+              <col style="width:125px">
+              <col style="width:220px">
+              <col style="width:135px">
+              <col style="width:34px">
+            </colgroup>
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">#</th>
+                <th>Rincian</th>
+                <th class="text-end">Harga pembelian</th>
+                <th>Satuan beli</th>
+                <th class="text-end">Frekuensi pakai</th>
+                <th>Satuan pakai</th>
+                <th class="text-end">Takaran / produksi</th>
+                <th class="text-end" style="color:var(--pgp)">
+                  <i class="fas fa-lock fa-xs me-1 col-auto-dim"></i>Harga per takar</th>
+                <th class="text-end" style="color:var(--pgp)">
+                  <i class="fas fa-lock fa-xs me-1 col-auto-dim"></i>HPP / produksi</th>
+                <th>Vendor</th>
+                <th>Domisili</th>
+                <th class="no-print"></th>
+              </tr>
+            </thead>
+            <tbody id="bodyBahan"></tbody>
+            <tfoot>
+              <tr>
+                <td colspan="7" class="text-end pe-3" style="font-size:.78rem;font-weight:700;color:var(--tx2)">Total HPP</td>
+                <td class="text-end pe-2">
+                  <span id="footHargaTakar" class="col-auto-dim" style="font-size:.7rem"></span>
+                </td>
+                <td class="text-end pe-2">
+                  <span id="footTotalHPP" class="col-auto text-rp">Rp0</span>
+                </td>
+                <td colspan="3"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rumus hint -->
+    <div class="mt-3 px-1 no-print">
+      <div class="d-flex gap-3 flex-wrap" style="font-size:.72rem;color:var(--tx3)">
+        <span><i class="fas fa-circle-info me-1" style="color:#15803d"></i>
+          <b>Harga per takar</b> = Harga pembelian ÷ Frekuensi pemakaian</span>
+        <span><i class="fas fa-circle-info me-1" style="color:#15803d"></i>
+          <b>HPP / produksi</b> = Harga per takar × Takaran per produksi</span>
+        <span><i class="fas fa-circle-info me-1" style="color:#7c3aed"></i>
+          <b>GPM</b> = (Harga jual − Total HPP) ÷ Harga jual × 100%</span>
+      </div>
+    </div>
+
+  </div><!-- /.hpp-main -->
+</div><!-- /.hpp-wrap -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let rowCount  = 0;
+let currentId = null;   // ID produk aktif (null = baru)
+let unsaved   = false;
+
+function fmtRp(v){
+  // Format kompak "Rp50.000" (tanpa spasi). Panggil global helper dari base.html.
+  var n = Number(v || 0);
+  if(!isFinite(n)) n = 0;
+  if(window.rpFmt && window.rpFmt !== fmtRp){
+    return window.rpFmt(n).replace('Rp ', 'Rp');
+  }
+  return 'Rp' + Math.round(n).toLocaleString('id-ID');
+}
+function rv(el){
+  return window.numVal ? window.numVal(el)
+    : (parseFloat((el.value||'').replace(/\./g,'').replace(',','.')) || 0);
+}
+
+/* ── Unsaved marker ── */
+function markUnsaved(){
+  unsaved = true;
+  document.getElementById('unsavedBadge').style.display = 'inline';
+}
+function clearUnsaved(){
+  unsaved = false;
+  document.getElementById('unsavedBadge').style.display = 'none';
+}
+
+/* ── Sidebar active highlight ── */
+function setActive(id){
+  document.querySelectorAll('.prod-item').forEach(el => el.classList.remove('active'));
+  if(id){
+    const el = document.getElementById('pi-' + id);
+    if(el) el.classList.add('active');
+  }
+}
+
+/* ── Add row ── */
+function tambahBaris(data){
+  data = data || {};
+  rowCount++;
+  const id = 'row-' + rowCount;
+  const tbody = document.getElementById('bodyBahan');
+  const tr = document.createElement('tr');
+  tr.id = id;
+  tr.innerHTML = `
+    <td class="ps-3 text-muted" style="font-size:.76rem">${rowCount}</td>
+    <td><input type="text" class="form-control form-control-sm f-bahan"
+        placeholder="nama bahan..." value="${esc(data.bahan||'')}" oninput="markUnsaved()"></td>
+    <td><input type="number" class="form-control form-control-sm f-harga"
+        min="0" step="100" placeholder="0" value="${data.harga||''}"
+        oninput="hitungBaris(this);markUnsaved()"></td>
+    <td><input type="text" class="form-control form-control-sm f-satbeli"
+        placeholder="pcs / kg / liter" value="${esc(data.satbeli||'')}" oninput="markUnsaved()"></td>
+    <td><input type="number" class="form-control form-control-sm f-frekuensi"
+        min="0" step="0.001" placeholder="0" value="${data.frekuensi||''}"
+        oninput="hitungBaris(this);markUnsaved()"></td>
+    <td><input type="text" class="form-control form-control-sm f-satpakai"
+        placeholder="sdt / ml / pcs" value="${esc(data.satpakai||'')}" oninput="markUnsaved()"></td>
+    <td><input type="number" class="form-control form-control-sm f-takaran"
+        min="0" step="0.001" placeholder="0" value="${data.takaran||''}"
+        oninput="hitungBaris(this);markUnsaved()"></td>
+    <td class="text-end pe-2"><span class="col-auto r-takar">Rp0</span></td>
+    <td class="text-end pe-2"><span class="col-auto r-hpp">Rp0</span></td>
+    <td><input type="text" class="form-control form-control-sm f-vendor"
+        placeholder="nama / no. hp..." value="${esc(data.vendor||'')}" oninput="markUnsaved()"></td>
+    <td><input type="text" class="form-control form-control-sm f-domisili"
+        placeholder="kota..." value="${esc(data.domisili||'')}" oninput="markUnsaved()"></td>
+    <td class="text-center no-print">
+      <button class="btn btn-xs btn-outline-danger px-1 py-0"
+              onclick="hapusBaris('${id}')" title="Hapus">
+        <i class="fas fa-times" style="font-size:.68rem"></i></button>
+    </td>`;
+  tbody.appendChild(tr);
+  if(window.numFmtInitAll) window.numFmtInitAll();
+  if(data.harga || data.frekuensi || data.takaran) hitungBaris(tr.querySelector('.f-harga'));
+  hitungSemua();
+  return tr;
+}
+
+function esc(s){ return String(s).replace(/"/g,'&quot;'); }
+
+function hapusBaris(id){
+  const el = document.getElementById(id);
+  if(el){ el.remove(); markUnsaved(); }
+  renumber(); hitungSemua();
+}
+
+function renumber(){
+  document.querySelectorAll('#bodyBahan tr').forEach((tr, i) => {
+    tr.querySelector('td:first-child').textContent = i + 1;
+  });
+}
+
+function hitungBaris(el){
+  const tr = el.closest('tr');
+  const harga     = rv(tr.querySelector('.f-harga'));
+  const frekuensi = rv(tr.querySelector('.f-frekuensi'));
+  const takaran   = rv(tr.querySelector('.f-takaran'));
+  const hargaTakar = frekuensi > 0 ? harga / frekuensi : 0;
+  const hpp        = hargaTakar * takaran;
+  tr.querySelector('.r-takar').textContent = fmtRp(hargaTakar);
+  tr.querySelector('.r-hpp').textContent   = fmtRp(hpp);
+  const zero = hpp === 0;
+  tr.querySelector('.r-takar').style.opacity = zero ? '.3' : '1';
+  tr.querySelector('.r-hpp').style.opacity   = zero ? '.3' : '1';
+  hitungSemua();
+}
+
+function hitungSemua(){
+  let totalHPP = 0;
+  document.querySelectorAll('#bodyBahan tr').forEach(tr => {
+    const harga     = rv(tr.querySelector('.f-harga'));
+    const frekuensi = rv(tr.querySelector('.f-frekuensi'));
+    const takaran   = rv(tr.querySelector('.f-takaran'));
+    if(frekuensi > 0) totalHPP += (harga / frekuensi) * takaran;
+  });
+  const hargaJual  = rv(document.getElementById('hargaJual'));
+  const keuntungan = hargaJual - totalHPP;
+  const gpm        = hargaJual > 0 ? (keuntungan / hargaJual * 100) : null;
+  const hppPct     = hargaJual > 0
+    ? (totalHPP / hargaJual * 100).toFixed(1) + '% dari harga jual'
+    : 'dari harga jual';
+
+  document.getElementById('sumHPP').textContent       = fmtRp(totalHPP);
+  document.getElementById('sumHPPpct').textContent    = hppPct;
+  document.getElementById('sumUntung').textContent    = fmtRp(keuntungan);
+  document.getElementById('footTotalHPP').textContent = fmtRp(totalHPP);
+  document.getElementById('sumUntung').style.color    = keuntungan >= 0 ? '' : '#dc2626';
+
+  const gpmEl = document.getElementById('sumGPM');
+  if(gpm !== null){
+    gpmEl.textContent = gpm.toFixed(2) + '%';
+    gpmEl.style.color = gpm >= 30 ? '' : gpm >= 0 ? '#d97706' : '#dc2626';
+  } else { gpmEl.textContent = '-'; gpmEl.style.color = ''; }
+}
+
+/* ── Load produk dari server ── */
+function loadProduk(id){
+  if(unsaved && !confirm('Ada perubahan belum disimpan. Lanjut?')) return;
+  fetch('/api/hpp-produk/' + id)
+    .then(r => r.json())
+    .then(p => {
+      currentId = p.id;
+      document.getElementById('namaMenu').value  = p.nama;
+      document.getElementById('jenisProduk').value = p.jenis || 'FNB_MENU';
+      document.getElementById('satuanProduk').value = p.satuan || 'porsi';
+      window.numFmtSet(document.getElementById('hargaJual'), p.harga_jual || '');
+      document.getElementById('bodyBahan').innerHTML = '';
+      rowCount = 0;
+      (p.bahan || []).forEach(b => tambahBaris(b));
+      while(rowCount < 3) tambahBaris();
+      hitungSemua();
+      setActive(id);
+      clearUnsaved();
+    });
+}
+
+/* ── Produk baru (kosongkan kalkulator) ── */
+function newProduk(){
+  if(unsaved && !confirm('Ada perubahan belum disimpan. Lanjut?')) return;
+  currentId = null;
+  document.getElementById('namaMenu').value  = '';
+  document.getElementById('jenisProduk').value = 'FNB_MENU';
+  document.getElementById('satuanProduk').value = 'porsi';
+  document.getElementById('hargaJual').value = '';
+  document.getElementById('bodyBahan').innerHTML = '';
+  rowCount = 0;
+  for(let i = 0; i < 5; i++) tambahBaris();
+  hitungSemua();
+  setActive(null);
+  clearUnsaved();
+  document.getElementById('namaMenu').focus();
+}
+
+/* ── Simpan ke server ── */
+function simpanProduk(){
+  const nama = document.getElementById('namaMenu').value.trim();
+  if(!nama){
+    alert('Isi nama produk terlebih dahulu.');
+    document.getElementById('namaMenu').focus();
+    return;
+  }
+  const harga_jual = rv(document.getElementById('hargaJual'));
+  const jenis = document.getElementById('jenisProduk').value;
+  const satuan = document.getElementById('satuanProduk').value.trim() || 'porsi';
+  const bahan = [];
+  document.querySelectorAll('#bodyBahan tr').forEach(tr => {
+    const b = tr.querySelector('.f-bahan').value.trim();
+    const h = rv(tr.querySelector('.f-harga'));
+    const f = rv(tr.querySelector('.f-frekuensi'));
+    const t = rv(tr.querySelector('.f-takaran'));
+    if(b || h || f || t){
+      bahan.push({
+        bahan:     b,
+        tipe:      'BAHAN',
+        harga:     h,
+        satbeli:   tr.querySelector('.f-satbeli').value,
+        frekuensi: f,
+        satpakai:  tr.querySelector('.f-satpakai').value,
+        takaran:   t,
+        vendor:    tr.querySelector('.f-vendor').value,
+        domisili:  tr.querySelector('.f-domisili').value,
+      });
+    }
+  });
+
+  const url    = currentId ? '/api/hpp-produk/' + currentId : '/api/hpp-produk';
+  const method = currentId ? 'PUT' : 'POST';
+
+  fetch(url, {
+    method,
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ nama, jenis, satuan, harga_jual, bahan })
+  })
+    .then(r => r.json())
+    .then(res => {
+      if(res.error){ alert(res.error); return; }
+      currentId = res.id;
+      clearUnsaved();
+      refreshSidebar();
+    });
+}
+
+/* ── Hapus produk ── */
+function deleteProduk(id, btnEl){
+  const nama = btnEl.closest('.prod-item').querySelector('.prod-nama').textContent;
+  if(!confirm('Hapus produk "' + nama + '"?')) return;
+  fetch('/api/hpp-produk/' + id, { method: 'DELETE' })
+    .then(r => r.json())
+    .then(() => {
+      const el = document.getElementById('pi-' + id);
+      if(el) el.remove();
+      if(currentId === id){ currentId = null; clearUnsaved(); }
+      checkEmpty();
+    });
+}
+
+/* ── Refresh sidebar list via API ── */
+function refreshSidebar(){
+  fetch('/api/hpp-produk')
+    .then(r => r.json())
+    .then(list => {
+      const container = document.getElementById('sidebarList');
+      if(!list.length){
+        container.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:.78rem"><i class="fas fa-inbox d-block mb-1" style="font-size:1.2rem;opacity:.3"></i>Belum ada produk</div>';
+        return;
+      }
+      container.innerHTML = list.map(p => `
+        <div class="prod-item${currentId===p.id?' active':''}" id="pi-${p.id}"
+             onclick="loadProduk(${p.id})" data-id="${p.id}">
+          <div style="flex:1;min-width:0">
+            <div class="prod-nama">${p.nama}</div>
+            <div class="prod-meta">${String(p.jenis||'FNB_MENU').replace('_',' ')} · Jual ${fmtRp(p.harga_jual)} · HPP ${fmtRp(p.total_hpp)}</div>
+          </div>
+          <span class="prod-del" onclick="event.stopPropagation();deleteProduk(${p.id},this)" title="Hapus">
+            <i class="fas fa-times"></i></span>
+        </div>`).join('');
+    });
+}
+
+function checkEmpty(){
+  const c = document.getElementById('sidebarList');
+  if(!c.querySelector('.prod-item'))
+    c.innerHTML = '<div class="text-center py-3 text-muted" style="font-size:.78rem"><i class="fas fa-inbox d-block mb-1" style="font-size:1.2rem;opacity:.3"></i>Belum ada produk</div>';
+}
+
+function resetKalkulator(){
+  if(!confirm('Reset semua data kalkulator?')) return;
+  newProduk();
+}
+
+/* ── Init: 5 baris kosong ── */
+for(let i = 0; i < 5; i++) tambahBaris();
+document.addEventListener('DOMContentLoaded', function(){ hitungSemua(); });
+</script>
+{% endblock %}
