@@ -1,0 +1,19 @@
+{
+  "name": "pembukuan",
+  "version": "1.0.0",
+  "description": "Sistem Akuntansi, Pembukuan, dan Manajemen Keuangan Terpadu",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'No build step required'"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "ejs": "^7.0.1",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "nunjucks": "^3.2.4"
+  }
+}

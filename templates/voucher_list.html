@@ -1,0 +1,480 @@
+{% extends "base.html" %}
+{% block title %}Voucher Diskon - FinansialApp{% endblock %}
+{% block page_title %}<i class="fas fa-ticket me-2" style="color:#7c3aed"></i>Voucher Diskon POS{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<style>
+.vch-picker{position:relative}
+.vch-results{position:absolute;z-index:30;left:0;right:0;top:100%;max-height:220px;overflow:auto;background:var(--card,#fff);border:1px solid var(--bdr-md,#ddd);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12)}
+.vch-opt{display:block;width:100%;text-align:left;border:0;background:transparent;padding:.35rem .6rem;font-size:.78rem;cursor:pointer;border-bottom:1px solid rgba(0,0,0,.05)}
+.vch-opt:hover{background:rgba(124,58,237,.1)}
+.vch-kode{color:#7c3aed;font-size:.7rem;font-weight:700}
+.vch-chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.4rem}
+.vch-chip{display:inline-flex;align-items:center;gap:.3rem;background:rgba(124,58,237,.12);color:#5b21b6;border-radius:999px;padding:.15rem .5rem;font-size:.72rem;font-weight:600}
+.vch-chip.cust{background:rgba(5,150,105,.12);color:#065f46}
+.vch-x{border:0;background:transparent;color:inherit;cursor:pointer;font-size:.85rem;line-height:1;padding:0}
+[data-theme="dark"] .vch-results{background:#1f2430;border-color:rgba(255,255,255,.12)}
+</style>
+
+{% macro scope_fields(pfx, kategori_produk) %}
+  <div class="col-12">
+    <button type="button" class="btn btn-sm btn-outline-secondary w-100 d-flex justify-content-between align-items-center"
+            data-bs-toggle="collapse" data-bs-target="#{{pfx}}_adv" aria-expanded="false">
+      <span><i class="fas fa-sliders me-1"></i>Syarat Lanjutan (opsional)</span>
+      <i class="fas fa-chevron-down" style="font-size:.7rem"></i>
+    </button>
+    <div class="form-text" style="font-size:.66rem">Basis diskon (nota / kategori / item), minimal qty, &amp; batasan customer. Boleh dilewati — voucher tetap jalan.</div>
+  </div>
+  <div class="collapse col-12" id="{{pfx}}_adv">
+    <div class="row g-2 pt-1">
+      <div class="col-12">
+        <label class="form-label small fw-semibold">Basis Diskon</label>
+        <select name="scope" id="{{pfx}}_scope" class="form-select form-select-sm" onchange="vchToggleScope('{{pfx}}')">
+          <option value="NOTA">Seluruh Nota (potongan dari total belanja)</option>
+          <option value="KATEGORI">Kategori Tertentu (potongan dari subtotal kategori)</option>
+          <option value="PRODUK">Item/Produk Tertentu (potongan dari produk terpilih)</option>
+        </select>
+      </div>
+      <div class="col-12" id="{{pfx}}_katWrap" style="display:none">
+        <label class="form-label small fw-semibold">Kategori <span class="text-danger">*</span>
+          <span class="text-muted fw-normal" style="font-size:.66rem">(centang satu atau lebih)</span></label>
+        <div id="{{pfx}}_katBox" class="border rounded p-2" style="max-height:150px;overflow:auto;background:#fff">
+          {% for c in kategori_produk %}
+          <div class="form-check">
+            <input class="form-check-input vch-kat" type="checkbox" name="syarat_kategori" value="{{ c }}" id="{{pfx}}_kat_{{ loop.index }}">
+            <label class="form-check-label small" for="{{pfx}}_kat_{{ loop.index }}">{{ c }}</label>
+          </div>
+          {% else %}<div class="text-muted small">Belum ada kategori produk.</div>{% endfor %}
+        </div>
+        <div class="form-text" style="font-size:.66rem">Min. belanja/qty &amp; potongan dihitung dari produk di SEMUA kategori yang dicentang.</div>
+      </div>
+      <div class="col-12" id="{{pfx}}_prodWrap" style="display:none">
+        <label class="form-label small fw-semibold">Item/Produk yang Didiskon <span class="text-danger">*</span></label>
+        <div class="vch-picker">
+          <input type="text" id="{{pfx}}_prodSearch" class="form-control form-control-sm" autocomplete="off"
+                 placeholder="Cari produk (nama / kode)…" oninput="vchProdSearch('{{pfx}}')" onfocus="vchProdSearch('{{pfx}}')">
+          <div id="{{pfx}}_prodResults" class="vch-results" style="display:none"></div>
+        </div>
+        <div id="{{pfx}}_prodChips" class="vch-chips"></div>
+        <div class="form-text" style="font-size:.66rem">Min. belanja/qty &amp; potongan dihitung HANYA dari produk ini.</div>
+      </div>
+      <div class="col-12" id="{{pfx}}_modeWrap" style="display:none">
+        <label class="form-label small fw-semibold">Cara Potong</label>
+        <div class="d-flex flex-column gap-1" style="font-size:.8rem">
+          <label class="form-check-label"><input class="form-check-input me-1" type="radio" name="potongan_mode" value="TOTAL" id="{{pfx}}_modeTotal" checked>Total subset (potongan dihitung sekali dari gabungan subtotal)</label>
+          <label class="form-check-label"><input class="form-check-input me-1" type="radio" name="potongan_mode" value="PER_PRODUK" id="{{pfx}}_modePer">Per produk (nilai dikali jumlah unit yang dibeli)</label>
+        </div>
+        <div class="form-text" style="font-size:.66rem">Nominal "per produk": Rp nilai &times; jumlah unit di subset. Persen: total sama, tapi batas Maks Potongan berlaku per unit.</div>
+      </div>
+      <div class="col-12">
+        <label class="form-label small fw-semibold">Minimal Qty <span class="text-muted">(opsional)</span></label>
+        <input type="number" name="min_qty" id="{{pfx}}_minqty" class="form-control form-control-sm" min="0" step="1" value="0">
+        <div class="form-text" style="font-size:.66rem">Jumlah unit minimal pada basis di atas (0 = tanpa syarat qty). Syarat berdasarkan NILAI pakai "Min. Belanja".</div>
+      </div>
+      <div class="col-12">
+        <label class="form-label small fw-semibold">Berlaku untuk Customer</label>
+        <div class="d-flex gap-3 mb-1" style="font-size:.8rem">
+          <label class="form-check-label"><input class="form-check-input me-1" type="radio" name="{{pfx}}_custmode" value="all" id="{{pfx}}_custAll" checked onchange="vchToggleCustMode('{{pfx}}')">Semua</label>
+          <label class="form-check-label"><input class="form-check-input me-1" type="radio" name="{{pfx}}_custmode" value="some" id="{{pfx}}_custSome" onchange="vchToggleCustMode('{{pfx}}')">Customer tertentu</label>
+        </div>
+        <div id="{{pfx}}_custWrap" style="display:none">
+          <div class="input-group input-group-sm">
+            <input type="text" id="{{pfx}}_custInput" list="vchCustList" class="form-control form-control-sm" autocomplete="off"
+                   placeholder="Nama pelanggan…" onkeydown="if(event.key==='Enter'){event.preventDefault();vchAddCust('{{pfx}}');}">
+            <button type="button" class="btn btn-outline-secondary" onclick="vchAddCust('{{pfx}}')">+ Tambah</button>
+          </div>
+          <div id="{{pfx}}_custChips" class="vch-chips"></div>
+          <div class="form-text" style="font-size:.66rem">Pilih dari master customer (boleh ketik manual). Cocok dgn nama di POS, tak peduli huruf besar/kecil.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endmacro %}
+
+<datalist id="vchCustList">{% for c in customer_names %}<option value="{{ c }}">{% endfor %}</datalist>
+
+<div class="row g-3">
+
+  <!-- Form Tambah Voucher -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-plus-circle" style="color:#7c3aed"></i>
+        <span class="section-title">Voucher Baru</span>
+      </div>
+      <div class="card-body">
+        <form method="POST">
+          <input type="hidden" name="action" value="tambah">
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Kode Voucher <span class="text-danger">*</span></label>
+              <input type="text" name="kode" class="form-control form-control-sm" required
+                     placeholder="DISKON10" style="text-transform:uppercase">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Tipe</label>
+              <select name="tipe" class="form-select form-select-sm" id="vbTipe" onchange="vbToggleTipe()">
+                <option value="NOMINAL">Nominal (Rp)</option>
+                <option value="PERSEN">Persen (%)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Nilai <span class="text-danger">*</span></label>
+              <input type="number" name="nilai" class="form-control form-control-sm" min="0" step="1" value="0" required>
+              <div class="form-text" id="vbNilaiHint" style="font-size:.66rem">Rupiah potongan</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Min. Belanja</label>
+              <input type="number" name="min_belanja" class="form-control form-control-sm" min="0" step="1" value="0">
+            </div>
+            <div class="col-md-6" id="vbMaksWrap" style="display:none">
+              <label class="form-label small fw-semibold">Maks. Potongan</label>
+              <input type="number" name="maks_potongan" class="form-control form-control-sm" min="0" step="1" value="0">
+              <div class="form-text" style="font-size:.66rem">0 = tanpa batas</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Kuota Pakai</label>
+              <input type="number" name="kuota" class="form-control form-control-sm" min="0" step="1" value="0">
+              <div class="form-text" style="font-size:.66rem">0 = tak terbatas</div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Berlaku Dari</label>
+              <input type="date" name="berlaku_dari" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Sampai</label>
+              <input type="date" name="berlaku_sampai" class="form-control form-control-sm">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Catatan</label>
+              <input type="text" name="catatan" class="form-control form-control-sm" placeholder="Promo Lebaran, dll (opsional)">
+            </div>
+            {{ scope_fields('vb', kategori_produk) }}
+            <div class="col-12">
+              <button class="btn btn-sm w-100 text-white" style="background:#7c3aed">
+                <i class="fas fa-plus me-1"></i>Buat Voucher</button>
+            </div>
+          </div>
+        </form>
+        <div class="form-text mt-2" style="font-size:.72rem">
+          Voucher dipakai kasir dengan mengetik kodenya di POS. Diskon dari voucher
+          otomatis terotorisasi (tidak perlu PIN supervisor).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daftar Voucher -->
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="fas fa-list" style="color:#7c3aed"></i>
+        <span class="section-title">Daftar Voucher</span>
+        <span class="badge bg-secondary ms-1" style="font-size:.65rem">{{ pg.total if pg else voucher_rows|length }}</span>
+        <a href="/pos/master" class="btn btn-sm btn-outline-secondary ms-auto"><i class="fas fa-arrow-left me-1"></i>Master POS</a>
+      </div>
+      <div class="card-body p-0">
+        {% if voucher_rows %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover table-sticky-actions align-middle mb-0" style="font-size:.82rem">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Kode</th>
+                <th>Potongan</th>
+                <th class="text-end">Min. Belanja</th>
+                <th class="text-center">Kuota</th>
+                <th class="text-center">Berlaku</th>
+                <th class="text-center">Status</th>
+                <th class="text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for v in voucher_rows %}
+              {% set expired = v.berlaku_sampai and v.berlaku_sampai < today %}
+              {% set habis = v.kuota and v.kuota > 0 and (v.terpakai or 0) >= v.kuota %}
+              <tr>
+                <td class="ps-3">
+                  <span class="fw-bold">{{ v.kode }}</span>
+                  {% if v.catatan %}<div class="text-muted" style="font-size:.7rem">{{ v.catatan }}</div>{% endif %}
+                  {% set _sc = v.scope or 'NOTA' %}
+                  {% if _sc != 'NOTA' or (v.min_qty and v.min_qty > 0) %}
+                  <div class="mt-1 d-flex flex-wrap gap-1" style="font-size:.62rem">
+                    {% if _sc == 'KATEGORI' %}<span class="badge bg-info text-dark">Kategori: {{ v.syarat_kategori }}</span>
+                    {% elif _sc == 'PRODUK' %}<span class="badge bg-info text-dark">Item tertentu</span>{% endif %}
+                    {% if _sc in ('KATEGORI','PRODUK') and v.potongan_mode == 'PER_PRODUK' %}<span class="badge bg-warning text-dark">per produk</span>{% endif %}
+                    {% if v.min_qty and v.min_qty > 0 %}<span class="badge bg-light text-dark border">min {{ v.min_qty|qty }} qty</span>{% endif %}
+                  </div>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if v.tipe == 'PERSEN' %}<span class="badge bg-info text-dark">{{ '%g'|format(v.nilai) }}%</span>
+                  {% if v.maks_potongan and v.maks_potongan > 0 %}<div class="text-muted" style="font-size:.66rem">maks {{ v.maks_potongan|rp }}</div>{% endif %}
+                  {% else %}<span class="text-rp fw-semibold">{{ v.nilai|rp }}</span>{% endif %}
+                </td>
+                <td class="text-end text-rp">{{ v.min_belanja|rp }}</td>
+                <td class="text-center">
+                  {% if v.kuota and v.kuota > 0 %}{{ v.terpakai or 0 }}/{{ v.kuota }}{% else %}<span class="text-muted">∞</span> ({{ v.terpakai or 0 }}){% endif %}
+                </td>
+                <td class="text-center" style="font-size:.72rem">
+                  {{ v.berlaku_dari|tgl if v.berlaku_dari else '—' }}<br>s/d {{ v.berlaku_sampai|tgl if v.berlaku_sampai else '—' }}
+                </td>
+                <td class="text-center">
+                  {% if not v.aktif %}<span class="badge bg-secondary">Nonaktif</span>
+                  {% elif expired %}<span class="badge bg-danger">Kedaluwarsa</span>
+                  {% elif habis %}<span class="badge bg-warning text-dark">Kuota Habis</span>
+                  {% else %}<span class="badge bg-success">Aktif</span>{% endif %}
+                </td>
+                <td class="text-center" style="white-space:nowrap">
+                  <button type="button" class="btn btn-xs btn-outline-warning" title="Edit"
+                          onclick="editVoucher(this)"
+                          data-id="{{ v.id }}" data-kode="{{ v.kode|e }}" data-tipe="{{ v.tipe }}"
+                          data-nilai="{{ v.nilai or 0 }}" data-min="{{ v.min_belanja or 0 }}"
+                          data-maks="{{ v.maks_potongan or 0 }}" data-kuota="{{ v.kuota or 0 }}"
+                          data-dari="{{ v.berlaku_dari or '' }}" data-sampai="{{ v.berlaku_sampai or '' }}"
+                          data-catatan="{{ (v.catatan or '')|e }}"
+                          data-scope="{{ v.scope or 'NOTA' }}"
+                          data-syaratkat="{{ (v.syarat_kategori or '')|e }}"
+                          data-mode="{{ v.potongan_mode or 'TOTAL' }}"
+                          data-minqty="{{ v.min_qty or 0 }}"
+                          data-produk='{{ vp_map.get(v.id, [])|tojson }}'
+                          data-customer='{{ vc_map.get(v.id, [])|tojson }}'
+                          data-katlist='{{ vk_map.get(v.id, [])|tojson }}'>
+                    <i class="fas fa-pen"></i></button>
+                  <button type="submit" class="btn btn-xs btn-outline-secondary" title="Aktif/Nonaktif"
+                          form="vForm{{ v.id }}toggle"><i class="fas fa-power-off"></i></button>
+                  <button type="submit" class="btn btn-xs btn-outline-danger" title="Hapus"
+                          form="vForm{{ v.id }}hapus"
+                          onclick="return confirm('Hapus/nonaktifkan voucher {{ v.kode }}?')"><i class="fas fa-trash"></i></button>
+                  <form id="vForm{{ v.id }}toggle" method="POST" class="d-none">
+                    <input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="{{ v.id }}"></form>
+                  <form id="vForm{{ v.id }}hapus" method="POST" class="d-none">
+                    <input type="hidden" name="action" value="hapus"><input type="hidden" name="id" value="{{ v.id }}"></form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+          <i class="fas fa-ticket mb-2" style="font-size:2rem;opacity:.3"></i>
+          <div style="font-size:.85rem">Belum ada voucher. Buat lewat form di samping.</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ pagination(pg) }}
+
+<!-- Modal Edit Voucher (form-sibling pattern: tombol pakai atribut form=) -->
+<div class="modal fade" id="modalEditVoucher" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header py-2">
+        <h6 class="modal-title"><i class="fas fa-pen me-2" style="color:#7c3aed"></i>Edit Voucher</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form method="POST" id="formEditVoucher">
+          <input type="hidden" name="action" value="edit">
+          <input type="hidden" name="id" id="ev_id">
+          <div class="row g-2">
+            <div class="col-12">
+              <label class="form-label small fw-semibold">Kode <span class="text-danger">*</span></label>
+              <input type="text" name="kode" id="ev_kode" class="form-control form-control-sm" required style="text-transform:uppercase">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Tipe</label>
+              <select name="tipe" id="ev_tipe" class="form-select form-select-sm">
+                <option value="NOMINAL">Nominal (Rp)</option>
+                <option value="PERSEN">Persen (%)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Nilai <span class="text-danger">*</span></label>
+              <input type="number" name="nilai" id="ev_nilai" class="form-control form-control-sm" min="0" step="1" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Min. Belanja</label>
+              <input type="number" name="min_belanja" id="ev_min" class="form-control form-control-sm" min="0" step="1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Maks. Potongan</label>
+              <input type="number" name="maks_potongan" id="ev_maks" class="form-control form-control-sm" min="0" step="1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Kuota</label>
+              <input type="number" name="kuota" id="ev_kuota" class="form-control form-control-sm" min="0" step="1">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Berlaku Dari</label>
+              <input type="date" name="berlaku_dari" id="ev_dari" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Sampai</label>
+              <input type="date" name="berlaku_sampai" id="ev_sampai" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-semibold">Catatan</label>
+              <input type="text" name="catatan" id="ev_catatan" class="form-control form-control-sm">
+            </div>
+            {{ scope_fields('ev', kategori_produk) }}
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button type="submit" form="formEditVoucher" class="btn btn-sm text-white" style="background:#7c3aed">
+          <i class="fas fa-save me-1"></i>Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const VCH_PRODUCTS = {{ products|tojson }};
+// loop biasa (bukan Object.fromEntries) supaya jalan di browser Android lama
+const VCH_PRODBYID = {};
+VCH_PRODUCTS.forEach(function(p){ VCH_PRODBYID[Number(p.id)] = p; });
+function vchEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function vbToggleTipe(){
+  var t = document.getElementById('vbTipe').value;
+  document.getElementById('vbMaksWrap').style.display = (t === 'PERSEN') ? '' : 'none';
+  document.getElementById('vbNilaiHint').textContent = (t === 'PERSEN') ? 'Persen (0-100)' : 'Rupiah potongan';
+}
+function vchToggleScope(pfx){
+  var sc = document.getElementById(pfx+'_scope');
+  var v = sc ? sc.value : 'NOTA';
+  var pw = document.getElementById(pfx+'_prodWrap'); if(pw) pw.style.display = (v === 'PRODUK') ? '' : 'none';
+  var kw = document.getElementById(pfx+'_katWrap'); if(kw) kw.style.display = (v === 'KATEGORI') ? '' : 'none';
+  // "Cara potong" (Total/Per produk) hanya relevan utk subset produk/kategori.
+  var mw = document.getElementById(pfx+'_modeWrap'); if(mw) mw.style.display = (v === 'PRODUK' || v === 'KATEGORI') ? '' : 'none';
+  if(v === 'NOTA'){ var mt = document.getElementById(pfx+'_modeTotal'); if(mt) mt.checked = true; }
+}
+function vchToggleCustMode(pfx){
+  var some = document.getElementById(pfx+'_custSome');
+  var w = document.getElementById(pfx+'_custWrap');
+  var on = some && some.checked;
+  if(w) w.style.display = on ? '' : 'none';
+  if(!on){ var ch = document.getElementById(pfx+'_custChips'); if(ch) ch.innerHTML = ''; }  // "Semua" → buang pilihan
+}
+function vchChosenIds(pfx){
+  return Array.from(document.querySelectorAll('#'+pfx+'_prodChips input[name="produk_id"]')).map(i => Number(i.value));
+}
+function vchProdSearch(pfx){
+  var s = document.getElementById(pfx+'_prodSearch');
+  var box = document.getElementById(pfx+'_prodResults');
+  if(!s || !box) return;
+  var q = (s.value || '').trim().toLowerCase();
+  var chosen = new Set(vchChosenIds(pfx));
+  var matches = VCH_PRODUCTS.filter(function(p){ return !chosen.has(Number(p.id)); });
+  if(q){ matches = matches.filter(function(p){ return ((p.kode||'')+' '+(p.nama||'')+' '+(p.varian||'')).toLowerCase().includes(q); }); }
+  matches = matches.slice(0, 25);
+  if(!matches.length){ box.style.display='none'; box.innerHTML=''; return; }
+  box.innerHTML = matches.map(function(p){
+    return '<button type="button" class="vch-opt" onclick="vchAddProd(\''+pfx+'\','+Number(p.id)+')">'
+      + '<b>'+vchEsc(p.nama)+(p.varian?(' · '+vchEsc(p.varian)):'')+'</b> <span class="vch-kode">'+vchEsc(p.kode||'')+'</span></button>';
+  }).join('');
+  box.style.display = '';
+}
+function vchAddProd(pfx, id){
+  id = Number(id);
+  if(vchChosenIds(pfx).includes(id)) return;
+  var p = VCH_PRODBYID[id]; if(!p) return;
+  var chips = document.getElementById(pfx+'_prodChips'); if(!chips) return;
+  var chip = document.createElement('span');
+  chip.className = 'vch-chip';
+  chip.innerHTML = '<input type="hidden" name="produk_id" value="'+id+'">'
+    + vchEsc(p.nama)+(p.varian?(' · '+vchEsc(p.varian)):'')
+    + ' <button type="button" class="vch-x" title="Hapus" onclick="this.parentNode.remove()">✕</button>';
+  chips.appendChild(chip);
+  var s = document.getElementById(pfx+'_prodSearch'); if(s) s.value='';
+  var box = document.getElementById(pfx+'_prodResults'); if(box){ box.style.display='none'; box.innerHTML=''; }
+}
+function vchCustChosen(pfx){
+  return Array.from(document.querySelectorAll('#'+pfx+'_custChips input[name="customer_nama"]')).map(i => i.value.trim().toLowerCase());
+}
+function vchAddCust(pfx, nama){
+  var inp = document.getElementById(pfx+'_custInput');
+  var v = (nama!=null ? nama : (inp ? inp.value : '')).trim();
+  if(!v){ return; }
+  if(vchCustChosen(pfx).includes(v.toLowerCase())){ if(inp) inp.value=''; return; }
+  var chips = document.getElementById(pfx+'_custChips'); if(!chips) return;
+  var chip = document.createElement('span');
+  chip.className = 'vch-chip cust';
+  chip.innerHTML = '<input type="hidden" name="customer_nama" value="'+vchEsc(v)+'">'+vchEsc(v)
+    + ' <button type="button" class="vch-x" title="Hapus" onclick="this.parentNode.remove()">✕</button>';
+  chips.appendChild(chip);
+  if(inp) inp.value='';
+}
+// Tutup dropdown hasil saat klik di luar
+document.addEventListener('click', function(ev){
+  ['vb','ev'].forEach(function(pfx){
+    var s = document.getElementById(pfx+'_prodSearch');
+    var box = document.getElementById(pfx+'_prodResults');
+    if(box && s && !s.contains(ev.target) && !box.contains(ev.target)){ box.style.display='none'; }
+  });
+});
+// Set angka ke field ber-format ribuan (numFmt). WAJIB lewat numFmtSet, JANGAN set
+// raw: data-* dari DB berupa float "10000.0" — kalau di-set mentah, formatter ribuan
+// menganggap titik desimal sbg pemisah ribuan lalu MENGHAPUSNYA → "10000.0" jadi
+// "100.000" (digit & desimal kacau). numFmtSet mem-parse angka dulu (Number) lalu
+// format dgn koma desimal Indonesia, jadi aman utk integer maupun pecahan.
+function vchSetNum(id, val){
+  var el = document.getElementById(id);
+  if(!el) return;
+  if(window.numFmtSet) window.numFmtSet(el, (val===undefined || val===null || val==='') ? '' : val);
+  else el.value = String(val==null ? '' : val).replace(/\.0+$/, '');   // fallback: buang ".0" ekor
+}
+function editVoucher(btn){
+  var d = btn.dataset;
+  document.getElementById('ev_id').value = d.id;
+  document.getElementById('ev_kode').value = d.kode;
+  document.getElementById('ev_tipe').value = d.tipe;
+  vchSetNum('ev_nilai', d.nilai);
+  vchSetNum('ev_min', d.min);
+  vchSetNum('ev_maks', d.maks);
+  vchSetNum('ev_kuota', d.kuota);
+  document.getElementById('ev_dari').value = d.dari;
+  document.getElementById('ev_sampai').value = d.sampai;
+  document.getElementById('ev_catatan').value = d.catatan;
+  // Syarat lanjutan: basis, kategori, min qty, produk, customer
+  document.getElementById('ev_prodChips').innerHTML = '';
+  document.getElementById('ev_custChips').innerHTML = '';
+  document.getElementById('ev_scope').value = d.scope || 'NOTA';
+  // Multi-kategori: centang ulang kotak sesuai data-katlist (fallback ke data-syaratkat lama).
+  var katBox = document.getElementById('ev_katBox');
+  if(katBox){
+    var katSel = [];
+    try { katSel = JSON.parse(d.katlist || '[]'); } catch(e){ katSel = []; }
+    if((!katSel || !katSel.length) && d.syaratkat){ katSel = [d.syaratkat]; }
+    var katLow = katSel.map(function(k){ return String(k).trim().toLowerCase(); });
+    katBox.querySelectorAll('input.vch-kat').forEach(function(cb){
+      cb.checked = katLow.indexOf((cb.value || '').trim().toLowerCase()) !== -1;
+    });
+  }
+  vchSetNum('ev_minqty', d.minqty || '0');
+  // Cara potong: Total / Per produk
+  var _mode = (d.mode || 'TOTAL').toUpperCase();
+  var evModePer = document.getElementById('ev_modePer'), evModeTot = document.getElementById('ev_modeTotal');
+  if(evModePer && evModeTot){ evModePer.checked = (_mode === 'PER_PRODUK'); evModeTot.checked = (_mode !== 'PER_PRODUK'); }
+  vchToggleScope('ev');
+  try { JSON.parse(d.produk || '[]').forEach(function(id){ vchAddProd('ev', Number(id)); }); } catch(e){}
+  var custs = []; try { custs = JSON.parse(d.customer || '[]'); } catch(e){ custs = []; }
+  var hasCust = custs && custs.length > 0;
+  var rSome = document.getElementById('ev_custSome'), rAll = document.getElementById('ev_custAll');
+  if(rSome && rAll){ rSome.checked = hasCust; rAll.checked = !hasCust; }
+  vchToggleCustMode('ev');
+  custs.forEach(function(nm){ vchAddCust('ev', nm); });
+  var adv = document.getElementById('ev_adv');
+  if(adv){
+    var useAdv = (d.scope && d.scope !== 'NOTA') || (parseFloat(d.minqty || '0') > 0) || hasCust;
+    bootstrap.Collapse.getOrCreateInstance(adv, {toggle:false})[useAdv ? 'show' : 'hide']();
+  }
+  new bootstrap.Modal(document.getElementById('modalEditVoucher')).show();
+}
+</script>
+{% endblock %}

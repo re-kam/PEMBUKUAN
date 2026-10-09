@@ -1,0 +1,84 @@
+<%- include('partials/header', { pageTitle: 'Laporan Laba Rugi', currentPath: '/laba-rugi' }) %>
+
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <div class="card shadow-sm">
+      <div class="card-header bg-dark text-white d-flex align-items-center justify-content-between py-3">
+        <div>
+          <h5 class="mb-0 fw-bold">LAPORAN LABA RUGI (INCOME STATEMENT)</h5>
+          <small class="text-white-50">Periode Berjalan · <%= store.settings.nama_usaha %></small>
+        </div>
+        <button class="btn btn-sm btn-outline-light rounded-pill px-3" onclick="window.print()">
+          <i class="fas fa-print me-1"></i>Cetak Laporan
+        </button>
+      </div>
+      <div class="card-body p-4">
+        <!-- 1. Pendapatan -->
+        <h6 class="fw-bold text-uppercase text-primary border-bottom pb-2 mb-3">1. Pendapatan Usaha (Revenue)</h6>
+        <table class="table table-sm table-borderless mb-3">
+          <tbody>
+            <% pendapatan.forEach(function(a) { %>
+              <tr>
+                <td style="width:40%" class="ps-3"><%= a.kode %> - <%= a.nama %></td>
+                <td class="text-end fw-semibold"><%= formatRp(a.saldo) %></td>
+              </tr>
+            <% }); %>
+            <tr class="border-top fw-bold bg-light">
+              <td class="ps-3">Total Pendapatan Usaha</td>
+              <td class="text-end text-primary"><%= formatRp(totalPendapatan) %></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- 2. HPP -->
+        <h6 class="fw-bold text-uppercase text-danger border-bottom pb-2 mb-3 mt-4">2. Harga Pokok Penjualan (COGS)</h6>
+        <table class="table table-sm table-borderless mb-3">
+          <tbody>
+            <% hpp.forEach(function(a) { %>
+              <tr>
+                <td style="width:40%" class="ps-3"><%= a.kode %> - <%= a.nama %></td>
+                <td class="text-end fw-semibold"><%= formatRp(a.saldo) %></td>
+              </tr>
+            <% }); %>
+            <tr class="border-top fw-bold bg-light">
+              <td class="ps-3">Total Harga Pokok Penjualan (HPP)</td>
+              <td class="text-end text-danger"><%= formatRp(totalHpp) %></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Laba Kotor -->
+        <div class="alert alert-success d-flex justify-content-between align-items-center py-2 px-3 fw-bold my-3">
+          <span>LABA KOTOR (GROSS PROFIT)</span>
+          <span class="fs-5"><%= formatRp(labaKotor) %></span>
+        </div>
+
+        <!-- 3. Beban Operasional -->
+        <h6 class="fw-bold text-uppercase text-danger border-bottom pb-2 mb-3 mt-4">3. Beban Operasional (Operating Expenses)</h6>
+        <table class="table table-sm table-borderless mb-3">
+          <tbody>
+            <% beban.forEach(function(a) { %>
+              <tr>
+                <td style="width:40%" class="ps-3"><%= a.kode %> - <%= a.nama %></td>
+                <td class="text-end fw-semibold"><%= formatRp(a.saldo) %></td>
+              </tr>
+            <% }); %>
+            <tr class="border-top fw-bold bg-light">
+              <td class="ps-3">Total Beban Operasional</td>
+              <td class="text-end text-danger"><%= formatRp(totalBeban) %></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Laba Bersih -->
+        <div class="card p-3 bg-dark text-white text-center mt-4">
+          <div class="text-uppercase small tracking-wide text-white-50">Laba Bersih Operasional (Net Profit)</div>
+          <div class="display-6 fw-bold text-success mt-1"><%= formatRp(labaBersih) %></div>
+          <small class="text-white-50 mt-1">Margin Laba Bersih: <%= totalPendapatan > 0 ? ((labaBersih / totalPendapatan) * 100).toFixed(1) : 0 %>%</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

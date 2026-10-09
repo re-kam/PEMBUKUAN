@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}Edit Transaksi {{ j.nomor_tx or ('#' ~ j.id) }}{% endblock %}
+{% block page_title %}Edit Transaksi & Item {{ j.nomor_tx or ('#' ~ j.id) }}{% endblock %}
+{% block content %}
+{% set is_jual = meta.tipe == 'JUAL' %}
+
+<div class="row justify-content-center">
+<div class="col-xl-9">
+  <form method="POST" id="formItem">
+  <div class="card mb-3">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="fas fa-pen-to-square text-warning"></i>
+      <span class="section-title">Edit Transaksi &amp; Item, {{ 'Penjualan' if is_jual else 'Pembelian/Beban' }}</span>
+    </div>
+    <div class="card-body">
+
+      <div class="alert alert-info py-2" style="font-size:.82rem">
+        <i class="fas fa-circle-info me-1"></i>
+        Mengubah item di sini akan <strong>otomatis menyesuaikan jurnal, stok, dan saldo</strong>
+        (efek lama dibalik lalu dihitung ulang).
+      </div>
+
+      {% if warn_hpp %}
+      <div class="alert alert-info py-2" style="font-size:.82rem">
+        <i class="fas fa-circle-info me-1"></i>
+        <strong>Info:</strong> transaksi ini punya <strong>mutasi stok yang lebih baru</strong> untuk produk yang sama.
+        Koreksi otomatis menyesuaikan jurnal, stok, dan saldo. COGS transaksi lain tetap terkunci di jurnalnya.
+      </div>
+      {% endif %}
+
+      <div class="row g-3 mb-2">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Tanggal</label>
+          <input type="date" name="tanggal" class="form-control" value="{{ j.tanggal }}" max="{{ today }}">
+        </div>
+        <div class="col-md-8">
+          <label class="form-label fw-semibold">Keterangan</label>
+          <input type="text" name="keterangan" class="form-control" value="{{ j.keterangan }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">{{ 'Pelanggan' if is_jual else 'Vendor' }}</label>
+          <input type="text" name="pihak" class="form-control" value="{{ meta.pihak or '' }}" placeholder="Nama">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Keluar/Masuk dari Rekening</label>
+          <select name="akun_kas" class="form-select">
+            {% for a in akun_kas %}
+            <option value="{{ a.kode }}" {% if a.kode == meta.akun_kas %}selected{% endif %}>{{ a.kode }} - {{ a.nama }}</option>
+            {% endfor %}
+          </select>
+          {% if meta.kas_splits %}
+          <div class="form-text text-primary">
+            Pembayaran multi rekening dipertahankan secara proporsional saat total berubah.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Item table -->
+      <label class="form-label fw-semibold">Rincian Item</label>
+      <div class="table-responsive">
+        <table class="table table-sm table-bordered align-middle mb-2" style="font-size:.83rem">
+          <thead class="table-light">
+            <tr>
+              <th style="min-width:200px">Produk / Deskripsi</th>
+              <th style="width:90px">Qty</th>
+              <th style="width:85px">Satuan</th>
+              <th style="width:130px">Harga</th>
+              <th style="width:110px">Diskon</th>
+              <th style="width:120px" class="text-end">Subtotal</th>
+              <th style="width:34px"></th>
+            </tr>
+          </thead>
+          <tbody id="itemBody"></tbody>
+        </table>
+      </div>
+      <button type="button" class="btn btn-outline-primary btn-sm mb-3" onclick="addItemRow()">
+        <i class="fas fa-plus me-1"></i>Tambah Item</button>
+
+      <!-- Pembayaran -->
+      <div class="row g-3">
+        {% if is_jual %}
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Diskon Total</label>
+          <div class="input-group input-group-sm"><span class="input-group-text">Rp</span>
+            <input type="number" name="diskon" id="f_diskon" class="form-control" value="{{ (meta.diskon or 0)|inputnum }}" min="0" step="0.01" oninput="recalc()"></div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Ongkir</label>
+          <div class="input-group input-group-sm"><span class="input-group-text">Rp</span>
+            <input type="number" name="ongkir" id="f_ongkir" class="form-control" value="{{ (meta.ongkir or 0)|inputnum }}" min="0" step="0.01" oninput="recalc()"></div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">Biaya Lain</label>
+          <div class="input-group input-group-sm"><span class="input-group-text">Rp</span>
+            <input type="number" name="biaya" id="f_biaya" class="form-control" value="{{ (meta.biaya or 0)|inputnum }}" min="0" step="0.01" oninput="recalc()"></div>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small fw-semibold">HPP Manual <small class="text-muted">(non-produk)</small></label>
+          <div class="input-group input-group-sm"><span class="input-group-text">Rp</span>
+            <input type="number" name="hpp_generik" class="form-control" value="{{ (meta.hpp_generik or 0)|inputnum }}" min="0" step="0.01"></div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Uang Masuk (dibayar)</label>
+          <div class="input-group input-group-sm"><span class="input-group-text">Rp</span>
+            <input type="number" name="uang_masuk" id="f_bayar" class="form-control" value="{{ (meta.uang_masuk or 0)|inputnum }}" min="0" step="0.01" oninput="recalc()"></div>
+        </div>
+        {% else %}
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Uang Keluar (dibayar)</label>
+          <div class="input-group input-group-sm"><span class="input-group-text">Rp</span>
+            <input type="number" name="uang_keluar" id="f_bayar" class="form-control" value="{{ (meta.uang_keluar or 0)|inputnum }}" min="0" step="0.01" oninput="recalc()"></div>
+        </div>
+        {% endif %}
+        <div class="col-md-4">
+          <label class="form-label small fw-semibold">Jatuh Tempo {{ 'Piutang' if is_jual else 'Hutang' }}</label>
+          <input type="date" name="jatuh_tempo" class="form-control form-control-sm" value="{{ meta.jt or '' }}">
+        </div>
+      </div>
+
+      <!-- Ringkasan -->
+      <div class="mt-3 p-3 rounded-3" style="background:var(--card-h)">
+        <div class="d-flex justify-content-between" style="font-size:.85rem">
+          <span>Total Item</span><strong id="sumItem" class="text-rp">Rp 0</strong></div>
+        <div class="d-flex justify-content-between" style="font-size:1rem;font-weight:800;border-top:1px solid var(--bdr);margin-top:.4rem;padding-top:.4rem">
+          <span>{{ 'Grand Total' if is_jual else 'Total Belanja' }}</span>
+          <span id="sumGrand" class="text-rp" style="color:#0369a1">Rp 0</span></div>
+        <div class="d-flex justify-content-between mt-1" style="font-size:.85rem;color:#b91c1c">
+          <span>Sisa {{ 'Piutang' if is_jual else 'Hutang' }}</span>
+          <strong id="sumSisa" class="text-rp">Rp 0</strong></div>
+      </div>
+
+    </div>
+    <div class="card-footer d-flex justify-content-end gap-2 py-2">
+      <a href="/transaksi/{{ j.id }}" class="btn btn-outline-secondary btn-sm">Batal</a>
+      <button type="submit" class="btn btn-warning btn-sm"><i class="fas fa-save me-1"></i>Simpan & Sesuaikan</button>
+    </div>
+  </div>
+  </form>
+</div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+const IS_JUAL = {{ 'true' if is_jual else 'false' }};
+const WARN_HPP = {{ 'true' if warn_hpp else 'false' }};
+if (WARN_HPP) {
+  const _f = document.getElementById('formItem');
+  if (_f) _f.addEventListener('submit', function(e){
+    if (!confirm('Konfirmasi Koreksi\n\nTransaksi ini punya mutasi stok yang lebih baru. '
+      + 'Koreksi otomatis menyesuaikan jurnal, stok, dan saldo (COGS transaksi lain tetap terkunci).\n\n'
+      + 'Lanjutkan simpan koreksi ini?')) { e.preventDefault(); }
+  });
+}
+const PRODUK_LIST = [
+{% for p in produk_list %}
+  {id:{{ p.id }}, kode:{{ p.kode|tojson }}, nama:{{ p.nama|tojson }}, varian:{{ (p.varian or '')|tojson }},
+   satuan:{{ p.satuan|tojson }}, stok:{{ p.stok }}, hargaJual:{{ p.harga_jual|inputnum }}, hargaBeli:{{ p.harga_beli|inputnum }}},
+{% endfor %}
+];
+const EXIST_ITEMS = [
+{% for it in items %}
+  {produk_id:{{ it.produk_id or 'null' }}, deskripsi:{{ it.deskripsi|tojson }}, qty:{{ it.qty }},
+   satuan:{{ (it.satuan or '')|tojson }}, harga:{{ it.harga|inputnum }}, diskon:{{ it.diskon|inputnum }}},
+{% endfor %}
+];
+
+function fmtRp(n){ return window.rpFmt ? window.rpFmt(n) : 'Rp ' + Number(n || 0).toLocaleString('id-ID', {maximumFractionDigits:2}); }
+
+function addItemRow(data){
+  data = data || {};
+  const tb = document.getElementById('itemBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <div class="pcombo">
+        <input type="text" class="form-control form-control-sm pcombo-input" placeholder="Cari produk (opsional)" autocomplete="off">
+        <input type="hidden" name="item_produk_id[]" class="pcombo-id" value="${data.produk_id||''}">
+      </div>
+      <input type="text" name="item_deskripsi[]" class="form-control form-control-sm mt-1 it-desc"
+             placeholder="Deskripsi" value="${(data.deskripsi||'').replace(/"/g,'&quot;')}">
+    </td>
+    <td><input type="number" name="item_qty[]" class="form-control form-control-sm it-qty" min="0.01" step="0.01" value="${data.qty!=null?data.qty:1}" oninput="recalc()"></td>
+    <td><input type="text" name="item_satuan[]" class="form-control form-control-sm it-satuan"
+               placeholder="pcs" value="${(data.satuan||'').replace(/"/g,'&quot;')}"></td>
+    <td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span>
+        <input type="number" name="item_harga[]" class="form-control it-harga" min="0" step="0.01" value="${data.harga||0}" oninput="recalc()"></div></td>
+    <td><div class="input-group input-group-sm"><span class="input-group-text px-1">Rp</span>
+        <input type="number" name="item_diskon[]" class="form-control it-diskon" min="0" step="0.01" value="${data.diskon||0}" oninput="recalc()"></div></td>
+    <td class="text-end it-sub text-rp" style="color:#0369a1">Rp 0</td>
+    <td class="text-center"><button type="button" class="btn btn-xs btn-outline-danger it-del"><i class="fas fa-times"></i></button></td>`;
+  tb.appendChild(tr);
+  const combo = tr.querySelector('.pcombo');
+  if(window.initProdukCombo){
+    window.initProdukCombo(combo, PRODUK_LIST, function(p){
+      tr.querySelector('.it-desc').value = p.nama + (p.varian?' ('+p.varian+')':'');
+      tr.querySelector('.it-satuan').value = p.satuan || 'pcs';
+      window.numFmtSet(tr.querySelector('.it-harga'), IS_JUAL ? (p.hargaJual||0) : (p.hargaBeli||0));
+      recalc();
+    });
+  }
+  // prefill nama produk di input combobox jika ada
+  if(data.produk_id){
+    const p = PRODUK_LIST.find(x=>x.id===data.produk_id);
+    if(p){
+      tr.querySelector('.pcombo-input').value = p.nama + (p.varian?' ('+p.varian+')':'');
+      if(!tr.querySelector('.it-satuan').value) tr.querySelector('.it-satuan').value = p.satuan || 'pcs';
+    }
+  }
+  if(!window._nfInitLoading && window.numFmtInitAll) window.numFmtInitAll();
+  if(data.qty != null || data.harga) {
+    const _s = Math.max(0, parseFloat(data.qty!=null?data.qty:1) * parseFloat(data.harga||0) - parseFloat(data.diskon||0));
+    tr.querySelector('.it-sub').textContent = fmtRp(_s);
+  }
+  if(!window._nfInitLoading) recalc();
+}
+
+document.getElementById('itemBody').addEventListener('click', function(e){
+  const b = e.target.closest('.it-del'); if(!b) return;
+  b.closest('tr').remove();
+  // Baris terakhir → ganti baris kosong baru, supaya tombol X selalu berfungsi.
+  if(!document.querySelector('#itemBody tr')) addItemRow();
+  recalc();
+});
+
+function recalc(){
+  let totItem = 0;
+  document.querySelectorAll('#itemBody tr').forEach(function(tr){
+    const q = window.numVal(tr.querySelector('.it-qty'));
+    const h = window.numVal(tr.querySelector('.it-harga'));
+    const d = window.numVal(tr.querySelector('.it-diskon'));
+    const sub = q*h - d;
+    totItem += sub;
+    tr.querySelector('.it-sub').textContent = fmtRp(Math.max(0,sub));
+  });
+  document.getElementById('sumItem').textContent = fmtRp(totItem);
+  let grand, bayar = window.numVal(document.getElementById('f_bayar'));
+  if(IS_JUAL){
+    const dg = window.numVal(document.getElementById('f_diskon'));
+    const og = window.numVal(document.getElementById('f_ongkir'));
+    const bi = window.numVal(document.getElementById('f_biaya'));
+    grand = Math.max(0, totItem - dg + og + bi);
+  } else {
+    grand = Math.max(0, totItem);
+  }
+  document.getElementById('sumGrand').textContent = fmtRp(grand);
+  document.getElementById('sumSisa').textContent = fmtRp(Math.max(0, grand - bayar));
+}
+
+// init existing items — numFmtInitAll DULU baru recalc(), supaya numVal() baca
+// dari input yang sudah diformat teks Indonesia (dot=ribuan). recalc() sebelum
+// format membuat numVal() salah membuang titik desimal pada value mentah type=number.
+window._nfInitLoading = true;
+if(EXIST_ITEMS.length){ EXIST_ITEMS.forEach(addItemRow); } else { addItemRow(); }
+window._nfInitLoading = false;
+if(window.numFmtInitAll) window.numFmtInitAll();
+recalc();
+</script>
+{% endblock %}

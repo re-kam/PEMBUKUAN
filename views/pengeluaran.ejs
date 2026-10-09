@@ -1,0 +1,118 @@
+<%- include('partials/header', { pageTitle: 'Pengeluaran / Biaya', currentPath: '/pengeluaran' }) %>
+
+<div class="row g-4">
+  <!-- Form Input Pengeluaran -->
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-header bg-danger text-white">
+        <i class="fas fa-minus-circle me-2"></i><strong>Formulir Catat Pengeluaran</strong>
+      </div>
+      <div class="card-body p-4">
+        <% if (success) { %>
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i><%= success %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        <% } %>
+
+        <form method="POST" action="/pengeluaran">
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Tanggal Transaksi</label>
+            <input type="date" name="tanggal" class="form-control" value="<%= today %>" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Kategori Pengeluaran</label>
+            <select name="kategori" class="form-select" required>
+              <option value="Bahan Baku & Stok">Bahan Baku & Pembelian Stok (HPP)</option>
+              <option value="Gaji & Upah">Gaji & Upah Karyawan</option>
+              <option value="Sewa Gedung">Sewa Tempat / Gedung</option>
+              <option value="Utilitas & Operasional">Listrik, Air, & Internet</option>
+              <option value="Pemasaran & Digital">Promosi, Iklan, & Pemasaran</option>
+              <option value="Perlengkapan & Umum">Perlengkapan, ATK, & Biaya Umum</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Sumber Dana (Kas / Bank)</label>
+            <select name="rekening" class="form-select" required>
+              <option value="Kas Utama">Kas Utama (Tunai)</option>
+              <option value="Bank BCA Operasional">Bank BCA Operasional</option>
+              <option value="Bank Mandiri Cadangan">Bank Mandiri Cadangan</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Penerima / Vendor / Supplier</label>
+            <input type="text" name="kontak" class="form-control" placeholder="Contoh: Toko Bahan Makmur / PLN / Karyawan" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Keterangan / Keperluan</label>
+            <textarea name="keterangan" class="form-control" rows="2" placeholder="Tujuan pengeluaran dana..." required></textarea>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-bold small text-uppercase">Nominal Pengeluaran (Rp)</label>
+            <div class="input-group">
+              <span class="input-group-text fw-bold">Rp</span>
+              <input type="number" name="nominal" class="form-control form-control-lg fw-bold text-danger" min="1000" step="1000" placeholder="0" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-danger w-100 py-2.5 fw-bold rounded-pill">
+            <i class="fas fa-check me-2"></i>Simpan Pengeluaran
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Riwayat Pengeluaran -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="fas fa-list me-2"></i><strong>Riwayat Pengeluaran Terbaru</strong></span>
+        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Total: <%= list.length %> Transaksi</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table-custom">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Ref / Kategori</th>
+              <th>Keterangan & Vendor</th>
+              <th>Sumber Dana</th>
+              <th class="text-end">Nominal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (list && list.length > 0) { %>
+              <% list.forEach(function(tx) { %>
+                <tr>
+                  <td class="text-nowrap fw-medium"><%= formatTgl(tx.tanggal) %></td>
+                  <td>
+                    <div><code><%= tx.referensi %></code></div>
+                    <span class="badge bg-light text-dark border small"><%= tx.kategori %></span>
+                  </td>
+                  <td>
+                    <div class="fw-semibold"><%= tx.keterangan %></div>
+                    <small class="text-muted"><i class="fas fa-building me-1"></i><%= tx.kontak %></small>
+                  </td>
+                  <td><span class="badge bg-danger-subtle text-danger"><%= tx.rekening %></span></td>
+                  <td class="text-end fw-bold text-danger text-nowrap">-<%= formatRp(tx.nominal) %></td>
+                </tr>
+              <% }); %>
+            <% } else { %>
+              <tr>
+                <td colspan="5" class="text-center py-4 text-muted">Belum ada catatan pengeluaran.</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

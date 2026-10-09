@@ -1,0 +1,116 @@
+<%- include('partials/header', { pageTitle: 'Daftar Transaksi', currentPath: '/daftar-transaksi' }) %>
+
+<div class="card mb-4">
+  <div class="card-body p-3">
+    <div class="row g-2 align-items-center">
+      <div class="col-md-4">
+        <div class="input-group">
+          <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+          <input type="text" id="txSearchInput" class="form-control" placeholder="Cari keterangan, ref, atau kontak...">
+        </div>
+      </div>
+      <div class="col-md-3">
+        <select id="txFilterType" class="form-select">
+          <option value="ALL">Semua Tipe Transaksi</option>
+          <option value="PEMASUKAN">Hanya Pemasukan (+)</option>
+          <option value="PENGELUARAN">Hanya Pengeluaran (-)</option>
+        </select>
+      </div>
+      <div class="col-md-5 text-md-end">
+        <a href="/pemasukan" class="btn btn-sm btn-success rounded-pill px-3 me-2">
+          <i class="fas fa-plus me-1"></i>Pemasukan
+        </a>
+        <a href="/pengeluaran" class="btn btn-sm btn-danger rounded-pill px-3">
+          <i class="fas fa-minus me-1"></i>Pengeluaran
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <span><i class="fas fa-book-journal-whills me-2"></i><strong>Jurnal Transaksi Keuangan</strong></span>
+    <span class="badge bg-dark rounded-pill px-3"><%= transactions.length %> Baris Jurnal</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table-custom" id="txTable">
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Tipe</th>
+          <th>No. Referensi</th>
+          <th>Kategori</th>
+          <th>Keterangan Transaksi</th>
+          <th>Rekening & Kontak</th>
+          <th>Akun Jurnal Debit / Kredit</th>
+          <th class="text-end">Nominal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (transactions && transactions.length > 0) { %>
+          <% transactions.forEach(function(tx) { %>
+            <tr data-tipe="<%= tx.tipe %>">
+              <td class="text-nowrap fw-medium"><%= formatTgl(tx.tanggal) %></td>
+              <td>
+                <% if (tx.tipe === 'PEMASUKAN') { %>
+                  <span class="badge rounded-pill bg-success-subtle text-success fw-bold px-2.5 py-1">
+                    <i class="fas fa-arrow-down-left me-1"></i>MASUK
+                  </span>
+                <% } else { %>
+                  <span class="badge rounded-pill bg-danger-subtle text-danger fw-bold px-2.5 py-1">
+                    <i class="fas fa-arrow-up-right me-1"></i>KELUAR
+                  </span>
+                <% } %>
+              </td>
+              <td><code><%= tx.referensi %></code></td>
+              <td><span class="badge bg-light text-dark border"><%= tx.kategori %></span></td>
+              <td class="fw-semibold"><%= tx.keterangan %></td>
+              <td>
+                <div class="small fw-bold"><%= tx.rekening %></div>
+                <div class="text-muted" style="font-size:.75rem"><%= tx.kontak || '-' %></div>
+              </td>
+              <td>
+                <div class="small text-muted"><strong>(D)</strong> <%= tx.akun_debit %></div>
+                <div class="small text-muted"><strong>(K)</strong> <%= tx.akun_kredit %></div>
+              </td>
+              <td class="text-end fw-bold text-nowrap <%= tx.tipe === 'PEMASUKAN' ? 'text-success' : 'text-danger' %>">
+                <%= tx.tipe === 'PEMASUKAN' ? '+' : '-' %><%= formatRp(tx.nominal) %>
+              </td>
+            </tr>
+          <% }); %>
+        <% } else { %>
+          <tr>
+            <td colspan="8" class="text-center py-4 text-muted">Belum ada data transaksi.</td>
+          </tr>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // Simple search & filter
+  document.addEventListener('DOMContentLoaded', function(){
+    var search = document.getElementById('txSearchInput');
+    var filter = document.getElementById('txFilterType');
+    var rows = document.querySelectorAll('#txTable tbody tr');
+
+    function applyFilter(){
+      var q = (search.value || '').toLowerCase().trim();
+      var t = filter.value;
+      rows.forEach(function(row){
+        var rowType = row.dataset.tipe;
+        var text = row.innerText.toLowerCase();
+        var matchQ = !q || text.indexOf(q) !== -1;
+        var matchT = t === 'ALL' || rowType === t;
+        row.style.display = (matchQ && matchT) ? '' : 'none';
+      });
+    }
+
+    if(search) search.addEventListener('input', applyFilter);
+    if(filter) filter.addEventListener('change', applyFilter);
+  });
+</script>
+
+<%- include('partials/footer') %>

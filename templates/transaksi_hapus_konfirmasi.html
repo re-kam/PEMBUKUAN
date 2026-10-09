@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Konfirmasi Hapus Transaksi{% endblock %}
+{% block page_title %}Konfirmasi Hapus Transaksi{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+<div class="col-lg-7">
+  <div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+      <i class="fas fa-trash me-2"></i>Konfirmasi Hapus Transaksi
+    </div>
+    <div class="card-body">
+      <p class="mb-2">Anda akan menghapus transaksi berikut:</p>
+      <table class="table table-sm mb-3">
+        <tr><th style="width:170px">No. Transaksi</th><td>{{ j.nomor_tx or ('#' ~ j.id) }}</td></tr>
+        <tr><th>Tanggal</th><td>{{ j.tanggal }}</td></tr>
+        <tr><th>Keterangan</th><td>{{ j.keterangan }}</td></tr>
+        {% if j.pihak %}<tr><th>Pihak</th><td>{{ j.pihak }}</td></tr>{% endif %}
+        <tr><th>Total</th><td class="fw-bold text-rp">{{ total|rp }}</td></tr>
+      </table>
+      {% if items %}
+      <div class="text-muted mb-1" style="font-size:.8rem">Rincian item:</div>
+      <ul style="font-size:.85rem">
+        {% for it in items %}
+        <li>{{ it.deskripsi or ('Produk #' ~ it.produk_id) }} — {{ it.qty|qty }} {{ it.satuan }} @ {{ it.harga|rp }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if block %}
+      <div class="alert alert-danger">
+        <i class="fas fa-ban me-1"></i><strong>Tidak bisa dihapus.</strong> {{ block }}
+      </div>
+      {% set bisa_buka = kunci and kunci.terkunci and session.role in ('ADMIN','FINANCE') %}
+      {% if bisa_buka %}
+      <p class="mb-3" style="font-size:.88rem">
+        Transaksi ini terkunci karena {{ kunci.alasan }}. Tombol <strong>Buka Kunci untuk Koreksi</strong>
+        menampilkan apa saja yang akan dibatalkan, lalu membukanya sekaligus.
+      </p>
+      {% endif %}
+      <div class="d-flex flex-wrap gap-2">
+        <a href="/transaksi/{{ j.id }}" class="btn btn-secondary"><i class="fas fa-arrow-left me-1"></i>Kembali</a>
+        {% if bisa_buka %}
+        <a href="/transaksi/{{ j.id }}/buka-kunci" class="btn btn-warning"><i class="fas fa-lock-open me-1"></i>Buka Kunci untuk Koreksi</a>
+        {% endif %}
+      </div>
+      {% else %}
+        {% if hpp_warn %}
+        <div class="alert alert-warning">
+          <i class="fas fa-circle-info me-1"></i>
+          <strong>Catatan:</strong> transaksi ini punya <strong>mutasi stok yang lebih baru</strong>.
+          COGS transaksi lain tetap terkunci; stok dan rata-rata HPP barang sisa otomatis disesuaikan.
+          Khusus menghapus pembelian yang barangnya sudah terjual, stok bisa menjadi minus.
+        </div>
+        {% endif %}
+        <div class="alert alert-info">
+          <i class="fas fa-box-archive me-1"></i>
+          Transaksi akan <strong>diarsipkan</strong> (bukan dihapus permanen) dan bisa
+          <strong>dipulihkan</strong> kapan saja dari menu <em>Transaksi → Arsip</em>.
+        </div>
+        <form method="POST" action="/transaksi/{{ j.id }}/hapus">
+          {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+          <a href="/transaksi/{{ j.id }}" class="btn btn-outline-secondary">Batal</a>
+          <button type="submit" class="btn btn-danger">
+            <i class="fas fa-box-archive me-1"></i>Arsipkan &amp; Hapus
+          </button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

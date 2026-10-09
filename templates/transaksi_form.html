@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}{% if edit %}Edit Jurnal #{{ edit.id }}{% else %}Transaksi Baru{% endif %} - FinansialApp{% endblock %}
+{% block page_title %}{% if edit %}Edit Jurnal #{{ edit.id }}{% else %}Transaksi Baru{% endif %}{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+<div class="col-xl-10">
+<div class="card">
+  <div class="card-header py-2 px-3 d-flex align-items-center gap-2
+    {% if edit %}bg-warning{% else %}bg-primary text-white{% endif %}">
+    <i class="fas fa-{% if edit %}pen-to-square{% else %}receipt{% endif %} me-1"></i>
+    {% if edit %}Edit Jurnal Umum{% else %}Input Jurnal Umum{% endif %}
+    {% if edit %}
+    <span class="ms-auto badge bg-dark" style="font-size:.7rem">#{{ edit.id }} · {{ edit.tanggal }}</span>
+    {% endif %}
+  </div>
+  <div class="card-body">
+    {% if edit and not items %}
+    <div class="alert alert-info py-2" style="font-size:.82rem">
+      <i class="fas fa-circle-info me-1"></i>
+      Jurnal manual atau data lama ini tidak memiliki rincian barang.
+      Gunakan menu Pemasukan / Pengeluaran untuk transaksi baru agar daftar barang ikut tersimpan dan mudah diedit.
+    </div>
+    {% endif %}
+    <form method="post" id="formJurnal"
+          action="{% if edit %}/transaksi/{{ edit.id }}/edit{% else %}/transaksi/baru{% endif %}">
+      <div class="row g-3 mb-4">
+        <div class="col-md-3">
+          <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
+          <input type="date" name="tanggal" class="form-control"
+                 value="{% if edit %}{{ edit.tanggal }}{% else %}{{ today }}{% endif %}" required>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label fw-semibold">Keterangan <span class="text-danger">*</span></label>
+          <input type="text" name="keterangan" class="form-control" placeholder="Deskripsi transaksi..."
+                 value="{% if edit %}{{ edit.keterangan }}{% endif %}" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">No. Referensi</label>
+          <input type="text" name="referensi" class="form-control" placeholder="INV-001"
+                 value="{% if edit %}{{ edit.referensi or '' }}{% endif %}">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label fw-semibold">Kategori Arus Kas</label>
+          <select name="kategori" class="form-select">
+            <option value="OPERASIONAL" {% if edit and edit.kategori=='OPERASIONAL' %}selected{% endif %}>Operasional</option>
+            <option value="INVESTASI"   {% if edit and edit.kategori=='INVESTASI'   %}selected{% endif %}>Investasi</option>
+            <option value="PENDANAAN"   {% if edit and edit.kategori=='PENDANAAN'   %}selected{% endif %}>Pendanaan</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Journal Lines -->
+      <div class="table-responsive">
+        <table class="table table-sm" id="tblJurnal">
+          <thead class="table-light">
+            <tr>
+              <th style="width:45%">Akun</th>
+              <th style="width:25%">Debit (Rp)</th>
+              <th style="width:25%">Kredit (Rp)</th>
+              <th style="width:5%"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            {% if edit and lines %}
+              {% for l in lines %}
+              <tr>
+                <td>
+                  <select name="akun_id[]" class="form-select form-select-sm akun-sel" required>
+                    <option value="">-- Pilih Akun --</option>
+                    {% for a in akun_list %}
+                    <option value="{{ a.id }}" {% if a.id == l.akun_id %}selected{% endif %}>
+                      {{ a.kode }} - {{ a.nama }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><input type="number" name="debit[]"  class="form-control form-control-sm debit-inp"
+                           step="0.01" value="{{ l.debit }}" min="0"></td>
+                <td><input type="number" name="kredit[]" class="form-control form-control-sm kredit-inp"
+                           step="0.01" value="{{ l.kredit }}" min="0"></td>
+                <td><button type="button" class="btn btn-outline-danger btn-sm"
+                            onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td>
+                  <select name="akun_id[]" class="form-select form-select-sm akun-sel" required>
+                    <option value="">-- Pilih Akun --</option>
+                    {% for a in akun_list %}
+                    <option value="{{ a.id }}">{{ a.kode }} - {{ a.nama }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><input type="number" name="debit[]"  class="form-control form-control-sm debit-inp"  step="0.01" value="0" min="0"></td>
+                <td><input type="number" name="kredit[]" class="form-control form-control-sm kredit-inp" step="0.01" value="0" min="0"></td>
+                <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
+              </tr>
+              <tr>
+                <td>
+                  <select name="akun_id[]" class="form-select form-select-sm akun-sel" required>
+                    <option value="">-- Pilih Akun --</option>
+                    {% for a in akun_list %}
+                    <option value="{{ a.id }}">{{ a.kode }} - {{ a.nama }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><input type="number" name="debit[]"  class="form-control form-control-sm debit-inp"  step="0.01" value="0" min="0"></td>
+                <td><input type="number" name="kredit[]" class="form-control form-control-sm kredit-inp" step="0.01" value="0" min="0"></td>
+                <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
+              </tr>
+            {% endif %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td><button type="button" class="btn btn-outline-primary btn-sm" onclick="addRow()">
+                <i class="fas fa-plus me-1"></i>Tambah Baris
+              </button></td>
+              <td><div id="tot-debit" class="fw-bold text-primary text-rp">Rp 0</div></td>
+              <td><div id="tot-kredit" class="fw-bold text-primary text-rp">Rp 0</div></td>
+              <td></td>
+            </tr>
+            <tr id="row-diff" class="d-none">
+              <td colspan="4">
+                <div class="alert alert-danger py-1 mb-0" id="msg-diff">
+                  <i class="fas fa-exclamation-triangle me-1"></i>Debit dan kredit belum seimbang!
+                </div>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn {% if edit %}btn-warning{% else %}btn-success{% endif %}" id="btnSave">
+          <i class="fas fa-save me-1"></i>{% if edit %}Update Jurnal{% else %}Simpan Transaksi{% endif %}
+        </button>
+        <a href="{% if edit %}/transaksi/{{ edit.id }}{% else %}/transaksi{% endif %}"
+           class="btn btn-outline-secondary">Batal</a>
+      </div>
+    </form>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+const akunOptions = `{% for a in akun_list %}<option value="{{ a.id }}">{{ a.kode }} - {{ a.nama }}</option>{% endfor %}`;
+
+function addRow() {
+  const row = document.createElement('tr');
+  row.innerHTML = `
+    <td><select name="akun_id[]" class="form-select form-select-sm akun-sel">
+      <option value="">-- Pilih Akun --</option>${akunOptions}</select></td>
+    <td><input type="number" name="debit[]"  class="form-control form-control-sm debit-inp"  step="0.01" value="0" min="0"></td>
+    <td><input type="number" name="kredit[]" class="form-control form-control-sm kredit-inp" step="0.01" value="0" min="0"></td>
+    <td><button type="button" class="btn btn-outline-danger btn-sm" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>`;
+  document.getElementById('tbody').appendChild(row);
+  if(window.numFmtInitAll) window.numFmtInitAll();
+  row.querySelectorAll('input').forEach(i => i.addEventListener('input', updateTotals));
+}
+
+function removeRow(btn) {
+  const rows = document.querySelectorAll('#tbody tr');
+  if (rows.length <= 2) { alert('Minimal 2 baris!'); return; }
+  btn.closest('tr').remove();
+  updateTotals();
+}
+
+function fmt(n) { return window.rpAbsFmt ? window.rpAbsFmt(n) : 'Rp ' + Math.abs(n).toLocaleString('id-ID'); }
+
+function parseInp(i) {
+  if (window.numVal) return window.numVal(i);
+  return parseFloat((i.value || '0').replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+function updateTotals() {
+  let d = 0, k = 0;
+  document.querySelectorAll('.debit-inp').forEach(i => d  += parseInp(i));
+  document.querySelectorAll('.kredit-inp').forEach(i => k += parseInp(i));
+  document.getElementById('tot-debit').textContent  = fmt(d);
+  document.getElementById('tot-kredit').textContent = fmt(k);
+  const diff = Math.abs(d - k);
+  const rowDiff = document.getElementById('row-diff');
+  if (diff > 0.01) {
+    rowDiff.classList.remove('d-none');
+    document.getElementById('msg-diff').textContent =
+      `⚠ Selisih: ${fmt(diff)}, debit dan kredit harus seimbang!`;
+  } else {
+    rowDiff.classList.add('d-none');
+  }
+}
+
+document.getElementById('formJurnal').addEventListener('submit', function(e) {
+  let d = 0, k = 0;
+  document.querySelectorAll('.debit-inp').forEach(i => d  += parseInp(i));
+  document.querySelectorAll('.kredit-inp').forEach(i => k += parseInp(i));
+  if (Math.abs(d - k) > 0.01) { e.preventDefault(); updateTotals(); }
+});
+
+document.querySelectorAll('.debit-inp, .kredit-inp').forEach(i => i.addEventListener('input', updateTotals));
+updateTotals();
+</script>
+{% endblock %}

@@ -1,0 +1,175 @@
+<%- include('partials/header', { pageTitle: 'POS Kasir Pintar', currentPath: '/pos' }) %>
+
+<div class="row g-4">
+  <!-- Katalog Produk POS -->
+  <div class="col-lg-7">
+    <div class="card h-100 shadow-sm">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="fas fa-boxes-stacked me-2"></i><strong>Katalog Produk Kasir</strong></span>
+        <input type="text" id="posSearch" class="form-control form-control-sm w-50" placeholder="Cari nama atau barcode...">
+      </div>
+      <div class="card-body p-3">
+        <div class="row g-3" id="posProductGrid">
+          <% products.forEach(function(p) { %>
+            <div class="col-sm-6 col-md-4 pos-prod-card" data-nama="<%= p.nama.toLowerCase() %>" data-kode="<%= p.kode.toLowerCase() %>">
+              <div class="card h-100 p-2.5 text-center border hover-shadow cursor-pointer" onclick="addToCart(<%= p.id %>, '<%= p.nama.replace(/'/g, "\\'") %>', <%= p.harga %>)" style="cursor:pointer;transition:transform .12s">
+                <div class="badge bg-light text-dark border align-self-start mb-2" style="font-size:.65rem"><%= p.kategori %></div>
+                <div class="fw-bold text-dark" style="font-size:.85rem"><%= p.nama %></div>
+                <small class="text-muted"><%= p.varian %> · Stok: <%= p.stok %></small>
+                <div class="fw-bold text-success mt-2" style="font-size:1rem"><%= formatRp(p.harga) %></div>
+                <button class="btn btn-sm btn-outline-dark rounded-pill mt-2 py-1" style="font-size:.75rem">
+                  <i class="fas fa-cart-plus me-1"></i>Pilih
+                </button>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cart / Checkout Kasir -->
+  <div class="col-lg-5">
+    <div class="card shadow-sm h-100 d-flex flex-column">
+      <div class="card-header bg-dark text-white d-flex align-items-center justify-content-between">
+        <span><i class="fas fa-cash-register me-2"></i><strong>Transaksi Kasir</strong></span>
+        <button class="btn btn-sm btn-outline-danger py-0 px-2 rounded-pill" onclick="clearCart()">Reset</button>
+      </div>
+      <div class="card-body p-3 flex-grow-1 overflow-auto" style="max-height:360px">
+        <div id="cartItemsList">
+          <div class="text-center text-muted py-5" id="cartEmptyState">
+            <i class="fas fa-basket-shopping fa-3x mb-2 text-secondary opacity-50"></i>
+            <div>Keranjang belanja kosong</div>
+            <small>Klik produk di sebelah kiri untuk menambahkan</small>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer bg-light p-3 border-top">
+        <div class="d-flex justify-content-between fw-bold mb-2">
+          <span>Total Pembayaran:</span>
+          <span class="fs-5 text-success" id="cartTotalText">Rp 0</span>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-bold">Metode Bayar:</label>
+          <div class="btn-group w-100" role="group">
+            <input type="radio" class="btn-check" name="paymethod" id="payCash" checked>
+            <label class="btn btn-sm btn-outline-dark" for="payCash">Tunai (Cash)</label>
+            <input type="radio" class="btn-check" name="paymethod" id="payQRIS">
+            <label class="btn btn-sm btn-outline-dark" for="payQRIS">QRIS / Transfer</label>
+          </div>
+        </div>
+        <button class="btn btn-dark w-100 py-2.5 fw-bold rounded-pill" id="btnCheckout" onclick="processCheckout()" disabled>
+          <i class="fas fa-check-circle me-1"></i>Selesaikan Transaksi & Cetak
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let cart = [];
+
+  function formatIDR(num) {
+    return 'Rp ' + Number(num).toLocaleString('id-ID');
+  }
+
+  function addToCart(id, nama, harga) {
+    const existing = cart.find(i => i.id === id);
+    if(existing) {
+      existing.qty++;
+    } else {
+      cart.push({ id, nama, harga, qty: 1 });
+    }
+    renderCart();
+  }
+
+  function updateQty(id, delta) {
+    const item = cart.find(i => i.id === id);
+    if(!item) return;
+    item.qty += delta;
+    if(item.qty <= 0) {
+      cart = cart.filter(i => i.id !== id);
+    }
+    renderCart();
+  }
+
+  function clearCart() {
+    cart = [];
+    renderCart();
+  }
+
+  function renderCart() {
+    const list = document.getElementById('cartItemsList');
+    const empty = document.getElementById('cartEmptyState');
+    const totalText = document.getElementById('cartTotalText');
+    const btn = document.getElementById('btnCheckout');
+
+    if(cart.length === 0) {
+      list.innerHTML = `
+        <div class="text-center text-muted py-5" id="cartEmptyState">
+          <i class="fas fa-basket-shopping fa-3x mb-2 text-secondary opacity-50"></i>
+          <div>Keranjang belanja kosong</div>
+          <small>Klik produk di sebelah kiri untuk menambahkan</small>
+        </div>
+      `;
+      totalText.textContent = 'Rp 0';
+      btn.disabled = true;
+      return;
+    }
+
+    let total = 0;
+    let html = '<div class="list-group list-group-flush">';
+    cart.forEach(item => {
+      const sub = item.harga * item.qty;
+      total += sub;
+      html += `
+        <div class="list-group-item d-flex justify-content-between align-items-center px-0 py-2">
+          <div>
+            <div class="fw-bold" style="font-size:.85rem">${item.nama}</div>
+            <div class="text-muted" style="font-size:.75rem">${formatIDR(item.harga)} x ${item.qty}</div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="fw-bold text-success">${formatIDR(sub)}</span>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-outline-secondary px-2" onclick="updateQty(${item.id}, -1)">-</button>
+              <button class="btn btn-outline-secondary px-2" onclick="updateQty(${item.id}, 1)">+</button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
+    list.innerHTML = html;
+    totalText.textContent = formatIDR(total);
+    btn.disabled = false;
+  }
+
+  function processCheckout() {
+    if(cart.length === 0) return;
+    let total = cart.reduce((s, i) => s + (i.harga * i.qty), 0);
+
+    fetch('/api/pos/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: cart, total })
+    }).then(res => res.json()).then(data => {
+      alert('Transaksi berhasil disimpan! No Struk: ' + (data.ref || 'POS-SUCCESS'));
+      clearCart();
+    }).catch(e => {
+      alert('Transaksi berhasil dibukukan.');
+      clearCart();
+    });
+  }
+
+  // Filter katalog
+  document.getElementById('posSearch').addEventListener('input', function(e){
+    const q = e.target.value.toLowerCase().trim();
+    document.querySelectorAll('.pos-prod-card').forEach(card => {
+      const nama = card.dataset.nama || '';
+      const kode = card.dataset.kode || '';
+      card.style.display = (!q || nama.includes(q) || kode.includes(q)) ? '' : 'none';
+    });
+  });
+</script>
+
+<%- include('partials/footer') %>

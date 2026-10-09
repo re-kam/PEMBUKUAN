@@ -1,0 +1,8 @@
+{
+  "name": "PEMBUKUAN - Finance by Cliff",
+  "description": "Sistem Akuntansi, Pembukuan, dan Manajemen Keuangan Terpadu",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ],
+  "permissions": []
+}

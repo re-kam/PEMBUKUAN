@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Transfer Rekening - FinansialApp{% endblock %}
+{% block page_title %}Transfer Rekening{% endblock %}
+{% block content %}
+{% from '_pagination.html' import pagination with context %}
+
+<div class="row justify-content-center">
+<div class="col-lg-10">
+
+<div class="d-flex justify-content-end mb-2">
+  <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalTransferHelp">
+    <i class="fas fa-circle-question me-1" style="color:var(--ink)"></i>Petunjuk
+  </button>
+</div>
+{% include '_transfer_help_modal.html' %}
+
+<div class="alert alert-info py-2 mb-3" style="font-size:.84rem">
+  <i class="fas fa-circle-info me-1"></i>
+  Gunakan halaman ini hanya untuk pindah dana antar rekening usaha. Transfer murni tidak dihitung sebagai pemasukan atau pengeluaran.
+  Jika ada biaya admin, biaya tersebut otomatis dicatat ke <strong>6150 - Beban Administrasi</strong>.
+</div>
+
+<form method="POST" id="formTransfer">
+  <div class="card">
+    <div class="card-header d-flex align-items-center gap-2">
+      <i class="fas fa-right-left text-primary"></i>
+      <span class="section-title">Pindah Dana Antar Rekening</span>
+    </div>
+    <div class="card-body">
+      {% if rekening|length < 2 %}
+      <div class="alert alert-warning mb-0">
+        <i class="fas fa-triangle-exclamation me-1"></i>
+        Minimal perlu 2 rekening kas/bank aktif. Tambahkan rekening di menu Pengaturan.
+      </div>
+      {% else %}
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Tanggal <span class="text-danger">*</span></label>
+          <input type="date" name="tanggal" class="form-control" value="{{ today }}" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Dari Rekening <span class="text-danger">*</span></label>
+          <select name="akun_asal" id="akunAsal" class="form-select" required onchange="renderPreview()">
+            <option value="">-- Pilih asal --</option>
+            {% for r in rekening %}
+            <option value="{{ r.kode }}" data-nama="{{ r.nama }}" data-saldo="{{ r.saldo }}">
+              {{ r.kode }} - {{ r.nama }} | saldo {{ r.saldo|rp }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Ke Rekening <span class="text-danger">*</span></label>
+          <select name="akun_tujuan" id="akunTujuan" class="form-select" required onchange="renderPreview()">
+            <option value="">-- Pilih tujuan --</option>
+            {% for r in rekening %}
+            <option value="{{ r.kode }}" data-nama="{{ r.nama }}" data-saldo="{{ r.saldo }}">
+              {{ r.kode }} - {{ r.nama }} | saldo {{ r.saldo|rp }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Nominal Dipindahkan <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <span class="input-group-text">Rp</span>
+            <input type="number" name="nominal" id="nominal" class="form-control" min="0" step="1" required placeholder="0" oninput="renderPreview()">
+          </div>
+          <div class="form-text">Nominal yang masuk ke rekening tujuan.</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Biaya Admin <span class="text-muted fw-normal">(opsional)</span></label>
+          <div class="input-group">
+            <span class="input-group-text">Rp</span>
+            <input type="number" name="biaya_admin" id="biayaAdmin" class="form-control" min="0" step="1" value="0" oninput="renderPreview()">
+          </div>
+          <div class="form-text">Jika ada, total keluar dari rekening asal = nominal + biaya.</div>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Keterangan</label>
+          <input type="text" name="keterangan" id="keterangan" class="form-control" placeholder="Mis: TF BCA ke Mandiri">
+        </div>
+
+        <div class="col-12">
+          <div class="journal-preview-wrap rounded-3 p-3">
+            <div class="preview-title" style="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">
+              <i class="fas fa-scale-balanced me-1"></i>Preview Jurnal
+            </div>
+            <div id="previewRows" style="font-size:.86rem;color:var(--tx2)">
+              Isi rekening dan nominal untuk melihat preview.
+            </div>
+            <div id="previewWarn" class="mt-2 text-danger fw-semibold" style="display:none;font-size:.78rem">
+              <i class="fas fa-triangle-exclamation me-1"></i>Rekening asal dan tujuan tidak boleh sama.
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 d-flex gap-2 justify-content-end">
+          <a href="/" class="btn btn-outline-secondary">Batal</a>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i>Simpan Transfer</button>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</form>
+
+<div class="card mt-3">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="fas fa-clock-rotate-left me-2"></i>Riwayat Transfer Rekening</span>
+    <span class="badge bg-secondary">{{ riwayat|length }}</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Tanggal</th>
+            <th>Dari</th>
+            <th>Ke</th>
+            <th class="text-end">Nominal</th>
+            <th class="text-end">Biaya</th>
+            <th>Jurnal</th>
+            <th class="text-end pe-3"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in riwayat %}
+          <tr>
+            <td class="ps-3 text-muted">{{ r.tanggal|tgl }}</td>
+            <td>{{ r.rekening_asal or '-' }}</td>
+            <td>{{ r.rekening_tujuan or '-' }}</td>
+            <td class="text-end text-rp fw-semibold">{{ r.nominal|rp }}</td>
+            <td class="text-end text-rp {% if r.biaya_admin and r.biaya_admin > 0 %}text-danger{% else %}text-muted{% endif %}">
+              {{ r.biaya_admin|rp }}
+            </td>
+            <td><a href="/transaksi/{{ r.id }}">{{ r.nomor_tx or ('#' ~ r.id) }}</a></td>
+            <td class="text-end pe-3">
+              {% if session.role in ('ADMIN','FINANCE') %}
+              <form method="POST" action="/transfer-rekening/{{ r.id }}/hapus" class="d-inline"
+                    onsubmit="return confirm('Hapus transfer rekening ini?')">
+                <button class="btn btn-xs btn-outline-danger" title="Hapus"><i class="fas fa-trash"></i></button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="text-center text-muted py-4">
+            Belum ada transfer rekening tercatat.
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+{{ pagination(pg) }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function readNum(el){
+  return el ? (window.numVal ? window.numVal(el) : (parseFloat(el.value)||0)) : 0;
+}
+function rp(n){
+  return window.rpAbsFmt ? window.rpAbsFmt(n) : 'Rp ' + Math.round(Math.abs(n||0)).toLocaleString('id-ID');
+}
+function selectedLabel(sel){
+  const opt = sel && sel.options[sel.selectedIndex];
+  return opt && opt.value ? (opt.dataset.nama || opt.textContent.trim()) : 'Rekening';
+}
+function renderPreview(){
+  const asal = document.getElementById('akunAsal');
+  const tujuan = document.getElementById('akunTujuan');
+  if (!asal || !tujuan) return;
+  const nominal = readNum(document.getElementById('nominal'));
+  const biaya = readNum(document.getElementById('biayaAdmin'));
+  const same = asal.value && tujuan.value && asal.value === tujuan.value;
+  const rows = [];
+  if (nominal > 0) {
+    rows.push(['Dr ' + selectedLabel(tujuan), nominal]);
+    if (biaya > 0) rows.push(['Dr Beban Administrasi (6150)', biaya]);
+    rows.push(['Cr ' + selectedLabel(asal), nominal + biaya]);
+  }
+  document.getElementById('previewRows').innerHTML = rows.length
+    ? rows.map(function(r){
+        return '<div class="d-flex justify-content-between gap-3"><span>'+r[0]+'</span><strong class="text-rp">'+rp(r[1])+'</strong></div>';
+      }).join('')
+    : 'Isi rekening dan nominal untuk melihat preview.';
+  document.getElementById('previewWarn').style.display = same ? '' : 'none';
+}
+document.getElementById('formTransfer')?.addEventListener('submit', function(e){
+  const asal = document.getElementById('akunAsal');
+  const tujuan = document.getElementById('akunTujuan');
+  if (!asal || !tujuan) return;
+  if (asal.value && tujuan.value && asal.value === tujuan.value) {
+    e.preventDefault();
+    alert('Rekening asal dan tujuan tidak boleh sama.');
+  }
+});
+document.addEventListener('DOMContentLoaded', renderPreview);
+</script>
+{% endblock %}

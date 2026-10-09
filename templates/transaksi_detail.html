@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+{% block title %}Detail Transaksi - FinansialApp{% endblock %}
+{% block page_title %}Detail Transaksi {{ j.nomor_tx or ('#' ~ j.id) }}{% endblock %}
+{% block content %}
+
+<div class="row justify-content-center">
+<div class="col-xl-8">
+  {# Transaksi terkunci invoice bukan Draft / pembayaran: sebutkan alasannya dan jalan keluarnya.
+     Dulu tombol Edit/Hapus cuma berujung penolakan tanpa petunjuk. #}
+  {% if kunci and kunci.terkunci %}
+  <div class="alert alert-light border py-2 px-3 mb-3 d-flex flex-wrap align-items-center gap-2" style="font-size:.82rem">
+    <span class="flex-grow-1" style="min-width:14rem">
+      <i class="fas fa-lock me-1" style="color:#b45309"></i><strong>Terkunci</strong> karena {{ kunci.alasan }}. Selama terkunci, transaksi ini tidak bisa diedit atau dihapus.
+      {% if session.role not in ('ADMIN','FINANCE') %}Kalau perlu dikoreksi, minta Admin atau Finance membuka kuncinya.{% endif %}
+    </span>
+    {% if session.role in ('ADMIN','FINANCE') %}
+    <a href="/transaksi/{{ j.id }}/buka-kunci" class="btn btn-outline-dark btn-sm">
+      <i class="fas fa-lock-open me-1"></i>Buka Kunci untuk Koreksi
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="card mb-3">
+    <div class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center">
+      <span class="fw-semibold"><i class="fas fa-receipt me-2 text-primary"></i>Jurnal {{ j.nomor_tx or ('#' ~ j.id) }}</span>
+      <div class="d-flex gap-2">
+        <a href="{% if session.role in ('ADMIN','FINANCE','INVESTOR','DEMO') %}/transaksi{% else %}/daftar-transaksi{% endif %}" class="btn btn-outline-secondary btn-sm">
+          <i class="fas fa-arrow-left me-1"></i>Kembali
+        </a>
+        {% if is_sale and linked_invoice %}
+        <a href="/invoice/{{ linked_invoice.id }}/cetak" target="_blank" class="btn btn-outline-primary btn-sm">
+          <i class="fas fa-print me-1"></i>Cetak Invoice
+        </a>
+        {% elif is_sale and session.role in ('ADMIN','FINANCE','OPERATOR') %}
+        <a href="/transaksi/{{ j.id }}/invoice/cetak" target="_blank" class="btn btn-outline-primary btn-sm">
+          <i class="fas fa-print me-1"></i>Cetak Invoice
+        </a>
+        {% endif %}
+        {% if has_meta and not resep_bahan and session.role in ('ADMIN','FINANCE','OPERATOR') %}
+        <a href="/transaksi/{{ j.id }}/edit-item" class="btn btn-warning btn-sm">
+          <i class="fas fa-pen-to-square me-1"></i>Edit Transaksi &amp; Item
+        </a>
+        {% elif resep_bahan and session.role in ('ADMIN','FINANCE','OPERATOR') %}
+        <span class="btn btn-outline-secondary btn-sm disabled" title="Penjualan pakai resep produksi (backflush bahan). Untuk mengubah, hapus lalu input ulang.">
+          <i class="fas fa-lock me-1"></i>Edit (transaksi resep)
+        </span>
+        {% elif not has_meta and session.role in ('ADMIN','FINANCE') %}
+        <a href="/transaksi/{{ j.id }}/edit" class="btn btn-outline-warning btn-sm">
+          <i class="fas fa-code me-1"></i>Edit Jurnal
+        </a>
+        {% endif %}
+        {% if session.role in ('ADMIN','FINANCE') %}
+        <a href="/transaksi/{{ j.id }}/hapus" class="btn btn-outline-danger btn-sm">
+          <i class="fas fa-trash me-1"></i>Hapus
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="row g-3 mb-4">
+        <div class="col-sm-3">
+          <div class="text-muted" style="font-size:.75rem">TANGGAL</div>
+          <div class="fw-semibold">{{ j.tanggal|tgl }}</div>
+        </div>
+        <div class="col-sm-5">
+          <div class="text-muted" style="font-size:.75rem">KETERANGAN</div>
+          <div class="fw-semibold">{{ j.keterangan }}
+            {# Pelanggan / Vendor transaksi ini. Perannya sudah ditentukan di
+               app.py; di sini cuma dipilih warna dan ikonnya. Transaksi tanpa
+               nama pihak tidak menampilkan label apa pun. #}
+            {% if pihak_nama %}
+            <span class="badge ms-1" style="font-size:.66rem;background:{% if pihak_peran == 'PELANGGAN' %}#0f766e{% elif pihak_peran == 'VENDOR' %}#b45309{% else %}#64748b{% endif %}"
+                  title="{{ pihak_peran|capitalize }} pada transaksi ini">
+              <i class="fas fa-{% if pihak_peran == 'PELANGGAN' %}user{% elif pihak_peran == 'VENDOR' %}truck{% else %}handshake{% endif %} me-1"></i>{{ pihak_nama }}</span>
+            {% endif %}
+            {% if proyek_info %}
+            <a href="/proyek/{{ proyek_info.id }}" class="badge ms-1 text-decoration-none"
+               style="background:#7c3aed;font-size:.66rem" title="Transaksi ini di-tag ke proyek">
+              <i class="fas fa-diagram-project me-1"></i>{{ proyek_info.kode }} · {{ proyek_info.nama }}</a>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-sm-2">
+          <div class="text-muted" style="font-size:.75rem">REFERENSI</div>
+          <div>{{ j.referensi or '-' }}</div>
+        </div>
+        <div class="col-sm-2">
+          <div class="text-muted" style="font-size:.75rem">KATEGORI ARUS KAS</div>
+          {% if j.kategori == 'OPERASIONAL' %}<span class="badge badge-op">Operasional</span>
+          {% elif j.kategori == 'INVESTASI' %}<span class="badge badge-inv">Investasi</span>
+          {% elif j.kategori == 'PENDANAAN' %}<span class="badge badge-fin">Pendanaan</span>
+          {% elif j.kategori == 'KOREKSI' %}<span class="badge bg-warning text-dark">Koreksi</span>
+          {% else %}<span class="badge bg-secondary">{{ j.kategori or '-' }}</span>{% endif %}
+        </div>
+      </div>
+
+      {% if ref_no_invoice or ref_no_faktur %}
+      <div class="row g-3 mb-4">
+        {% if ref_no_invoice %}
+        <div class="col-sm-4">
+          <div class="text-muted" style="font-size:.75rem">NO. INVOICE SUPPLIER</div>
+          <div class="fw-semibold" style="font-family:monospace">{{ ref_no_invoice }}</div>
+        </div>
+        {% endif %}
+        {% if ref_no_faktur %}
+        <div class="col-sm-4">
+          <div class="text-muted" style="font-size:.75rem">NO. FAKTUR PAJAK</div>
+          <div class="fw-semibold" style="font-family:monospace">{{ ref_no_faktur }}</div>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if pos_info %}
+      <div class="alert mb-3 d-flex flex-wrap align-items-center gap-3" style="background:var(--paper-soft);border:1px solid var(--bdr-md);color:var(--tx)">
+        <span class="badge bg-dark text-white" style="font-size:.7rem">
+          <i class="fas fa-cash-register me-1"></i>POS KASIR
+        </span>
+        <div>
+          <div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Struk</div>
+          <div class="fw-semibold" style="font-size:.85rem">{{ pos_info.nomor_struk }}</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Diinput oleh</div>
+          <div class="fw-semibold" style="font-size:.85rem">
+            <i class="fas fa-user me-1"></i>{{ pos_info.kasir_nama or pos_info.kasir_username or 'Kasir' }}
+          </div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Metode Bayar</div>
+          <div class="fw-semibold" style="font-size:.85rem">{{ pos_info.metode_bayar }}</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Waktu Transaksi</div>
+          <div class="fw-semibold" style="font-size:.85rem">{{ pos_info.dibuat|jam }}</div>
+        </div>
+        <a href="{{ url_for('pos_struk', id=j.id) }}" class="btn btn-sm btn-outline-dark ms-auto" target="_blank">
+          <i class="fas fa-receipt me-1"></i>Lihat Struk
+        </a>
+      </div>
+      {% endif %}
+
+      {% if items %}
+      <div class="mb-3">
+        <div class="fw-semibold mb-2" style="font-size:.9rem">
+          <i class="fas fa-box-open me-2 text-info"></i>Rincian Item
+          <span class="text-muted fw-normal" style="font-size:.78rem">(apa yang dibeli/dijual)</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0" style="font-size:.85rem">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Produk / Deskripsi</th>
+                <th class="text-end">Qty</th>
+                <th>Satuan</th>
+                <th class="text-end">Harga</th>
+                <th class="text-end">Diskon</th>
+                <th class="text-end pe-3">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% set tot = namespace(v=0) %}
+              {% for it in items %}
+              {% set tot.v = tot.v + it.subtotal %}
+              <tr>
+                <td class="ps-3 fw-semibold">
+                  {% if it.produk_id %}<i class="fas fa-boxes-stacked me-1 text-muted"></i>{% elif it.arah == 'NON_SKU' %}<span class="badge bg-warning text-dark me-1">Non-SKU</span>{% endif %}{{ it.deskripsi }}</td>
+                <td class="text-end">{{ it.qty|qty }}</td>
+                <td class="text-muted">{{ it.satuan or '-' }}</td>
+                <td class="text-end text-rp">{{ it.harga|rp }}</td>
+                <td class="text-end text-rp">{% if it.diskon %}{{ it.diskon|rp }}{% else %}-{% endif %}</td>
+                <td class="text-end pe-3 text-rp fw-semibold">{{ it.subtotal|rp }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr class="table-light">
+                <td colspan="5" class="text-end fw-bold">Total Item</td>
+                <td class="text-end pe-3 fw-bold text-rp">{{ tot.v|rp }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      {% if resep_bahan %}
+      {% set ns = namespace(t=0) %}
+      {% for b in resep_bahan %}{% set ns.t = ns.t + (b.subtotal or 0) %}{% endfor %}
+      <div class="mb-3">
+        <div class="fw-semibold mb-2" style="font-size:.9rem">
+          <i class="fas fa-blender me-2 text-warning"></i>Konsumsi Bahan (Resep Produksi)
+          <span class="text-muted fw-normal" style="font-size:.78rem">— dipotong dari stok saat jual (backflush)</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0" style="font-size:.83rem">
+            <thead class="table-light">
+              <tr><th>Bahan</th><th class="text-center">Jenis</th><th class="text-end">Qty</th><th class="text-end">Harga</th><th class="text-end pe-3">Nilai (HPP)</th></tr>
+            </thead>
+            <tbody>
+              {% for b in resep_bahan %}
+              <tr>
+                <td>{{ b.deskripsi }}</td>
+                <td class="text-center">{% if b.produk_id %}<span class="badge bg-info-subtle text-info">SKU (potong stok)</span>{% else %}<span class="badge bg-secondary-subtle text-secondary">Non-SKU</span>{% endif %}</td>
+                <td class="text-end">{{ '%g'|format(b.qty or 0) }}</td>
+                <td class="text-end">{{ b.harga|rp }}</td>
+                <td class="text-end pe-3 text-rp">{{ b.subtotal|rp }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr class="table-light">
+                <td colspan="4" class="text-end fw-bold">Total HPP Bahan</td>
+                <td class="text-end pe-3 fw-bold text-rp">{{ ns.t|rp }}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="form-text">HPP bahan/biaya ini sudah tercatat di jurnal dan tidak muncul di struk/invoice pelanggan. Bahan persediaan mengurangi 1130, sedangkan tenaga kerja/overhead direklas dari akun beban terkait.</div>
+      </div>
+      {% endif %}
+      <div class="fw-semibold mb-2" style="font-size:.9rem">
+        <i class="fas fa-scale-balanced me-2 text-primary"></i>Jurnal (Double-Entry)</div>
+      {% elif not has_meta %}
+      <div class="alert alert-info py-2" style="font-size:.8rem">
+        <i class="fas fa-circle-info me-1"></i>
+        Jurnal manual atau data lama ini belum memiliki rincian barang.
+        Untuk transaksi baru, catat pembelian dan penjualan melalui menu Pemasukan / Pengeluaran agar daftar barang dapat diedit.
+      </div>
+      {% endif %}
+
+      <table class="table table-bordered table-sm">
+        <thead class="table-light">
+          <tr>
+            <th>Kode</th>
+            <th>Nama Akun</th>
+            <th>Tipe</th>
+            <th class="text-end">Debit</th>
+            <th class="text-end">Kredit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set total_d = namespace(v=0) %}
+          {% set total_k = namespace(v=0) %}
+          {% for l in lines %}
+          {% set total_d.v = total_d.v + l.debit %}
+          {% set total_k.v = total_k.v + l.kredit %}
+          <tr>
+            <td class="text-muted">{{ l.kode }}</td>
+            <td>{{ l.nama }}</td>
+            <td><small class="badge bg-secondary">{{ l.tipe }}</small></td>
+            <td class="text-end text-rp">{% if l.debit > 0 %}{{ l.debit|rp }}{% else %}-{% endif %}</td>
+            <td class="text-end text-rp">{% if l.kredit > 0 %}{{ l.kredit|rp }}{% else %}-{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="table-light">
+            <td colspan="3" class="text-end fw-bold">TOTAL</td>
+            <td class="text-end fw-bold text-rp">{{ total_d.v|rp }}</td>
+            <td class="text-end fw-bold text-rp">{{ total_k.v|rp }}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      {% if (total_d.v - total_k.v)|abs > 0.01 %}
+      <div class="alert alert-danger py-2">
+        <i class="fas fa-triangle-exclamation me-1"></i>Perhatian: Transaksi tidak seimbang!
+      </div>
+      {% endif %}
+
+      <small class="text-muted">Dibuat: {{ j.dibuat|jam }}</small>
+    </div>
+  </div>
+</div>
+</div>
+{% endblock %}

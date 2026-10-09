@@ -1,0 +1,48 @@
+<%- include('partials/header', { pageTitle: 'Daftar Akun (Chart of Accounts)', currentPath: '/akun' }) %>
+
+<div class="card shadow-sm">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <div>
+      <i class="fas fa-sitemap me-2"></i><strong>Bagan Akun Standar (COA)</strong>
+    </div>
+    <span class="badge bg-dark rounded-pill px-3"><%= accounts.length %> Akun Terdaftar</span>
+  </div>
+  <div class="table-responsive">
+    <table class="table-custom">
+      <thead>
+        <tr>
+          <th>Kode Akun</th>
+          <th>Nama Akun</th>
+          <th>Kategori Akun</th>
+          <th>Saldo Normal</th>
+          <th class="text-end">Saldo Saat Ini</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% accounts.forEach(function(acc) { %>
+          <tr>
+            <td><code><%= acc.kode %></code></td>
+            <td class="fw-semibold"><%= acc.nama %></td>
+            <td>
+              <% if (acc.kategori === 'ASET' || acc.kategori === 'ASET_TETAP') { %>
+                <span class="badge bg-success-subtle text-success border border-success-subtle">ASET</span>
+              <% } else if (acc.kategori === 'KEWAJIBAN') { %>
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle">KEWAJIBAN</span>
+              <% } else if (acc.kategori === 'EKUITAS') { %>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle">EKUITAS</span>
+              <% } else if (acc.kategori === 'PENDAPATAN') { %>
+                <span class="badge bg-info-subtle text-info border border-info-subtle">PENDAPATAN</span>
+              <% } else { %>
+                <span class="badge bg-warning-subtle text-dark border border-warning-subtle"><%= acc.kategori %></span>
+              <% } %>
+            </td>
+            <td><small class="fw-bold text-muted"><%= acc.tipe %></small></td>
+            <td class="text-end fw-bold text-nowrap"><%= formatRp(acc.saldo) %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

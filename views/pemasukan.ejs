@@ -1,0 +1,116 @@
+<%- include('partials/header', { pageTitle: 'Pemasukan / Penjualan', currentPath: '/pemasukan' }) %>
+
+<div class="row g-4">
+  <!-- Form Input Pemasukan -->
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-header bg-success text-white">
+        <i class="fas fa-plus-circle me-2"></i><strong>Formulir Catat Pemasukan</strong>
+      </div>
+      <div class="card-body p-4">
+        <% if (success) { %>
+          <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i><%= success %>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        <% } %>
+
+        <form method="POST" action="/pemasukan">
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Tanggal Transaksi</label>
+            <input type="date" name="tanggal" class="form-control" value="<%= today %>" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Kategori Pendapatan</label>
+            <select name="kategori" class="form-select" required>
+              <option value="Penjualan Retail">Penjualan Retail / Langsung</option>
+              <option value="Penjualan Grosir">Penjualan Grosir / Wholesale</option>
+              <option value="Jasa & Layanan">Pendapatan Jasa & Layanan</option>
+              <option value="Pendapatan Lain-lain">Pendapatan Non-Operasional</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Rekening Kas / Bank Penerima</label>
+            <select name="rekening" class="form-select" required>
+              <option value="Kas Utama">Kas Utama (Tunai)</option>
+              <option value="Bank BCA Operasional">Bank BCA Operasional</option>
+              <option value="Bank Mandiri Cadangan">Bank Mandiri Cadangan</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Nama Pelanggan / Kontak</label>
+            <input type="text" name="kontak" class="form-control" placeholder="Contoh: Toko Sejahtera / Walk-in Customer" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold small text-uppercase">Keterangan / Catatan</label>
+            <textarea name="keterangan" class="form-control" rows="2" placeholder="Rincian produk/jasa yang dijual..." required></textarea>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-bold small text-uppercase">Nominal Penerimaan (Rp)</label>
+            <div class="input-group">
+              <span class="input-group-text fw-bold">Rp</span>
+              <input type="number" name="nominal" class="form-control form-control-lg fw-bold text-success" min="1000" step="1000" placeholder="0" required>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-success w-100 py-2.5 fw-bold rounded-pill">
+            <i class="fas fa-check me-2"></i>Simpan Pemasukan
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Riwayat Pemasukan -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="fas fa-list me-2"></i><strong>Riwayat Pemasukan Terbaru</strong></span>
+        <span class="badge bg-success-subtle text-success border border-success-subtle">Total: <%= list.length %> Transaksi</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table-custom">
+          <thead>
+            <tr>
+              <th>Tanggal</th>
+              <th>Ref / Kategori</th>
+              <th>Keterangan & Kontak</th>
+              <th>Akun Kas</th>
+              <th class="text-end">Nominal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (list && list.length > 0) { %>
+              <% list.forEach(function(tx) { %>
+                <tr>
+                  <td class="text-nowrap fw-medium"><%= formatTgl(tx.tanggal) %></td>
+                  <td>
+                    <div><code><%= tx.referensi %></code></div>
+                    <span class="badge bg-light text-dark border small"><%= tx.kategori %></span>
+                  </td>
+                  <td>
+                    <div class="fw-semibold"><%= tx.keterangan %></div>
+                    <small class="text-muted"><i class="fas fa-user me-1"></i><%= tx.kontak %></small>
+                  </td>
+                  <td><span class="badge bg-success-subtle text-success"><%= tx.rekening %></span></td>
+                  <td class="text-end fw-bold text-success text-nowrap">+<%= formatRp(tx.nominal) %></td>
+                </tr>
+              <% }); %>
+            <% } else { %>
+              <tr>
+                <td colspan="5" class="text-center py-4 text-muted">Belum ada catatan pemasukan.</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
